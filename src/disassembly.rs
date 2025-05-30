@@ -1,11 +1,11 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use capstone::prelude::*;
 use capstone::{Arch, Mode, NO_EXTRA_MODE};
-use std::path::Path;
-use std::collections::{HashMap, HashSet};
-use serde::{Serialize, Deserialize};
 use goblin::Object;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::path::Path;
 
 use crate::function_analysis::SymbolTable;
 
@@ -45,10 +45,18 @@ pub enum InstructionType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FlowControl {
-    Jump { target: Option<u64>, conditional: bool },
-    Call { target: Option<u64>, is_indirect: bool },
+    Jump {
+        target: Option<u64>,
+        conditional: bool,
+    },
+    Call {
+        target: Option<u64>,
+        is_indirect: bool,
+    },
     Return,
-    Interrupt { number: u8 },
+    Interrupt {
+        number: u8,
+    },
     ConditionalMove,
 }
 
@@ -221,26 +229,26 @@ pub struct GraphEdge {
 
 pub fn disassemble_binary(path: &Path, symbol_table: &SymbolTable) -> Result<DisassemblyResult> {
     let buffer = fs::read(path).context("Failed to read file for disassembly")?;
-    
+
     // Detect architecture
     let (arch, mode, code_section) = detect_architecture_and_code(&buffer)?;
     let architecture = format_architecture(arch, mode);
-    
+
     // Create Capstone instance
     let cs = create_capstone(arch, mode)?;
-    
+
     // Disassemble code section
     let instructions = disassemble_code(&cs, &code_section.data, code_section.address)?;
-    
+
     // Analyze instructions
     let analysis = analyze_instructions(&instructions);
-    
+
     // Group into functions
     let functions = group_into_functions(&instructions, symbol_table);
-    
+
     // Generate output formats
     let output_formats = generate_output_formats(&instructions, &functions, &architecture);
-    
+
     Ok(DisassemblyResult {
         architecture,
         instructions,
@@ -265,7 +273,7 @@ fn detect_architecture_and_code(buffer: &[u8]) -> Result<(Arch, Mode, CodeSectio
                 goblin::elf::header::EM_AARCH64 => (Arch::ARM64, Mode::Arm),
                 _ => return Err(anyhow::anyhow!("Unsupported ELF architecture")),
             };
-            
+
             // Find .text section
             for section in &elf.section_headers {
                 if let Some(name) = elf.shdr_strtab.get_at(section.sh_name) {
@@ -288,7 +296,7 @@ fn detect_architecture_and_code(buffer: &[u8]) -> Result<(Arch, Mode, CodeSectio
             } else {
                 (Arch::X86, Mode::Mode32)
             };
-            
+
             // Find .text section
             for section in &pe.sections {
                 let name = String::from_utf8_lossy(&section.name);
@@ -313,7 +321,7 @@ fn detect_architecture_and_code(buffer: &[u8]) -> Result<(Arch, Mode, CodeSectio
                         goblin::mach::cputype::CPU_TYPE_ARM64 => (Arch::ARM64, Mode::Arm),
                         _ => return Err(anyhow::anyhow!("Unsupported Mach-O architecture")),
                     };
-                    
+
                     // Find __text section
                     for segment in &macho.segments {
                         for (section, data) in segment.sections()? {
@@ -343,14 +351,15 @@ fn create_capstone(arch: Arch, mode: Mode) -> Result<Capstone> {
 
 fn disassemble_code(cs: &Capstone, code: &[u8], base_address: u64) -> Result<Vec<Instruction>> {
     let mut instructions = Vec::new();
-    
-    let insns = cs.disasm_all(code, base_address)
+
+    let insns = cs
+        .disasm_all(code, base_address)
         .map_err(|e| anyhow::anyhow!("Disassembly failed: {:?}", e))?;
-    
+
     for insn in insns.iter() {
         let flow_control = detect_flow_control(&insn);
         let instruction_type = classify_instruction(&insn);
-        
+
         instructions.push(Instruction {
             address: insn.address(),
             bytes: insn.bytes().to_vec(),
@@ -361,21 +370,27 @@ fn disassemble_code(cs: &Capstone, code: &[u8], base_address: u64) -> Result<Vec
             size: insn.bytes().len(),
         });
     }
-    
+
     Ok(instructions)
 }
 
 fn detect_flow_control(insn: &capstone::Insn) -> Option<FlowControl> {
     let mnemonic = insn.mnemonic()?;
-    
+
     if mnemonic.starts_with("j") {
         let conditional = mnemonic != "jmp";
         let target = None; // Would need detail access
-        Some(FlowControl::Jump { target, conditional })
+        Some(FlowControl::Jump {
+            target,
+            conditional,
+        })
     } else if mnemonic == "call" {
         let target = None; // Would need detail access
         let is_indirect = insn.op_str().map_or(false, |ops| ops.contains('['));
-        Some(FlowControl::Call { target, is_indirect })
+        Some(FlowControl::Call {
+            target,
+            is_indirect,
+        })
     } else if mnemonic == "ret" || mnemonic == "retn" {
         Some(FlowControl::Return)
     } else if mnemonic == "int" {
@@ -390,35 +405,49 @@ fn detect_flow_control(insn: &capstone::Insn) -> Option<FlowControl> {
 
 fn classify_instruction(insn: &capstone::Insn) -> InstructionType {
     let mnemonic = insn.mnemonic().unwrap_or("");
-    
+
     match mnemonic {
         // Arithmetic
-        "add" | "sub" | "mul" | "div" | "inc" | "dec" | "adc" | "sbb" | "imul" | "idiv" => InstructionType::Arithmetic,
-        
+        "add" | "sub" | "mul" | "div" | "inc" | "dec" | "adc" | "sbb" | "imul" | "idiv" => {
+            InstructionType::Arithmetic
+        }
+
         // Logic
-        "and" | "or" | "xor" | "not" | "shl" | "shr" | "sal" | "sar" | "rol" | "ror" => InstructionType::Logic,
-        
+        "and" | "or" | "xor" | "not" | "shl" | "shr" | "sal" | "sar" | "rol" | "ror" => {
+            InstructionType::Logic
+        }
+
         // Memory
         "mov" | "movzx" | "movsx" | "lea" | "ld" | "st" | "ldr" | "str" => InstructionType::Memory,
-        
+
         // Control
-        m if m.starts_with("j") || m == "call" || m == "ret" || m == "int" => InstructionType::Control,
-        
+        m if m.starts_with("j") || m == "call" || m == "ret" || m == "int" => {
+            InstructionType::Control
+        }
+
         // Stack
         "push" | "pop" | "pushf" | "popf" | "enter" | "leave" => InstructionType::Stack,
-        
+
         // Comparison
         "cmp" | "test" => InstructionType::Comparison,
-        
+
         // System
-        "syscall" | "sysenter" | "sysexit" | "int" if insn.op_str().unwrap_or("") == "0x80" => InstructionType::System,
-        
+        "syscall" | "sysenter" | "sysexit" | "int" if insn.op_str().unwrap_or("") == "0x80" => {
+            InstructionType::System
+        }
+
         // Crypto hints
-        "aesenc" | "aesdec" | "aesimc" | "aeskeygen" | "sha256" | "pclmulqdq" => InstructionType::Crypto,
-        
+        "aesenc" | "aesdec" | "aesimc" | "aeskeygen" | "sha256" | "pclmulqdq" => {
+            InstructionType::Crypto
+        }
+
         // Vector
-        m if m.starts_with("v") || m.starts_with("p") && (m.contains("mm") || m.contains("xmm")) => InstructionType::Vector,
-        
+        m if m.starts_with("v")
+            || m.starts_with("p") && (m.contains("mm") || m.contains("xmm")) =>
+        {
+            InstructionType::Vector
+        }
+
         _ => InstructionType::Other,
     }
 }
@@ -439,19 +468,19 @@ fn analyze_instructions(instructions: &[Instruction]) -> InstructionAnalysis {
         returns: 0,
         interrupts: 0,
     };
-    
+
     // Instruction type counting
     for insn in instructions {
         *instruction_types.entry(insn.mnemonic.clone()).or_insert(0) += 1;
-        
+
         // Register tracking
         track_register_usage(insn, &mut register_usage);
-        
+
         // Memory access tracking
         if let Some(mem_access) = detect_memory_access(insn) {
             memory_accesses.push(mem_access);
         }
-        
+
         // Control flow tracking
         if let Some(flow) = &insn.flow_control {
             match flow {
@@ -474,7 +503,7 @@ fn analyze_instructions(instructions: &[Instruction]) -> InstructionAnalysis {
                 _ => {}
             }
         }
-        
+
         // System call detection
         if insn.mnemonic == "syscall" || (insn.mnemonic == "int" && insn.operands == "0x80") {
             system_calls.push(SystemCall {
@@ -484,16 +513,16 @@ fn analyze_instructions(instructions: &[Instruction]) -> InstructionAnalysis {
                 category: SystemCallCategory::Other,
             });
         }
-        
+
         // Crypto operation detection
         if let Some(crypto_op) = detect_crypto_operation(insn) {
             crypto_operations.push(crypto_op);
         }
     }
-    
+
     // Pattern detection
     suspicious_patterns.extend(detect_suspicious_patterns(instructions));
-    
+
     InstructionAnalysis {
         total_instructions: instructions.len(),
         instruction_types,
@@ -509,13 +538,15 @@ fn analyze_instructions(instructions: &[Instruction]) -> InstructionAnalysis {
 fn track_register_usage(insn: &Instruction, register_usage: &mut HashMap<String, Vec<u64>>) {
     // Extract registers from operands (simplified)
     let operands = &insn.operands;
-    let registers = vec!["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
-                        "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp",
-                        "ax", "bx", "cx", "dx", "si", "di", "bp", "sp"];
-    
+    let registers = vec![
+        "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "eax", "ebx", "ecx", "edx", "esi",
+        "edi", "ebp", "esp", "ax", "bx", "cx", "dx", "si", "di", "bp", "sp",
+    ];
+
     for reg in registers {
         if operands.contains(reg) {
-            register_usage.entry(reg.to_string())
+            register_usage
+                .entry(reg.to_string())
                 .or_insert_with(Vec::new)
                 .push(insn.address);
         }
@@ -526,13 +557,19 @@ fn detect_memory_access(insn: &Instruction) -> Option<MemoryAccess> {
     if insn.instruction_type != InstructionType::Memory {
         return None;
     }
-    
+
     let access_type = match insn.mnemonic.as_str() {
-        "mov" if insn.operands.contains('[') && insn.operands.find('[').unwrap() < insn.operands.find(',').unwrap_or(usize::MAX) => AccessType::Write,
+        "mov"
+            if insn.operands.contains('[')
+                && insn.operands.find('[').unwrap()
+                    < insn.operands.find(',').unwrap_or(usize::MAX) =>
+        {
+            AccessType::Write
+        }
         "mov" => AccessType::Read,
         _ => AccessType::Read,
     };
-    
+
     Some(MemoryAccess {
         instruction_address: insn.address,
         access_type,
@@ -566,7 +603,7 @@ fn detect_crypto_operation(insn: &Instruction) -> Option<CryptoOperation> {
         "rdrand" | "rdseed" => Some(CryptoOpType::RandomGeneration),
         _ => None,
     };
-    
+
     crypto_op_type.map(|op_type| CryptoOperation {
         address: insn.address,
         operation_type: op_type,
@@ -577,13 +614,14 @@ fn detect_crypto_operation(insn: &Instruction) -> Option<CryptoOperation> {
 
 fn detect_suspicious_patterns(instructions: &[Instruction]) -> Vec<SuspiciousPattern> {
     let mut patterns = Vec::new();
-    
+
     // Anti-debug detection
     let mut anti_debug_addrs = Vec::new();
     for insn in instructions {
-        if insn.mnemonic == "rdtsc" || 
-           (insn.mnemonic == "int" && insn.operands == "3") ||
-           insn.operands.contains("BeingDebugged") {
+        if insn.mnemonic == "rdtsc"
+            || (insn.mnemonic == "int" && insn.operands == "3")
+            || insn.operands.contains("BeingDebugged")
+        {
             anti_debug_addrs.push(insn.address);
         }
     }
@@ -595,7 +633,7 @@ fn detect_suspicious_patterns(instructions: &[Instruction]) -> Vec<SuspiciousPat
             severity: Severity::Medium,
         });
     }
-    
+
     // NOP sled detection
     let mut consecutive_nops = 0;
     let mut nop_start = 0;
@@ -617,15 +655,23 @@ fn detect_suspicious_patterns(instructions: &[Instruction]) -> Vec<SuspiciousPat
             consecutive_nops = 0;
         }
     }
-    
+
     // Indirect jump analysis
-    let indirect_jumps: Vec<_> = instructions.iter()
-        .filter(|insn| matches!(&insn.flow_control, 
-            Some(FlowControl::Jump { target: None, .. }) | 
-            Some(FlowControl::Call { is_indirect: true, .. })))
+    let indirect_jumps: Vec<_> = instructions
+        .iter()
+        .filter(|insn| {
+            matches!(
+                &insn.flow_control,
+                Some(FlowControl::Jump { target: None, .. })
+                    | Some(FlowControl::Call {
+                        is_indirect: true,
+                        ..
+                    })
+            )
+        })
         .map(|insn| insn.address)
         .collect();
-    
+
     if indirect_jumps.len() > 20 {
         patterns.push(SuspiciousPattern {
             pattern_type: PatternType::IndirectJumps,
@@ -634,26 +680,30 @@ fn detect_suspicious_patterns(instructions: &[Instruction]) -> Vec<SuspiciousPat
             severity: Severity::High,
         });
     }
-    
+
     patterns
 }
 
-fn group_into_functions(instructions: &[Instruction], symbol_table: &SymbolTable) -> Vec<DisassembledFunction> {
+fn group_into_functions(
+    instructions: &[Instruction],
+    symbol_table: &SymbolTable,
+) -> Vec<DisassembledFunction> {
     let mut functions = Vec::new();
-    
+
     for func_info in &symbol_table.functions {
         let func_start = func_info.address;
         let func_end = func_start + func_info.size;
-        
-        let func_instructions: Vec<Instruction> = instructions.iter()
+
+        let func_instructions: Vec<Instruction> = instructions
+            .iter()
             .filter(|insn| insn.address >= func_start && insn.address < func_end)
             .cloned()
             .collect();
-        
+
         if !func_instructions.is_empty() {
             let basic_blocks = identify_basic_blocks(&func_instructions);
             let complexity = calculate_complexity(&basic_blocks);
-            
+
             functions.push(DisassembledFunction {
                 address: func_start,
                 name: func_info.name.clone(),
@@ -664,79 +714,104 @@ fn group_into_functions(instructions: &[Instruction], symbol_table: &SymbolTable
             });
         }
     }
-    
+
     functions
 }
 
 fn identify_basic_blocks(instructions: &[Instruction]) -> Vec<BasicBlock> {
     let mut blocks = Vec::new();
     let mut block_starts = HashSet::new();
-    
+
     // Identify block starts
     block_starts.insert(instructions[0].address);
     for insn in instructions {
         if let Some(flow) = &insn.flow_control {
             match flow {
-                FlowControl::Jump { target: Some(t), .. } |
-                FlowControl::Call { target: Some(t), .. } => {
+                FlowControl::Jump {
+                    target: Some(t), ..
+                }
+                | FlowControl::Call {
+                    target: Some(t), ..
+                } => {
                     block_starts.insert(*t);
                 }
                 _ => {}
             }
         }
     }
-    
+
     // Build blocks
     let mut current_block_start = instructions[0].address;
     let mut current_instructions = 0;
-    
+
     for (i, insn) in instructions.iter().enumerate() {
         current_instructions += 1;
-        
-        let is_block_end = insn.flow_control.is_some() || 
-                          (i + 1 < instructions.len() && block_starts.contains(&instructions[i + 1].address));
-        
+
+        let is_block_end = insn.flow_control.is_some()
+            || (i + 1 < instructions.len() && block_starts.contains(&instructions[i + 1].address));
+
         if is_block_end || i == instructions.len() - 1 {
             let exits = if let Some(flow) = &insn.flow_control {
                 match flow {
-                    FlowControl::Jump { target, conditional } => {
+                    FlowControl::Jump {
+                        target,
+                        conditional,
+                    } => {
                         if *conditional {
                             vec![
-                                BlockExit { exit_type: ExitType::ConditionalJump, target: *target },
-                                BlockExit { exit_type: ExitType::FallThrough, target: instructions.get(i + 1).map(|i| i.address) },
+                                BlockExit {
+                                    exit_type: ExitType::ConditionalJump,
+                                    target: *target,
+                                },
+                                BlockExit {
+                                    exit_type: ExitType::FallThrough,
+                                    target: instructions.get(i + 1).map(|i| i.address),
+                                },
                             ]
                         } else {
-                            vec![BlockExit { exit_type: ExitType::Jump, target: *target }]
+                            vec![BlockExit {
+                                exit_type: ExitType::Jump,
+                                target: *target,
+                            }]
                         }
                     }
                     FlowControl::Call { target, .. } => {
-                        vec![BlockExit { exit_type: ExitType::Call, target: *target }]
+                        vec![BlockExit {
+                            exit_type: ExitType::Call,
+                            target: *target,
+                        }]
                     }
                     FlowControl::Return => {
-                        vec![BlockExit { exit_type: ExitType::Return, target: None }]
+                        vec![BlockExit {
+                            exit_type: ExitType::Return,
+                            target: None,
+                        }]
                     }
                     _ => vec![],
                 }
             } else if i + 1 < instructions.len() {
-                vec![BlockExit { exit_type: ExitType::FallThrough, target: Some(instructions[i + 1].address) }]
+                vec![BlockExit {
+                    exit_type: ExitType::FallThrough,
+                    target: Some(instructions[i + 1].address),
+                }]
             } else {
                 vec![]
             };
-            
+
             blocks.push(BasicBlock {
                 start_address: current_block_start,
                 end_address: insn.address + insn.size as u64,
                 instruction_count: current_instructions,
                 exits,
             });
-            
+
             if i + 1 < instructions.len() {
                 current_block_start = instructions[i + 1].address;
                 current_instructions = 0;
             }
         }
     }
-    
+
     blocks
 }
 
@@ -744,10 +819,11 @@ fn calculate_complexity(basic_blocks: &[BasicBlock]) -> u32 {
     // Cyclomatic complexity = E - N + 2P
     // E = edges, N = nodes, P = connected components (usually 1)
     let nodes = basic_blocks.len() as u32;
-    let edges = basic_blocks.iter()
+    let edges = basic_blocks
+        .iter()
         .map(|b| b.exits.len() as u32)
         .sum::<u32>();
-    
+
     edges.saturating_sub(nodes) + 2
 }
 
@@ -764,11 +840,11 @@ fn format_architecture(arch: Arch, mode: Mode) -> String {
 fn generate_output_formats(
     instructions: &[Instruction],
     functions: &[DisassembledFunction],
-    architecture: &str
+    architecture: &str,
 ) -> OutputFormats {
     // Generate assembly listing
     let assembly = generate_assembly_listing(instructions);
-    
+
     // Generate structured JSON
     let json_structured = serde_json::json!({
         "architecture": architecture,
@@ -784,10 +860,10 @@ fn generate_output_formats(
             })
         }).collect::<Vec<_>>(),
     });
-    
+
     // Generate graph visualization data
     let graph_data = generate_graph_data(functions);
-    
+
     OutputFormats {
         assembly,
         json_structured,
@@ -797,24 +873,28 @@ fn generate_output_formats(
 
 fn generate_assembly_listing(instructions: &[Instruction]) -> String {
     let mut output = String::new();
-    
+
     for insn in instructions {
         output.push_str(&format!(
             "{:08x}:  {:20}  {} {}\n",
             insn.address,
-            insn.bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" "),
+            insn.bytes
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<_>>()
+                .join(" "),
             insn.mnemonic,
             insn.operands
         ));
     }
-    
+
     output
 }
 
 fn generate_graph_data(functions: &[DisassembledFunction]) -> GraphVisualizationData {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
-    
+
     for func in functions {
         // Function node
         nodes.push(GraphNode {
@@ -825,9 +905,12 @@ fn generate_graph_data(functions: &[DisassembledFunction]) -> GraphVisualization
                 ("address".to_string(), format!("0x{:x}", func.address)),
                 ("size".to_string(), func.size.to_string()),
                 ("complexity".to_string(), func.complexity.to_string()),
-            ].iter().cloned().collect(),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
         });
-        
+
         // Basic block nodes
         for (i, block) in func.basic_blocks.iter().enumerate() {
             let block_id = format!("block_{:x}_{}", func.address, i);
@@ -835,11 +918,15 @@ fn generate_graph_data(functions: &[DisassembledFunction]) -> GraphVisualization
                 id: block_id.clone(),
                 label: format!("Block {}: 0x{:x}", i, block.start_address),
                 node_type: "basic_block".to_string(),
-                metadata: [
-                    ("instructions".to_string(), block.instruction_count.to_string()),
-                ].iter().cloned().collect(),
+                metadata: [(
+                    "instructions".to_string(),
+                    block.instruction_count.to_string(),
+                )]
+                .iter()
+                .cloned()
+                .collect(),
             });
-            
+
             // Block edges
             for exit in &block.exits {
                 if let Some(target) = exit.target {
@@ -853,14 +940,14 @@ fn generate_graph_data(functions: &[DisassembledFunction]) -> GraphVisualization
             }
         }
     }
-    
+
     GraphVisualizationData { nodes, edges }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_instruction_classification() {
         let test_cases = vec![
@@ -871,7 +958,7 @@ mod tests {
             ("cmp", InstructionType::Comparison),
             ("aesenc", InstructionType::Crypto),
         ];
-        
+
         for (mnemonic, expected) in test_cases {
             let insn = Instruction {
                 address: 0,
@@ -882,7 +969,7 @@ mod tests {
                 flow_control: None,
                 size: 0,
             };
-            
+
             // Would need to test through classify_instruction
         }
     }

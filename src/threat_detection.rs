@@ -1,9 +1,9 @@
-use anyhow::{Result, Context};
-use std::path::Path;
-use std::fs;
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::time::{Duration, Instant};
-use serde::{Serialize, Deserialize};
 use yara_x;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,23 +88,23 @@ pub struct ScanStatistics {
 
 pub fn analyze_threats(path: &Path) -> Result<ThreatAnalysis> {
     let start_time = Instant::now();
-    
+
     // Read file
     let file_data = fs::read(path).context("Failed to read file for threat analysis")?;
     let file_size = file_data.len() as u64;
-    
+
     // Compile rules
     let rules = compile_rules()?;
-    
+
     // Create scanner and scan
     let mut scanner = yara_x::Scanner::new(&rules);
     let _scan_results = scanner.scan(&file_data);
-    
+
     // Process matches
     let mut matches = Vec::new();
     let mut threat_classifications = Vec::new();
     let mut indicators = Vec::new();
-    
+
     // Process the scan results based on compiled rules
     let rules_text = get_builtin_rules();
     for (_idx, rule_text) in rules_text.iter().enumerate() {
@@ -117,7 +117,7 @@ pub fn analyze_threats(path: &Path) -> Result<ThreatAnalysis> {
                 tags: extract_tags_from_rule(rule_text),
                 metadata: extract_metadata_from_rule(rule_text),
             };
-            
+
             // Only add if there's a reason to believe it matched
             // This is a simplified version - real implementation would check actual matches
             if should_include_match(&rule_match, &file_data) {
@@ -129,30 +129,31 @@ pub fn analyze_threats(path: &Path) -> Result<ThreatAnalysis> {
                         }
                     }
                 }
-                
+
                 // Generate indicators
                 if let Some(indicator) = create_threat_indicator(&rule_match) {
                     indicators.push(indicator);
                 }
-                
+
                 matches.push(rule_match);
             }
         }
     }
-    
+
     // Calculate threat level
     let threat_level = calculate_threat_level(&matches, &indicators);
-    
+
     // Generate recommendations
-    let recommendations = generate_recommendations(&threat_level, &matches, &threat_classifications);
-    
+    let recommendations =
+        generate_recommendations(&threat_level, &matches, &threat_classifications);
+
     let scan_stats = ScanStatistics {
         scan_duration: start_time.elapsed(),
         rules_evaluated: rules_text.len(),
         patterns_matched: matches.len(),
         file_size_scanned: file_size,
     };
-    
+
     Ok(ThreatAnalysis {
         matches,
         threat_level,
@@ -165,13 +166,14 @@ pub fn analyze_threats(path: &Path) -> Result<ThreatAnalysis> {
 
 fn compile_rules() -> Result<yara_x::Rules> {
     let mut compiler = yara_x::Compiler::new();
-    
+
     // Add built-in rules
     for rule in get_builtin_rules() {
-        compiler.add_source(rule)
+        compiler
+            .add_source(rule)
             .map_err(|e| anyhow::anyhow!("Failed to add rule: {:?}", e))?;
     }
-    
+
     // Compile rules
     Ok(compiler.build())
 }
@@ -352,30 +354,28 @@ fn extract_rule_name(rule_text: &str) -> Option<String> {
 
 fn extract_tags_from_rule(rule_text: &str) -> Vec<String> {
     let mut tags = Vec::new();
-    
+
     // Extract tags between rule name and {
     if let Some(colon_pos) = rule_text.find(" : ") {
         if let Some(brace_pos) = rule_text.find(" {") {
             if colon_pos < brace_pos {
                 let tags_str = &rule_text[colon_pos + 3..brace_pos];
-                tags = tags_str.split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect();
+                tags = tags_str.split_whitespace().map(|s| s.to_string()).collect();
             }
         }
     }
-    
+
     tags
 }
 
 fn extract_metadata_from_rule(rule_text: &str) -> HashMap<String, String> {
     let mut metadata = HashMap::new();
-    
+
     // Find meta section
     if let Some(meta_start) = rule_text.find("meta:") {
         if let Some(strings_start) = rule_text.find("strings:") {
             let meta_section = &rule_text[meta_start + 5..strings_start];
-            
+
             // Parse metadata lines
             for line in meta_section.lines() {
                 let line = line.trim();
@@ -387,33 +387,37 @@ fn extract_metadata_from_rule(rule_text: &str) -> HashMap<String, String> {
             }
         }
     }
-    
+
     metadata
 }
 
 fn should_include_match(rule_match: &YaraMatch, file_data: &[u8]) -> bool {
     // Simplified matching - in real implementation, we'd check actual YARA matches
     // For now, just do basic string matching for demo purposes
-    
+
     match rule_match.rule_identifier.as_str() {
         "suspicious_api_calls" => {
             // Check for API strings
             let apis = ["VirtualAlloc", "WriteProcessMemory", "CreateRemoteThread"];
-            let count = apis.iter()
+            let count = apis
+                .iter()
                 .filter(|api| contains_string(file_data, api))
                 .count();
             count >= 3
         }
         "crypto_operations" => {
             // Check for crypto indicators
-            contains_string(file_data, "AES") || 
-            contains_string(file_data, "RSA") ||
-            contains_string(file_data, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+            contains_string(file_data, "AES")
+                || contains_string(file_data, "RSA")
+                || contains_string(
+                    file_data,
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+                )
         }
         "network_communication" => {
-            contains_string(file_data, "http://") || 
-            contains_string(file_data, "https://") ||
-            contains_string(file_data, "socket")
+            contains_string(file_data, "http://")
+                || contains_string(file_data, "https://")
+                || contains_string(file_data, "socket")
         }
         _ => false, // Don't include other rules for now
     }
@@ -446,11 +450,15 @@ fn tag_to_classification(tag: &str) -> Option<ThreatClassification> {
 }
 
 fn create_threat_indicator(rule_match: &YaraMatch) -> Option<ThreatIndicator> {
-    let description = rule_match.metadata.get("description")
+    let description = rule_match
+        .metadata
+        .get("description")
         .cloned()
         .unwrap_or_else(|| format!("Matched rule: {}", rule_match.rule_identifier));
-    
-    let severity = rule_match.metadata.get("severity")
+
+    let severity = rule_match
+        .metadata
+        .get("severity")
         .and_then(|s| match s.as_str() {
             "low" => Some(Severity::Low),
             "medium" => Some(Severity::Medium),
@@ -459,9 +467,10 @@ fn create_threat_indicator(rule_match: &YaraMatch) -> Option<ThreatIndicator> {
             _ => None,
         })
         .unwrap_or(Severity::Medium);
-    
-    let indicator_type = if rule_match.tags.contains(&"anti_vm".to_string()) || 
-                           rule_match.tags.contains(&"anti_debug".to_string()) {
+
+    let indicator_type = if rule_match.tags.contains(&"anti_vm".to_string())
+        || rule_match.tags.contains(&"anti_debug".to_string())
+    {
         IndicatorType::AntiAnalysis
     } else if rule_match.tags.contains(&"network".to_string()) {
         IndicatorType::NetworkIndicator
@@ -476,7 +485,7 @@ fn create_threat_indicator(rule_match: &YaraMatch) -> Option<ThreatIndicator> {
     } else {
         IndicatorType::SuspiciousBehavior
     };
-    
+
     Some(ThreatIndicator {
         indicator_type,
         description,
@@ -489,45 +498,50 @@ fn calculate_threat_level(matches: &[YaraMatch], indicators: &[ThreatIndicator])
     if matches.is_empty() {
         return ThreatLevel::Clean;
     }
-    
+
     // Check for critical indicators
-    let has_critical = indicators.iter().any(|i| matches!(i.severity, Severity::Critical));
+    let has_critical = indicators
+        .iter()
+        .any(|i| matches!(i.severity, Severity::Critical));
     if has_critical {
         return ThreatLevel::Critical;
     }
-    
+
     // Check for known malware families
-    let has_malware_family = indicators.iter()
+    let has_malware_family = indicators
+        .iter()
         .any(|i| matches!(i.indicator_type, IndicatorType::KnownMalwareFamily));
-    
+
     // Check for high severity indicators
-    let high_severity_count = indicators.iter()
+    let high_severity_count = indicators
+        .iter()
         .filter(|i| matches!(i.severity, Severity::High))
         .count();
-    
+
     if has_malware_family || high_severity_count >= 2 {
         return ThreatLevel::Malicious;
     }
-    
+
     // Check for suspicious patterns
     let suspicious_count = matches.len();
     if suspicious_count >= 3 || high_severity_count >= 1 {
         return ThreatLevel::Suspicious;
     }
-    
+
     ThreatLevel::Clean
 }
 
 fn generate_recommendations(
     threat_level: &ThreatLevel,
     matches: &[YaraMatch],
-    classifications: &[ThreatClassification]
+    classifications: &[ThreatClassification],
 ) -> Vec<String> {
     let mut recommendations = Vec::new();
-    
+
     match threat_level {
         ThreatLevel::Critical => {
-            recommendations.push("CRITICAL THREAT DETECTED! Isolate this file immediately.".to_string());
+            recommendations
+                .push("CRITICAL THREAT DETECTED! Isolate this file immediately.".to_string());
             recommendations.push("Do not execute this file under any circumstances.".to_string());
             recommendations.push("Submit to security team for immediate analysis.".to_string());
         }
@@ -537,7 +551,8 @@ fn generate_recommendations(
             recommendations.push("Check system for related infections.".to_string());
         }
         ThreatLevel::Suspicious => {
-            recommendations.push("Suspicious patterns detected. Further analysis recommended.".to_string());
+            recommendations
+                .push("Suspicious patterns detected. Further analysis recommended.".to_string());
             recommendations.push("Execute only in sandboxed environment.".to_string());
             recommendations.push("Monitor behavior if execution is necessary.".to_string());
         }
@@ -546,7 +561,7 @@ fn generate_recommendations(
             recommendations.push("Standard security practices recommended.".to_string());
         }
     }
-    
+
     // Add specific recommendations based on classifications
     for classification in classifications {
         match classification {
@@ -569,24 +584,25 @@ fn generate_recommendations(
             _ => {}
         }
     }
-    
+
     // Add recommendations based on specific matches
     for match_result in matches {
         if match_result.tags.contains(&"anti_analysis".to_string()) {
-            recommendations.push("File uses anti-analysis techniques. Use advanced sandbox.".to_string());
+            recommendations
+                .push("File uses anti-analysis techniques. Use advanced sandbox.".to_string());
         }
         if match_result.tags.contains(&"persistence".to_string()) {
             recommendations.push("Check system startup locations for persistence.".to_string());
         }
     }
-    
+
     recommendations
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_threat_level_calculation() {
         // Test clean file
@@ -594,23 +610,21 @@ mod tests {
             calculate_threat_level(&[], &[]),
             ThreatLevel::Clean
         ));
-        
+
         // Test with indicators
-        let indicators = vec![
-            ThreatIndicator {
-                indicator_type: IndicatorType::SuspiciousBehavior,
-                description: "Test".to_string(),
-                severity: Severity::High,
-                confidence: 0.8,
-            }
-        ];
-        
+        let indicators = vec![ThreatIndicator {
+            indicator_type: IndicatorType::SuspiciousBehavior,
+            description: "Test".to_string(),
+            severity: Severity::High,
+            confidence: 0.8,
+        }];
+
         let matches = vec![YaraMatch {
             rule_identifier: "test".to_string(),
             tags: vec![],
             metadata: HashMap::new(),
         }];
-        
+
         assert!(matches!(
             calculate_threat_level(&matches, &indicators),
             ThreatLevel::Suspicious

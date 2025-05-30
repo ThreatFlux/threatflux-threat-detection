@@ -2,28 +2,30 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod metadata;
-mod hash;
-mod strings;
-mod binary_parser;
-mod signature;
-mod hexdump;
-mod function_analysis;
-mod control_flow;
-mod vulnerability_detection;
-mod code_metrics;
-mod dependency_analysis;
-mod entropy_analysis;
-mod disassembly;
-mod threat_detection;
 mod behavioral_analysis;
+mod binary_parser;
+mod cache;
 mod call_graph;
+mod code_metrics;
+mod control_flow;
+mod dependency_analysis;
+mod disassembly;
+mod entropy_analysis;
+mod function_analysis;
+mod hash;
+mod hexdump;
 mod mcp_server;
 mod mcp_transport;
+mod metadata;
+mod signature;
+mod string_tracker;
+mod strings;
+mod threat_detection;
+mod vulnerability_detection;
 
-use metadata::FileMetadata;
-use hexdump::{HexDumpOptions, generate_hex_dump, extract_header_hex, extract_footer_hex};
+use hexdump::{extract_footer_hex, extract_header_hex, generate_hex_dump, HexDumpOptions};
 use mcp_transport::McpTransportServer;
+use metadata::FileMetadata;
 
 #[derive(Parser, Debug)]
 #[command(name = "file-scanner")]
@@ -31,7 +33,7 @@ use mcp_transport::McpTransportServer;
 struct Args {
     #[command(subcommand)]
     command: Option<Commands>,
-    
+
     #[arg(help = "Path to the file to scan (used when not in MCP mode)")]
     file_path: Option<PathBuf>,
 
@@ -97,8 +99,10 @@ async fn main() -> Result<()> {
     }
 
     // Regular file scanning mode
-    let file_path = args.file_path.ok_or_else(|| anyhow::anyhow!("File path is required for scanning mode"))?;
-    
+    let file_path = args
+        .file_path
+        .ok_or_else(|| anyhow::anyhow!("File path is required for scanning mode"))?;
+
     if !file_path.exists() {
         anyhow::bail!("File not found: {:?}", file_path);
     }
@@ -106,7 +110,7 @@ async fn main() -> Result<()> {
     let mut metadata = FileMetadata::new(&file_path)?;
 
     metadata.extract_basic_info()?;
-    
+
     metadata.calculate_hashes().await?;
 
     if let Ok(binary_info) = binary_parser::parse_binary(&file_path) {
@@ -138,7 +142,7 @@ async fn main() -> Result<()> {
         } else {
             extract_header_hex(&file_path, args.hex_dump_size)
         };
-        
+
         metadata.hex_dump = hex_result.ok();
     }
 

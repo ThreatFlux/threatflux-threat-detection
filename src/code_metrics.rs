@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::control_flow::{ControlFlowAnalysis, ControlFlowGraph, InstructionType, BasicBlock};
+use crate::control_flow::{BasicBlock, ControlFlowAnalysis, ControlFlowGraph, InstructionType};
 use crate::function_analysis::SymbolTable;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -21,10 +21,10 @@ pub struct FunctionMetrics {
     pub cyclomatic_complexity: u32,
     pub cognitive_complexity: u32,
     pub nesting_depth: u32,
-    pub function_length: u32,      // Number of instructions
+    pub function_length: u32, // Number of instructions
     pub basic_block_count: u32,
-    pub parameter_count: u32,       // Estimated from function signature
-    pub return_paths: u32,          // Number of return statements
+    pub parameter_count: u32, // Estimated from function signature
+    pub return_paths: u32,    // Number of return statements
     pub halstead_metrics: HalsteadMetrics,
     pub maintainability_index: f64,
     pub technical_debt_minutes: u32, // Estimated time to fix issues
@@ -32,17 +32,17 @@ pub struct FunctionMetrics {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HalsteadMetrics {
-    pub distinct_operators: u32,     // n1
-    pub distinct_operands: u32,      // n2
-    pub total_operators: u32,        // N1
-    pub total_operands: u32,         // N2
-    pub vocabulary: u32,             // n = n1 + n2
-    pub length: u32,                 // N = N1 + N2
-    pub volume: f64,                 // V = N * log2(n)
-    pub difficulty: f64,             // D = (n1/2) * (N2/n2)
-    pub effort: f64,                 // E = D * V
-    pub time_to_program: f64,        // T = E / 18 (seconds)
-    pub delivered_bugs: f64,         // B = V / 3000
+    pub distinct_operators: u32, // n1
+    pub distinct_operands: u32,  // n2
+    pub total_operators: u32,    // N1
+    pub total_operands: u32,     // N2
+    pub vocabulary: u32,         // n = n1 + n2
+    pub length: u32,             // N = N1 + N2
+    pub volume: f64,             // V = N * log2(n)
+    pub difficulty: f64,         // D = (n1/2) * (N2/n2)
+    pub effort: f64,             // E = D * V
+    pub time_to_program: f64,    // T = E / 18 (seconds)
+    pub delivered_bugs: f64,     // B = V / 3000
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -59,9 +59,9 @@ pub struct OverallCodeMetrics {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct QualityReport {
-    pub overall_quality_score: f64,    // 0.0 to 100.0
-    pub complexity_score: f64,         // 0.0 to 100.0
-    pub maintainability_score: f64,    // 0.0 to 100.0
+    pub overall_quality_score: f64, // 0.0 to 100.0
+    pub complexity_score: f64,      // 0.0 to 100.0
+    pub maintainability_score: f64, // 0.0 to 100.0
     pub code_health: CodeHealth,
     pub quality_issues: Vec<QualityIssue>,
     pub recommendations: Vec<String>,
@@ -70,11 +70,11 @@ pub struct QualityReport {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum CodeHealth {
-    Excellent,  // 90-100
-    Good,       // 75-89
-    Fair,       // 60-74
-    Poor,       // 40-59
-    Critical,   // 0-39
+    Excellent, // 90-100
+    Good,      // 75-89
+    Fair,      // 60-74
+    Poor,      // 40-59
+    Critical,  // 0-39
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -142,7 +142,7 @@ impl CodeQualityAnalyzer {
 
         // Calculate overall metrics
         let overall_metrics = self.calculate_overall_metrics(&function_metrics, total_instructions);
-        
+
         // Generate quality report
         let quality_report = self.generate_quality_report(&function_metrics, &overall_metrics);
 
@@ -168,9 +168,11 @@ impl CodeQualityAnalyzer {
         let cognitive_complexity = cfg.complexity.cognitive_complexity;
         let nesting_depth = cfg.complexity.nesting_depth;
         let basic_block_count = cfg.basic_blocks.len() as u32;
-        
+
         // Count total instructions
-        let function_length = cfg.basic_blocks.iter()
+        let function_length = cfg
+            .basic_blocks
+            .iter()
             .map(|bb| bb.instruction_count)
             .sum::<usize>() as u32;
 
@@ -224,9 +226,12 @@ impl CodeQualityAnalyzer {
             for instruction in &block.instructions {
                 // Classify instruction as operator
                 match &instruction.instruction_type {
-                    InstructionType::Arithmetic | InstructionType::Logic | 
-                    InstructionType::Control | InstructionType::Call |
-                    InstructionType::Jump | InstructionType::Conditional => {
+                    InstructionType::Arithmetic
+                    | InstructionType::Logic
+                    | InstructionType::Control
+                    | InstructionType::Call
+                    | InstructionType::Jump
+                    | InstructionType::Conditional => {
                         *operators.entry(instruction.mnemonic.clone()).or_insert(0) += 1;
                         total_operators += 1;
                     }
@@ -254,8 +259,7 @@ impl CodeQualityAnalyzer {
         };
 
         let difficulty = if distinct_operands > 0 && operands.values().sum::<u32>() > 0 {
-            (distinct_operators as f64 / 2.0) * 
-            (total_operands as f64 / distinct_operands as f64)
+            (distinct_operators as f64 / 2.0) * (total_operands as f64 / distinct_operands as f64)
         } else {
             0.0
         };
@@ -281,7 +285,10 @@ impl CodeQualityAnalyzer {
 
     fn extract_operand_tokens(&self, operands: &str) -> Vec<String> {
         // Simple tokenization of operands
-        operands.split(|c: char| c == ',' || c == ' ' || c == '[' || c == ']' || c == '+' || c == '-' || c == '*')
+        operands
+            .split(|c: char| {
+                c == ',' || c == ' ' || c == '[' || c == ']' || c == '+' || c == '-' || c == '*'
+            })
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string())
             .collect()
@@ -299,10 +306,7 @@ impl CodeQualityAnalyzer {
         let loc = lines_of_code.max(1) as f64;
         let cc = cyclomatic_complexity as f64;
 
-        let mi = 171.0 
-            - 5.2 * volume.ln()
-            - 0.23 * cc
-            - 16.2 * loc.ln();
+        let mi = 171.0 - 5.2 * volume.ln() - 0.23 * cc - 16.2 * loc.ln();
 
         // Normalize to 0-100 scale
         ((mi * 100.0 / 171.0).max(0.0)).min(100.0)
@@ -346,7 +350,7 @@ impl CodeQualityAnalyzer {
         if let Some(first_block) = basic_blocks.first() {
             let param_registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
             let mut max_param = 0;
-            
+
             for (i, reg) in param_registers.iter().enumerate() {
                 for instruction in &first_block.instructions {
                     if instruction.operands.contains(reg) {
@@ -354,7 +358,7 @@ impl CodeQualityAnalyzer {
                     }
                 }
             }
-            
+
             max_param as u32
         } else {
             0
@@ -367,32 +371,39 @@ impl CodeQualityAnalyzer {
         total_instructions: usize,
     ) -> OverallCodeMetrics {
         let total_functions = function_metrics.len();
-        
+
         let average_complexity = if total_functions > 0 {
-            function_metrics.iter()
+            function_metrics
+                .iter()
                 .map(|m| m.cyclomatic_complexity as f64)
-                .sum::<f64>() / total_functions as f64
+                .sum::<f64>()
+                / total_functions as f64
         } else {
             0.0
         };
 
         let average_function_length = if total_functions > 0 {
-            function_metrics.iter()
+            function_metrics
+                .iter()
                 .map(|m| m.function_length as f64)
-                .sum::<f64>() / total_functions as f64
+                .sum::<f64>()
+                / total_functions as f64
         } else {
             0.0
         };
 
-        let total_code_volume = function_metrics.iter()
+        let total_code_volume = function_metrics
+            .iter()
             .map(|m| m.halstead_metrics.volume)
             .sum::<f64>();
 
-        let total_estimated_bugs = function_metrics.iter()
+        let total_estimated_bugs = function_metrics
+            .iter()
             .map(|m| m.halstead_metrics.delivered_bugs)
             .sum::<f64>();
 
-        let (most_complex_function, highest_complexity) = function_metrics.iter()
+        let (most_complex_function, highest_complexity) = function_metrics
+            .iter()
             .max_by_key(|m| m.cyclomatic_complexity)
             .map(|m| (Some(m.function_name.clone()), m.cyclomatic_complexity))
             .unwrap_or((None, 0));
@@ -433,7 +444,9 @@ impl CodeQualityAnalyzer {
                         "Function has high cyclomatic complexity ({})",
                         metrics.cyclomatic_complexity
                     ),
-                    recommendation: "Consider breaking this function into smaller, more focused functions".to_string(),
+                    recommendation:
+                        "Consider breaking this function into smaller, more focused functions"
+                            .to_string(),
                     debt_minutes: (metrics.cyclomatic_complexity - 10) * 10,
                 });
             }
@@ -482,7 +495,8 @@ impl CodeQualityAnalyzer {
                         "Function has too many return paths ({})",
                         metrics.return_paths
                     ),
-                    recommendation: "Consolidate return paths for better maintainability".to_string(),
+                    recommendation: "Consolidate return paths for better maintainability"
+                        .to_string(),
                     debt_minutes: (metrics.return_paths - 5) * 5,
                 });
             }
@@ -493,8 +507,11 @@ impl CodeQualityAnalyzer {
                     issue_type: QualityIssueType::GodFunction,
                     severity: IssueSeverity::Critical,
                     function_name: metrics.function_name.clone(),
-                    description: "Function is doing too much (high complexity and length)".to_string(),
-                    recommendation: "Refactor into multiple smaller functions with single responsibilities".to_string(),
+                    description: "Function is doing too much (high complexity and length)"
+                        .to_string(),
+                    recommendation:
+                        "Refactor into multiple smaller functions with single responsibilities"
+                            .to_string(),
                     debt_minutes: 120,
                 });
             }
@@ -507,9 +524,11 @@ impl CodeQualityAnalyzer {
         let maintainability_score = if function_metrics.is_empty() {
             100.0
         } else {
-            function_metrics.iter()
+            function_metrics
+                .iter()
                 .map(|m| m.maintainability_index)
-                .sum::<f64>() / function_metrics.len() as f64
+                .sum::<f64>()
+                / function_metrics.len() as f64
         };
 
         let overall_quality_score = (complexity_score + maintainability_score) / 2.0;
@@ -524,10 +543,15 @@ impl CodeQualityAnalyzer {
 
         let mut recommendations = Vec::new();
         if overall_metrics.average_complexity > 10.0 {
-            recommendations.push("Consider refactoring complex functions to reduce average complexity".to_string());
+            recommendations.push(
+                "Consider refactoring complex functions to reduce average complexity".to_string(),
+            );
         }
         if overall_metrics.average_function_length > 50.0 {
-            recommendations.push("Functions are generally too long - aim for 20-50 instructions per function".to_string());
+            recommendations.push(
+                "Functions are generally too long - aim for 20-50 instructions per function"
+                    .to_string(),
+            );
         }
         if overall_metrics.total_estimated_bugs > 1.0 {
             recommendations.push(format!(

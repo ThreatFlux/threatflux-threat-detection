@@ -1,5 +1,5 @@
 use anyhow::Result;
-use goblin::{Object, pe, elf};
+use goblin::{elf, pe, Object};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -28,7 +28,7 @@ pub struct SectionInfo {
 
 pub fn parse_binary(path: &Path) -> Result<BinaryInfo> {
     let buffer = fs::read(path)?;
-    
+
     match Object::parse(&buffer)? {
         Object::Elf(elf) => parse_elf(elf, &buffer),
         Object::PE(pe) => parse_pe(pe, &buffer),
@@ -46,7 +46,8 @@ fn parse_elf(elf: elf::Elf, _buffer: &[u8]) -> Result<BinaryInfo> {
             elf::header::EM_ARM => "ARM",
             elf::header::EM_AARCH64 => "ARM64",
             _ => "Unknown",
-        }.to_string(),
+        }
+        .to_string(),
         compiler: None,
         linker: None,
         sections: Vec::new(),
@@ -106,7 +107,8 @@ fn parse_pe(pe: pe::PE, _buffer: &[u8]) -> Result<BinaryInfo> {
             pe::header::COFF_MACHINE_X86 => "x86",
             pe::header::COFF_MACHINE_ARM64 => "ARM64",
             _ => "Unknown",
-        }.to_string(),
+        }
+        .to_string(),
         compiler: None,
         linker: None,
         sections: Vec::new(),
@@ -140,12 +142,13 @@ fn parse_pe(pe: pe::PE, _buffer: &[u8]) -> Result<BinaryInfo> {
     }
 
     if let Some(optional_header) = pe.header.optional_header {
-        let linker_version = format!("{}.{}", 
+        let linker_version = format!(
+            "{}.{}",
             optional_header.standard_fields.major_linker_version,
             optional_header.standard_fields.minor_linker_version
         );
         info.linker = Some(format!("Linker v{}", linker_version));
-        
+
         match optional_header.standard_fields.major_linker_version {
             14..=16 => info.compiler = Some("MSVC 2015-2022".to_string()),
             12..=13 => info.compiler = Some("MSVC 2013".to_string()),
@@ -156,7 +159,7 @@ fn parse_pe(pe: pe::PE, _buffer: &[u8]) -> Result<BinaryInfo> {
             7 => info.compiler = Some("MSVC 2003".to_string()),
             6 => info.compiler = Some("MSVC 6.0".to_string()),
             2..=4 => info.compiler = Some("MinGW/GCC".to_string()),
-            _ => {},
+            _ => {}
         }
     }
 
@@ -165,7 +168,7 @@ fn parse_pe(pe: pe::PE, _buffer: &[u8]) -> Result<BinaryInfo> {
 
 fn parse_mach(mach: goblin::mach::Mach) -> Result<BinaryInfo> {
     use goblin::mach::Mach;
-    
+
     let mut info = BinaryInfo {
         format: "Mach-O".to_string(),
         architecture: "Unknown".to_string(),
@@ -183,19 +186,19 @@ fn parse_mach(mach: goblin::mach::Mach) -> Result<BinaryInfo> {
         Mach::Binary(mach_o) => {
             info.architecture = if mach_o.is_64 { "x86_64" } else { "x86" }.to_string();
             info.entry_point = Some(mach_o.entry as u64);
-        for segment in &mach_o.segments {
-            for (section, _) in &segment.sections()? {
-                info.sections.push(SectionInfo {
-                    name: section.name()?.to_string(),
-                    size: section.size,
-                    virtual_address: section.addr,
-                    characteristics: format!("{:x}", section.flags),
-                });
+            for segment in &mach_o.segments {
+                for (section, _) in &segment.sections()? {
+                    info.sections.push(SectionInfo {
+                        name: section.name()?.to_string(),
+                        size: section.size,
+                        virtual_address: section.addr,
+                        characteristics: format!("{:x}", section.flags),
+                    });
+                }
             }
-        }
 
             info.is_stripped = mach_o.symbols.is_none();
-            
+
             for import in &mach_o.imports()? {
                 info.imports.push(import.name.to_string());
             }

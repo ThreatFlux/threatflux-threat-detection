@@ -1,6 +1,6 @@
 use anyhow::Result;
 use blake3::Hasher as Blake3Hasher;
-use md5::{Md5, Digest};
+use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Sha512};
 use std::fs::File;
@@ -8,7 +8,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 use tokio::task;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Hashes {
     pub md5: String,
     pub sha256: String,
@@ -18,33 +18,29 @@ pub struct Hashes {
 
 pub async fn calculate_all_hashes(path: &Path) -> Result<Hashes> {
     let path = path.to_path_buf();
-    
+
     let md5_task = task::spawn_blocking({
         let path = path.clone();
-        move || calculate_md5(&path)
+        move || calculate_md5_sync(&path)
     });
-    
+
     let sha256_task = task::spawn_blocking({
         let path = path.clone();
         move || calculate_sha256(&path)
     });
-    
+
     let sha512_task = task::spawn_blocking({
         let path = path.clone();
         move || calculate_sha512(&path)
     });
-    
+
     let blake3_task = task::spawn_blocking({
         let path = path.clone();
         move || calculate_blake3(&path)
     });
 
-    let (md5, sha256, sha512, blake3) = tokio::try_join!(
-        md5_task,
-        sha256_task,
-        sha512_task,
-        blake3_task
-    )?;
+    let (md5, sha256, sha512, blake3) =
+        tokio::try_join!(md5_task, sha256_task, sha512_task, blake3_task)?;
 
     Ok(Hashes {
         md5: md5?,
@@ -54,7 +50,12 @@ pub async fn calculate_all_hashes(path: &Path) -> Result<Hashes> {
     })
 }
 
-fn calculate_md5(path: &Path) -> Result<String> {
+pub async fn calculate_md5(path: &Path) -> Result<String> {
+    let path = path.to_path_buf();
+    task::spawn_blocking(move || calculate_md5_sync(&path)).await?
+}
+
+fn calculate_md5_sync(path: &Path) -> Result<String> {
     let file = File::open(path)?;
     let mut reader = BufReader::new(file);
     let mut hasher = Md5::new();

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use goblin::{elf, pe, mach, Object};
+use goblin::{elf, mach, pe, Object};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Read;
@@ -130,7 +130,9 @@ pub fn analyze_symbols(path: &Path) -> Result<SymbolTable> {
         Object::Elf(elf) => analyze_elf_symbols(elf, &buffer),
         Object::PE(pe) => analyze_pe_symbols(pe, &buffer),
         Object::Mach(mach) => analyze_mach_symbols(mach, &buffer),
-        _ => Err(anyhow::anyhow!("Unsupported binary format for symbol analysis")),
+        _ => Err(anyhow::anyhow!(
+            "Unsupported binary format for symbol analysis"
+        )),
     }
 }
 
@@ -144,7 +146,7 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
     // Analyze ELF symbols
     for sym in elf.syms.iter() {
         let name = elf.strtab.get_at(sym.st_name).unwrap_or("").to_string();
-        
+
         if name.is_empty() || name.starts_with("$") {
             continue;
         }
@@ -168,7 +170,8 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
                     _ => FunctionType::Local,
                 };
 
-                let is_entry_point = name == "_start" || name == "main" || address == elf.header.e_entry;
+                let is_entry_point =
+                    name == "_start" || name == "main" || address == elf.header.e_entry;
                 let is_exported = binding == goblin::elf::sym::STB_GLOBAL && sym.st_shndx != 0;
                 let is_imported = sym.st_shndx == 0;
 
@@ -204,7 +207,8 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
                 }
             }
             goblin::elf::sym::STT_OBJECT => {
-                if binding == goblin::elf::sym::STB_GLOBAL || binding == goblin::elf::sym::STB_LOCAL {
+                if binding == goblin::elf::sym::STB_GLOBAL || binding == goblin::elf::sym::STB_LOCAL
+                {
                     global_variables.push(VariableInfo {
                         name: name.clone(),
                         address,
@@ -225,7 +229,7 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
     // Analyze dynamic symbols if available
     for sym in elf.dynsyms.iter() {
         let name = elf.dynstrtab.get_at(sym.st_name).unwrap_or("").to_string();
-        
+
         if name.is_empty() || functions.iter().any(|f| f.name == name) {
             continue;
         }
@@ -247,7 +251,11 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
             imports.push(ImportInfo {
                 name: name.clone(),
                 library: None,
-                address: if sym.st_value != 0 { Some(sym.st_value) } else { None },
+                address: if sym.st_value != 0 {
+                    Some(sym.st_value)
+                } else {
+                    None
+                },
                 ordinal: None,
                 is_delayed: false,
             });
@@ -256,7 +264,10 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
 
     let symbol_count = SymbolCounts {
         total_functions: functions.len(),
-        local_functions: functions.iter().filter(|f| matches!(f.function_type, FunctionType::Local)).count(),
+        local_functions: functions
+            .iter()
+            .filter(|f| matches!(f.function_type, FunctionType::Local))
+            .count(),
         imported_functions: functions.iter().filter(|f| f.is_imported).count(),
         exported_functions: functions.iter().filter(|f| f.is_exported).count(),
         global_variables: global_variables.len(),
@@ -308,13 +319,17 @@ fn analyze_pe_symbols(pe: pe::PE, _buffer: &[u8]) -> Result<SymbolTable> {
     for export in pe.exports.iter() {
         let export_name = export.name.unwrap_or("").to_string();
         let export_address = export.rva as u64;
-        
+
         exports.push(ExportInfo {
             name: export_name.clone(),
             address: export_address,
             ordinal: None, // PE exports don't always have ordinals in goblin
             is_forwarder: export.reexport.is_some(),
-            forwarder_name: if export.reexport.is_some() { Some("forwarded".to_string()) } else { None },
+            forwarder_name: if export.reexport.is_some() {
+                Some("forwarded".to_string())
+            } else {
+                None
+            },
         });
 
         // Add exported functions to function list
@@ -322,7 +337,7 @@ fn analyze_pe_symbols(pe: pe::PE, _buffer: &[u8]) -> Result<SymbolTable> {
             // For PE files, we'll consider main/WinMain/DllMain as potential entry points
             let name = export.name.unwrap();
             let is_entry_point = name == "main" || name == "WinMain" || name == "DllMain";
-            
+
             functions.push(FunctionInfo {
                 name: export_name.clone(),
                 address: export_address,
@@ -339,7 +354,10 @@ fn analyze_pe_symbols(pe: pe::PE, _buffer: &[u8]) -> Result<SymbolTable> {
 
     let symbol_count = SymbolCounts {
         total_functions: functions.len(),
-        local_functions: functions.iter().filter(|f| matches!(f.function_type, FunctionType::Local)).count(),
+        local_functions: functions
+            .iter()
+            .filter(|f| matches!(f.function_type, FunctionType::Local))
+            .count(),
         imported_functions: functions.iter().filter(|f| f.is_imported).count(),
         exported_functions: functions.iter().filter(|f| f.is_exported).count(),
         global_variables: global_variables.len(),
@@ -373,14 +391,14 @@ fn analyze_mach_symbols(mach: mach::Mach, _buffer: &[u8]) -> Result<SymbolTable>
             for sym in macho.symbols().flatten() {
                 let name = sym.0.to_string();
                 let nlist = sym.1;
-                
+
                 if name.is_empty() || name.starts_with("__") {
                     continue;
                 }
 
                 let address = nlist.n_value;
                 let is_external = nlist.is_global();
-                
+
                 // Check if this is a function symbol (simplified check)
                 if nlist.n_type & mach::symbols::N_TYPE == mach::symbols::N_SECT {
                     let function_type = if is_external {
@@ -412,7 +430,9 @@ fn analyze_mach_symbols(mach: mach::Mach, _buffer: &[u8]) -> Result<SymbolTable>
                             forwarder_name: None,
                         });
                     }
-                } else if nlist.n_type & mach::symbols::N_TYPE == mach::symbols::N_SECT && !name.contains("func") {
+                } else if nlist.n_type & mach::symbols::N_TYPE == mach::symbols::N_SECT
+                    && !name.contains("func")
+                {
                     global_variables.push(VariableInfo {
                         name: name.clone(),
                         address,
@@ -431,7 +451,7 @@ fn analyze_mach_symbols(mach: mach::Mach, _buffer: &[u8]) -> Result<SymbolTable>
             for sym in macho.symbols().flatten() {
                 let name = sym.0.to_string();
                 let nlist = sym.1;
-                
+
                 if nlist.is_undefined() && !name.is_empty() {
                     imports.push(ImportInfo {
                         name: name.clone(),
@@ -459,7 +479,10 @@ fn analyze_mach_symbols(mach: mach::Mach, _buffer: &[u8]) -> Result<SymbolTable>
 
     let symbol_count = SymbolCounts {
         total_functions: functions.len(),
-        local_functions: functions.iter().filter(|f| matches!(f.function_type, FunctionType::Local)).count(),
+        local_functions: functions
+            .iter()
+            .filter(|f| matches!(f.function_type, FunctionType::Local))
+            .count(),
         imported_functions: functions.iter().filter(|f| f.is_imported).count(),
         exported_functions: functions.iter().filter(|f| f.is_exported).count(),
         global_variables: global_variables.len(),

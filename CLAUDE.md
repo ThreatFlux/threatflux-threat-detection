@@ -15,6 +15,8 @@ A comprehensive native file scanner written in Rust that provides detailed metad
 - **Multiple Output Formats**: JSON, YAML, and pretty-printed JSON support
 - **Performance Optimized**: Concurrent hash calculation and efficient memory usage
 - **MCP Server Support**: Model Context Protocol server with STDIO, HTTP, and SSE transports
+- **Analysis Caching**: Automatic caching of analysis results with persistence for improved performance
+- **String Tracking & Statistics**: Advanced string analysis with usage statistics, categorization, and filtering
 
 ## Build and Test Commands
 
@@ -65,6 +67,8 @@ src/
 ├── binary_parser.rs     # PE/ELF/Mach-O binary format parsing
 ├── signature.rs         # Digital signature verification
 ├── hexdump.rs           # Hex dump generation and formatting
+├── cache.rs             # Analysis cache with persistence support
+├── string_tracker.rs    # String tracking and statistics engine
 ├── mcp_server.rs        # MCP server implementation with file scanner tools
 └── mcp_transport.rs     # MCP transport implementations (STDIO, HTTP, SSE)
 ```
@@ -154,23 +158,112 @@ All test binaries simulate malicious behaviors including:
 
 The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for AI assistants. **The MCP server is now fully functional and tested!**
 
-### Available MCP Tools (15 Total)
+### Available MCP Tools
 
-1. **calculate_file_hashes**: Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)
-2. **extract_file_strings**: Extract ASCII and Unicode strings
-3. **hex_dump_file**: Generate hex dump of file contents
-4. **analyze_binary_file**: Analyze binary file formats (PE, ELF, Mach-O)
-5. **get_file_metadata**: Extract file system metadata
-6. **verify_file_signatures**: Verify digital signatures
-7. **analyze_function_symbols**: Analyze function symbols and cross-references
-8. **analyze_control_flow_graph**: Analyze control flow graphs and complexity
-9. **detect_vulnerabilities**: Detect security vulnerabilities using static analysis
-10. **analyze_code_quality**: Analyze code quality metrics and maintainability
-11. **analyze_dependencies**: Analyze library dependencies and license compliance
-12. **analyze_entropy_patterns**: Detect packing, encryption, and obfuscation
-13. **disassemble_code**: Disassemble binary code with multi-architecture support
-14. **detect_threats**: Detect malware using comprehensive pattern matching
-15. **analyze_behavioral_patterns**: Analyze anti-analysis and evasion techniques
+The file scanner provides two powerful tools through the MCP interface:
+
+#### 1. `analyze_file` - Comprehensive Analysis Tool
+
+A unified tool that allows you to specify exactly which analyses to perform using boolean flags:
+
+**Tool Name:** `analyze_file`
+
+**Parameters:**
+- `file_path` (required): Path to the file to analyze
+- `metadata`: Include file metadata (size, timestamps, permissions)
+- `hashes`: Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)
+- `strings`: Extract ASCII and Unicode strings
+- `min_string_length`: Minimum string length (default: 4)
+- `hex_dump`: Generate hex dump
+- `hex_dump_size`: Hex dump size in bytes (default: 256)
+- `hex_dump_offset`: Hex dump offset from start
+- `binary_info`: Analyze binary format (PE/ELF/Mach-O)
+- `signatures`: Verify digital signatures
+- `symbols`: Analyze function symbols
+- `control_flow`: Analyze control flow
+- `vulnerabilities`: Detect vulnerabilities
+- `code_quality`: Analyze code quality metrics
+- `dependencies`: Analyze dependencies
+- `entropy`: Analyze entropy patterns
+- `disassembly`: Disassemble code
+- `threats`: Detect threats and malware
+- `behavioral`: Analyze behavioral patterns
+- `yara_indicators`: Extract YARA rule indicators
+
+**Example Usage:**
+```json
+{
+  "file_path": "/bin/ls",
+  "metadata": true,
+  "hashes": true,
+  "strings": true,
+  "binary_info": true
+}
+```
+
+#### 2. `llm_analyze_file` - LLM-Optimized Analysis Tool
+
+A focused analysis tool designed specifically for LLM consumption and YARA rule generation. Returns only the most relevant information within a controlled token limit.
+
+**Tool Name:** `llm_analyze_file`
+
+**Key Features:**
+- Returns only MD5 hash (not all hash types)
+- Extracts key strings prioritized for YARA rules
+- Identifies important hex patterns and opcodes
+- Provides imports and entropy analysis
+- Generates YARA rule suggestions
+- Token-limited output (default 25K tokens)
+
+**Parameters:**
+- `file_path` (required): Path to the file to analyze
+- `token_limit`: Maximum response size in characters (default: 25000)
+- `min_string_length`: Minimum string length to extract (default: 6)
+- `max_strings`: Maximum number of strings to return (default: 50)
+- `max_imports`: Maximum number of imports to return (default: 30)
+- `max_opcodes`: Maximum number of opcodes to return (default: 10)
+- `hex_pattern_size`: Size of hex patterns to extract (default: 32)
+- `suggest_yara_rule`: Generate YARA rule suggestion (default: true)
+
+**Example Usage:**
+```json
+{
+  "file_path": "/suspicious/malware.exe",
+  "token_limit": 25000,
+  "max_strings": 30,
+  "suggest_yara_rule": true
+}
+```
+
+**Example Output:**
+```json
+{
+  "md5": "d41d8cd98f00b204e9800998ecf8427e",
+  "file_size": 45056,
+  "key_strings": [
+    "CreateRemoteThread",
+    "VirtualAllocEx",
+    "WriteProcessMemory",
+    "cmd.exe /c",
+    "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+  ],
+  "hex_patterns": [
+    "4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00 B8 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00"
+  ],
+  "imports": [
+    "kernel32.dll",
+    "ntdll.dll",
+    "advapi32.dll"
+  ],
+  "opcodes": [
+    "E8 00 00 00 00",
+    "48 8B 05 00",
+    "FF 15 00 00"
+  ],
+  "entropy": 7.8,
+  "yara_rule_suggestion": "rule suspicious_malware_exe {\n    meta:\n        md5 = \"d41d8cd98f00b204e9800998ecf8427e\"\n        filesize = 45056\n    strings:\n        $header = { 4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00 }\n        $s1 = \"CreateRemoteThread\"\n        $s2 = \"VirtualAllocEx\"\n        $s3 = \"WriteProcessMemory\"\n    condition:\n        filesize == 45056 and math.entropy(0, filesize) > 7.3 and 2 of ($s*) and $header at 0\n}\n"
+}
+```
 
 ### MCP Configuration for Claude Code
 
@@ -213,9 +306,11 @@ The file-scanner can run as an MCP (Model Context Protocol) server, exposing its
 ### MCP Testing Status
 
 ✅ **FIXED**: JSON-RPC protocol compliance issues resolved  
-✅ **WORKING**: All 15 MCP tools functional via STDIO transport  
+✅ **UNIFIED**: Single `analyze_file` tool with configurable analysis options  
 ✅ **TESTED**: MCP Inspector CLI and UI modes working  
 ✅ **VERIFIED**: Tool calls return proper formatted responses  
+✅ **CACHING**: Automatic result caching with persistence across sessions  
+✅ **COMPLIANT**: Now under 15-tool MCP limit with comprehensive functionality  
 
 **Known Working Commands:**
 ```bash
@@ -228,6 +323,92 @@ npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdi
 # Interactive UI testing
 npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio
 ```
+
+### Cache Management (HTTP/SSE Transport)
+
+When running as an HTTP or SSE server, the file scanner provides cache management endpoints:
+
+```bash
+# Start HTTP server
+./target/release/file-scanner mcp-http --port 3000
+
+# View cache statistics
+curl http://localhost:3000/cache/stats
+
+# List all cache entries
+curl http://localhost:3000/cache/list
+
+# Search cache by criteria
+curl -X POST http://localhost:3000/cache/search \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name": "calculate_file_hashes"}'
+
+# Clear cache
+curl -X POST http://localhost:3000/cache/clear
+```
+
+**Cache Features:**
+- Automatic caching of all MCP tool call results
+- Persistence to disk in temp directory (`/tmp/file-scanner-cache/`)
+- SHA256-based file identification for cache hits
+- Per-file analysis history tracking
+- Execution time tracking for performance monitoring
+- Cache statistics and search capabilities
+
+### String Tracking & Analysis
+
+The file scanner includes an advanced string tracking system that analyzes and categorizes all strings found during file analysis:
+
+```bash
+# String statistics
+curl http://localhost:3000/strings/stats
+
+# Search for strings
+curl -X POST http://localhost:3000/strings/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "lib", "limit": 20}'
+
+# Get detailed information about a specific string
+curl -X POST http://localhost:3000/strings/details \
+  -H "Content-Type: application/json" \
+  -d '{"value": "libc.so.6"}'
+
+# Find related strings
+curl -X POST http://localhost:3000/strings/related \
+  -H "Content-Type: application/json" \
+  -d '{"value": "libc.so.6", "limit": 10}'
+
+# Advanced filtering
+curl -X POST http://localhost:3000/strings/filter \
+  -H "Content-Type: application/json" \
+  -d '{
+    "min_occurrences": 2,
+    "min_entropy": 4.0,
+    "categories": ["import", "path"],
+    "suspicious_only": true
+  }'
+```
+
+**String Tracking Features:**
+- Automatic categorization (URLs, paths, imports, commands, etc.)
+- Entropy calculation for detecting encoded/encrypted strings
+- Suspicious string detection using pattern matching
+- File association tracking (which files contain which strings)
+- Similarity analysis to find related strings
+- Advanced filtering by multiple criteria:
+  - Occurrence count
+  - String length
+  - Entropy level
+  - Categories
+  - File associations
+  - Suspicious indicators
+  - Regular expression patterns
+- Real-time statistics:
+  - Most common strings
+  - Category distribution
+  - Length distribution
+  - High-entropy strings
+  - Suspicious strings
 
 See `MCP_TESTING.md` for comprehensive testing instructions.
 

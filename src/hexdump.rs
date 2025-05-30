@@ -42,32 +42,32 @@ impl Default for HexDumpOptions {
 pub fn generate_hex_dump(path: &Path, options: HexDumpOptions) -> Result<HexDump> {
     let mut file = File::open(path)?;
     let file_size = file.metadata()?.len();
-    
+
     file.seek(SeekFrom::Start(options.offset))?;
-    
+
     let max_bytes = match (options.length, options.max_lines) {
         (Some(len), _) => len,
         (None, Some(max_lines)) => max_lines * options.bytes_per_line,
         (None, None) => file_size as usize,
     };
-    
+
     let bytes_to_read = std::cmp::min(max_bytes, (file_size - options.offset) as usize);
-    
+
     let mut buffer = vec![0u8; bytes_to_read];
     let mut reader = BufReader::new(file);
     let actual_read = reader.read(&mut buffer)?;
     buffer.truncate(actual_read);
-    
+
     let mut lines = Vec::new();
     let mut current_offset = options.offset;
-    
+
     for chunk in buffer.chunks(options.bytes_per_line) {
         let hex_bytes = chunk
             .iter()
             .map(|b| format!("{:02x}", b))
             .collect::<Vec<_>>()
             .join(" ");
-        
+
         // Pad hex representation to align ASCII
         let padded_hex = if chunk.len() < options.bytes_per_line {
             let padding_needed = (options.bytes_per_line - chunk.len()) * 3;
@@ -75,28 +75,22 @@ pub fn generate_hex_dump(path: &Path, options: HexDumpOptions) -> Result<HexDump
         } else {
             hex_bytes
         };
-        
+
         let ascii_repr = chunk
             .iter()
-            .map(|&b| {
-                if b >= 32 && b <= 126 {
-                    b as char
-                } else {
-                    '.'
-                }
-            })
+            .map(|&b| if b >= 32 && b <= 126 { b as char } else { '.' })
             .collect();
-        
+
         lines.push(HexLine {
             offset: current_offset,
             hex_bytes: padded_hex,
             ascii_repr,
             raw_bytes: chunk.to_vec(),
         });
-        
+
         current_offset += chunk.len() as u64;
     }
-    
+
     Ok(HexDump {
         offset: options.offset,
         length: actual_read,
@@ -108,26 +102,24 @@ pub fn generate_hex_dump(path: &Path, options: HexDumpOptions) -> Result<HexDump
 
 pub fn format_hex_dump_text(hex_dump: &HexDump) -> String {
     let mut output = String::new();
-    
+
     output.push_str(&format!(
         "Hex dump (offset: 0x{:08x}, length: {} bytes, total file size: {} bytes)\n",
         hex_dump.offset, hex_dump.length, hex_dump.total_bytes
     ));
     output.push_str(&format!("{:-<80}\n", ""));
-    
+
     for line in &hex_dump.lines {
         output.push_str(&format!(
             "{:08x}  {}  |{}|\n",
-            line.offset,
-            line.hex_bytes,
-            line.ascii_repr
+            line.offset, line.hex_bytes, line.ascii_repr
         ));
     }
-    
+
     if hex_dump.lines.len() * hex_dump.bytes_per_line < hex_dump.total_bytes as usize {
         output.push_str("... (truncated)\n");
     }
-    
+
     output
 }
 
@@ -144,13 +136,13 @@ pub fn extract_header_hex(path: &Path, header_size: usize) -> Result<HexDump> {
 pub fn extract_footer_hex(path: &Path, footer_size: usize) -> Result<HexDump> {
     let file = File::open(path)?;
     let file_size = file.metadata()?.len();
-    
+
     let offset = if file_size > footer_size as u64 {
         file_size - footer_size as u64
     } else {
         0
     };
-    
+
     let options = HexDumpOptions {
         offset,
         length: Some(footer_size),

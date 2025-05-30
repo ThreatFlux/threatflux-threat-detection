@@ -2,8 +2,8 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 
 use crate::binary_parser::BinaryInfo;
 use crate::hash::Hashes;
@@ -61,11 +61,11 @@ impl FileMetadata {
 
     pub fn extract_basic_info(&mut self) -> Result<()> {
         let metadata = fs::metadata(&self.file_path)?;
-        
+
         self.file_size = metadata.len();
         self.owner_uid = metadata.uid();
         self.group_gid = metadata.gid();
-        
+
         let mode = metadata.mode();
         self.permissions = format!("{:o}", mode & 0o777);
         self.is_executable = mode & 0o111 != 0;
@@ -92,24 +92,27 @@ impl FileMetadata {
         if let Ok(mut file) = fs::File::open(&self.file_path) {
             use std::io::Read;
             let _ = file.read(&mut buffer)?;
-            
-            self.mime_type = Some(match &buffer[..] {
-                b if b.starts_with(b"\x7FELF") => "application/x-elf",
-                b if b.starts_with(b"MZ") => "application/x-dosexec",
-                b if b.starts_with(b"\xCA\xFE\xBA\xBE") => "application/x-mach-binary",
-                b if b.starts_with(b"\xFE\xED\xFA") => "application/x-mach-binary",
-                b if b.starts_with(b"#!/") => "text/x-shellscript",
-                b if b.starts_with(b"\x89PNG") => "image/png",
-                b if b.starts_with(b"\xFF\xD8\xFF") => "image/jpeg",
-                b if b.starts_with(b"GIF8") => "image/gif",
-                b if b.starts_with(b"PK\x03\x04") => "application/zip",
-                b if b.starts_with(b"\x1F\x8B") => "application/gzip",
-                b if b.starts_with(b"BZh") => "application/x-bzip2",
-                b if b.starts_with(b"%PDF") => "application/pdf",
-                _ => "application/octet-stream",
-            }.to_string());
+
+            self.mime_type = Some(
+                match &buffer[..] {
+                    b if b.starts_with(b"\x7FELF") => "application/x-elf",
+                    b if b.starts_with(b"MZ") => "application/x-dosexec",
+                    b if b.starts_with(b"\xCA\xFE\xBA\xBE") => "application/x-mach-binary",
+                    b if b.starts_with(b"\xFE\xED\xFA") => "application/x-mach-binary",
+                    b if b.starts_with(b"#!/") => "text/x-shellscript",
+                    b if b.starts_with(b"\x89PNG") => "image/png",
+                    b if b.starts_with(b"\xFF\xD8\xFF") => "image/jpeg",
+                    b if b.starts_with(b"GIF8") => "image/gif",
+                    b if b.starts_with(b"PK\x03\x04") => "application/zip",
+                    b if b.starts_with(b"\x1F\x8B") => "application/gzip",
+                    b if b.starts_with(b"BZh") => "application/x-bzip2",
+                    b if b.starts_with(b"%PDF") => "application/pdf",
+                    _ => "application/octet-stream",
+                }
+                .to_string(),
+            );
         }
-        
+
         Ok(())
     }
 

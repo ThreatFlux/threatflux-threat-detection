@@ -1,8 +1,8 @@
 use anyhow::Result;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use regex::Regex;
 
 use crate::function_analysis::SymbolTable;
 use crate::strings::ExtractedStrings;
@@ -41,11 +41,11 @@ pub enum LibraryType {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum DependencySource {
-    Import,           // From import table
-    DynamicLink,      // From dynamic section
-    StaticLink,       // Linked statically
-    StringReference,  // Found in strings
-    RuntimeLoad,      // dlopen/LoadLibrary
+    Import,          // From import table
+    DynamicLink,     // From dynamic section
+    StaticLink,      // Linked statically
+    StringReference, // Found in strings
+    RuntimeLoad,     // dlopen/LoadLibrary
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -209,7 +209,7 @@ impl DependencyAnalyzer {
             vulnerability_db: VulnerabilityDatabase::new(),
             license_detector: LicenseDetector::new(),
         };
-        
+
         analyzer.load_vulnerability_database();
         analyzer
     }
@@ -217,20 +217,28 @@ impl DependencyAnalyzer {
     fn load_vulnerability_database(&mut self) {
         // Load known vulnerabilities for common libraries
         // In a real implementation, this would connect to NVD or other CVE databases
-        
+
         // Example: OpenSSL vulnerabilities
         self.vulnerability_db.add_vulnerability(
             "openssl",
             KnownVulnerability {
                 cve_id: "CVE-2014-0160".to_string(), // Heartbleed
                 severity: VulnerabilitySeverity::Critical,
-                description: "Heartbleed - allows remote attackers to obtain sensitive information".to_string(),
-                affected_versions: vec!["1.0.1".to_string(), "1.0.1a".to_string(), "1.0.1b".to_string(), 
-                                      "1.0.1c".to_string(), "1.0.1d".to_string(), "1.0.1e".to_string(), "1.0.1f".to_string()],
+                description: "Heartbleed - allows remote attackers to obtain sensitive information"
+                    .to_string(),
+                affected_versions: vec![
+                    "1.0.1".to_string(),
+                    "1.0.1a".to_string(),
+                    "1.0.1b".to_string(),
+                    "1.0.1c".to_string(),
+                    "1.0.1d".to_string(),
+                    "1.0.1e".to_string(),
+                    "1.0.1f".to_string(),
+                ],
                 fixed_in: Some("1.0.1g".to_string()),
                 cvss_score: Some(7.5),
                 published_date: Some("2014-04-07".to_string()),
-            }
+            },
         );
 
         // Log4j vulnerability
@@ -240,15 +248,27 @@ impl DependencyAnalyzer {
                 cve_id: "CVE-2021-44228".to_string(), // Log4Shell
                 severity: VulnerabilitySeverity::Critical,
                 description: "Log4Shell - Remote code execution vulnerability".to_string(),
-                affected_versions: vec!["2.0".to_string(), "2.1".to_string(), "2.2".to_string(), 
-                                      "2.3".to_string(), "2.4".to_string(), "2.5".to_string(), 
-                                      "2.6".to_string(), "2.7".to_string(), "2.8".to_string(), 
-                                      "2.9".to_string(), "2.10".to_string(), "2.11".to_string(), 
-                                      "2.12".to_string(), "2.13".to_string(), "2.14".to_string()],
+                affected_versions: vec![
+                    "2.0".to_string(),
+                    "2.1".to_string(),
+                    "2.2".to_string(),
+                    "2.3".to_string(),
+                    "2.4".to_string(),
+                    "2.5".to_string(),
+                    "2.6".to_string(),
+                    "2.7".to_string(),
+                    "2.8".to_string(),
+                    "2.9".to_string(),
+                    "2.10".to_string(),
+                    "2.11".to_string(),
+                    "2.12".to_string(),
+                    "2.13".to_string(),
+                    "2.14".to_string(),
+                ],
                 fixed_in: Some("2.15.0".to_string()),
                 cvss_score: Some(10.0),
                 published_date: Some("2021-12-10".to_string()),
-            }
+            },
         );
 
         // zlib vulnerability
@@ -262,7 +282,7 @@ impl DependencyAnalyzer {
                 fixed_in: Some("1.2.12".to_string()),
                 cvss_score: Some(7.5),
                 published_date: Some("2022-03-25".to_string()),
-            }
+            },
         );
     }
 
@@ -280,11 +300,13 @@ impl DependencyAnalyzer {
         for import in &symbol_table.imports {
             let dep_name = self.extract_library_name(&import.name);
             dependency_names.insert(dep_name.clone());
-            
+
             let version = self.extract_version(&import.name, extracted_strings);
-            let vulnerabilities = self.vulnerability_db.check_vulnerabilities(&dep_name, version.as_deref());
+            let vulnerabilities = self
+                .vulnerability_db
+                .check_vulnerabilities(&dep_name, version.as_deref());
             let license = self.detect_license(&dep_name, extracted_strings);
-            
+
             dependencies.push(DependencyInfo {
                 name: dep_name,
                 version,
@@ -342,30 +364,34 @@ impl DependencyAnalyzer {
             }
             return lib_part.to_lowercase();
         }
-        
+
         // Handle Windows-style imports (e.g., "kernel32.dll")
         if import_name.ends_with(".dll") {
             return import_name[..import_name.len() - 4].to_lowercase();
         }
-        
+
         // Handle lib prefix (e.g., "libssl.so.1.1" -> "ssl")
         if import_name.starts_with("lib") && import_name.contains(".so") {
             if let Some(dot_pos) = import_name[3..].find('.') {
                 return import_name[3..3 + dot_pos].to_string();
             }
         }
-        
+
         import_name.to_lowercase()
     }
 
-    fn extract_version(&self, import_name: &str, strings: Option<&ExtractedStrings>) -> Option<String> {
+    fn extract_version(
+        &self,
+        import_name: &str,
+        strings: Option<&ExtractedStrings>,
+    ) -> Option<String> {
         // Try to extract version from import name
         let version_regex = Regex::new(r"(\d+\.\d+(?:\.\d+)?)").ok()?;
-        
+
         if let Some(captures) = version_regex.captures(import_name) {
             return captures.get(1).map(|m| m.as_str().to_string());
         }
-        
+
         // Search in strings for version information
         if let Some(strings) = strings {
             for string in &strings.ascii_strings {
@@ -376,7 +402,7 @@ impl DependencyAnalyzer {
                 }
             }
         }
-        
+
         None
     }
 
@@ -393,22 +419,24 @@ impl DependencyAnalyzer {
             r"(\w+)\.dylib",
             r"lib(\w+)\.a",
         ];
-        
+
         for pattern in lib_patterns {
             let regex = Regex::new(pattern)?;
-            
+
             for string in &strings.ascii_strings {
                 if let Some(captures) = regex.captures(string) {
                     if let Some(lib_name) = captures.get(1) {
                         let name = lib_name.as_str().to_lowercase();
-                        
+
                         if !dependency_names.contains(&name) && !self.is_common_file(&name) {
                             dependency_names.insert(name.clone());
-                            
+
                             let version = self.extract_version(string, Some(strings));
-                            let vulnerabilities = self.vulnerability_db.check_vulnerabilities(&name, version.as_deref());
+                            let vulnerabilities = self
+                                .vulnerability_db
+                                .check_vulnerabilities(&name, version.as_deref());
                             let license = self.detect_license(&name, Some(strings));
-                            
+
                             dependencies.push(DependencyInfo {
                                 name,
                                 version,
@@ -426,17 +454,27 @@ impl DependencyAnalyzer {
                 }
             }
         }
-        
+
         Ok(())
     }
 
     fn is_system_library(&self, name: &str) -> bool {
         let system_libs = vec![
-            "kernel32", "user32", "advapi32", "ntdll", "msvcrt", // Windows
-            "libc", "libm", "libpthread", "libdl", "ld-linux",   // Linux
-            "libSystem", "libobjc", "CoreFoundation",            // macOS
+            "kernel32",
+            "user32",
+            "advapi32",
+            "ntdll",
+            "msvcrt", // Windows
+            "libc",
+            "libm",
+            "libpthread",
+            "libdl",
+            "ld-linux", // Linux
+            "libSystem",
+            "libobjc",
+            "CoreFoundation", // macOS
         ];
-        
+
         let lower_name = name.to_lowercase();
         system_libs.iter().any(|&lib| lower_name.contains(lib))
     }
@@ -447,7 +485,11 @@ impl DependencyAnalyzer {
         common_files.iter().any(|&file| name.contains(file))
     }
 
-    fn detect_license(&self, lib_name: &str, strings: Option<&ExtractedStrings>) -> Option<LicenseInfo> {
+    fn detect_license(
+        &self,
+        lib_name: &str,
+        strings: Option<&ExtractedStrings>,
+    ) -> Option<LicenseInfo> {
         // Simple license detection based on library name and strings
         let license = match lib_name {
             "openssl" => Some(("Apache-2.0", LicenseFamily::Apache)),
@@ -456,7 +498,7 @@ impl DependencyAnalyzer {
             "boost" => Some(("BSL-1.0", LicenseFamily::BSD)),
             _ => None,
         };
-        
+
         if let Some((license_type, family)) = license {
             return Some(LicenseInfo {
                 license_type: license_type.to_string(),
@@ -464,10 +506,13 @@ impl DependencyAnalyzer {
                 is_oss: true,
                 is_copyleft: matches!(family, LicenseFamily::GPL | LicenseFamily::LGPL),
                 is_commercial_friendly: !matches!(family, LicenseFamily::GPL),
-                attribution_required: matches!(family, LicenseFamily::MIT | LicenseFamily::BSD | LicenseFamily::Apache),
+                attribution_required: matches!(
+                    family,
+                    LicenseFamily::MIT | LicenseFamily::BSD | LicenseFamily::Apache
+                ),
             });
         }
-        
+
         // Try to detect license from strings
         if let Some(strings) = strings {
             self.license_detector.detect_from_strings(strings)
@@ -479,16 +524,16 @@ impl DependencyAnalyzer {
     fn build_dependency_graph(&self, dependencies: &[DependencyInfo]) -> DependencyGraph {
         let mut direct_deps = Vec::new();
         let mut dependency_tree = HashMap::new();
-        
+
         for dep in dependencies {
             if dep.source == DependencySource::Import {
                 direct_deps.push(dep.name.clone());
             }
-            
+
             // Simple tree - in reality would need to analyze actual dependencies
             dependency_tree.insert(dep.name.clone(), Vec::new());
         }
-        
+
         DependencyGraph {
             direct_dependencies: direct_deps,
             transitive_dependencies: HashMap::new(),
@@ -503,10 +548,12 @@ impl DependencyAnalyzer {
         let mut total_vulns = 0;
         let mut critical_vulns = 0;
         let mut high_vulns = 0;
-        
+
         for dep in dependencies {
             if !dep.vulnerabilities.is_empty() {
-                let highest_severity = dep.vulnerabilities.iter()
+                let highest_severity = dep
+                    .vulnerabilities
+                    .iter()
                     .map(|v| &v.severity)
                     .max_by_key(|s| match s {
                         VulnerabilitySeverity::Critical => 4,
@@ -517,15 +564,19 @@ impl DependencyAnalyzer {
                     })
                     .cloned()
                     .unwrap_or(VulnerabilitySeverity::None);
-                
+
                 vulnerable_deps.push(VulnerableDependency {
                     dependency_name: dep.name.clone(),
                     current_version: dep.version.clone(),
-                    vulnerabilities: dep.vulnerabilities.iter().map(|v| v.cve_id.clone()).collect(),
+                    vulnerabilities: dep
+                        .vulnerabilities
+                        .iter()
+                        .map(|v| v.cve_id.clone())
+                        .collect(),
                     highest_severity: highest_severity.clone(),
                     recommended_action: self.get_recommended_action(&dep.name, &highest_severity),
                 });
-                
+
                 total_vulns += dep.vulnerabilities.len();
                 for vuln in &dep.vulnerabilities {
                     match vuln.severity {
@@ -536,21 +587,27 @@ impl DependencyAnalyzer {
                 }
             }
         }
-        
-        let security_score = self.calculate_security_score(dependencies, critical_vulns, high_vulns);
+
+        let security_score =
+            self.calculate_security_score(dependencies, critical_vulns, high_vulns);
         let risk_level = self.determine_risk_level(security_score, critical_vulns);
-        
+
         let mut recommendations = Vec::new();
         if critical_vulns > 0 {
-            recommendations.push("URGENT: Critical vulnerabilities found. Update affected dependencies immediately.".to_string());
+            recommendations.push(
+                "URGENT: Critical vulnerabilities found. Update affected dependencies immediately."
+                    .to_string(),
+            );
         }
         if high_vulns > 0 {
-            recommendations.push("High severity vulnerabilities detected. Plan updates within 24 hours.".to_string());
+            recommendations.push(
+                "High severity vulnerabilities detected. Plan updates within 24 hours.".to_string(),
+            );
         }
         if vulnerable_deps.is_empty() {
             recommendations.push("No known vulnerabilities detected in dependencies.".to_string());
         }
-        
+
         SecurityAssessment {
             vulnerable_dependencies: vulnerable_deps,
             total_vulnerabilities: total_vulns,
@@ -566,7 +623,10 @@ impl DependencyAnalyzer {
     fn get_recommended_action(&self, lib_name: &str, severity: &VulnerabilitySeverity) -> String {
         match severity {
             VulnerabilitySeverity::Critical => {
-                format!("Immediately update {} to the latest patched version", lib_name)
+                format!(
+                    "Immediately update {} to the latest patched version",
+                    lib_name
+                )
             }
             VulnerabilitySeverity::High => {
                 format!("Update {} as soon as possible", lib_name)
@@ -578,19 +638,27 @@ impl DependencyAnalyzer {
         }
     }
 
-    fn calculate_security_score(&self, dependencies: &[DependencyInfo], critical: usize, high: usize) -> f32 {
+    fn calculate_security_score(
+        &self,
+        dependencies: &[DependencyInfo],
+        critical: usize,
+        high: usize,
+    ) -> f32 {
         if dependencies.is_empty() {
             return 100.0;
         }
-        
-        let vuln_deps = dependencies.iter().filter(|d| !d.vulnerabilities.is_empty()).count();
+
+        let vuln_deps = dependencies
+            .iter()
+            .filter(|d| !d.vulnerabilities.is_empty())
+            .count();
         let vuln_ratio = vuln_deps as f32 / dependencies.len() as f32;
-        
+
         let mut score = 100.0;
         score -= critical as f32 * 20.0;
         score -= high as f32 * 10.0;
         score -= vuln_ratio * 30.0;
-        
+
         score.max(0.0)
     }
 
@@ -613,19 +681,19 @@ impl DependencyAnalyzer {
         let mut copyleft_deps = Vec::new();
         let mut proprietary_deps = Vec::new();
         let mut compliance_issues = Vec::new();
-        
+
         for dep in dependencies {
             if let Some(license) = &dep.license {
                 licenses_found.insert(license.license_type.clone());
-                
+
                 if license.is_copyleft {
                     copyleft_deps.push(dep.name.clone());
                 }
-                
+
                 if matches!(license.license_family, LicenseFamily::Proprietary) {
                     proprietary_deps.push(dep.name.clone());
                 }
-                
+
                 // Check for missing attribution
                 if license.attribution_required && dep.is_system_library {
                     compliance_issues.push(ComplianceIssue {
@@ -644,9 +712,9 @@ impl DependencyAnalyzer {
                 });
             }
         }
-        
+
         let is_commercial_safe = copyleft_deps.is_empty() && proprietary_deps.is_empty();
-        
+
         LicenseSummary {
             licenses_found: licenses_found.into_iter().collect(),
             license_conflicts: Vec::new(), // Would need more sophisticated analysis
@@ -672,10 +740,15 @@ impl VulnerabilityDatabase {
             .push(vulnerability);
     }
 
-    fn check_vulnerabilities(&self, library: &str, version: Option<&str>) -> Vec<KnownVulnerability> {
+    fn check_vulnerabilities(
+        &self,
+        library: &str,
+        version: Option<&str>,
+    ) -> Vec<KnownVulnerability> {
         if let Some(vulns) = self.known_vulnerabilities.get(library) {
             if let Some(ver) = version {
-                vulns.iter()
+                vulns
+                    .iter()
                     .filter(|v| v.affected_versions.contains(&ver.to_string()))
                     .cloned()
                     .collect()
@@ -692,13 +765,22 @@ impl VulnerabilityDatabase {
 impl LicenseDetector {
     fn new() -> Self {
         let mut patterns = HashMap::new();
-        
+
         // Common license patterns
         patterns.insert("MIT".to_string(), Regex::new(r"(?i)mit\s+license").unwrap());
-        patterns.insert("Apache-2.0".to_string(), Regex::new(r"(?i)apache\s+license.*2\.0").unwrap());
-        patterns.insert("GPL-3.0".to_string(), Regex::new(r"(?i)gnu\s+general\s+public\s+license.*3").unwrap());
-        patterns.insert("BSD-3-Clause".to_string(), Regex::new(r"(?i)bsd\s+3-clause").unwrap());
-        
+        patterns.insert(
+            "Apache-2.0".to_string(),
+            Regex::new(r"(?i)apache\s+license.*2\.0").unwrap(),
+        );
+        patterns.insert(
+            "GPL-3.0".to_string(),
+            Regex::new(r"(?i)gnu\s+general\s+public\s+license.*3").unwrap(),
+        );
+        patterns.insert(
+            "BSD-3-Clause".to_string(),
+            Regex::new(r"(?i)bsd\s+3-clause").unwrap(),
+        );
+
         Self {
             license_patterns: patterns,
         }
@@ -715,7 +797,7 @@ impl LicenseDetector {
                         "BSD-3-Clause" => LicenseFamily::BSD,
                         _ => LicenseFamily::Unknown,
                     };
-                    
+
                     return Some(LicenseInfo {
                         license_type: license_type.clone(),
                         license_family: family.clone(),
@@ -727,7 +809,7 @@ impl LicenseDetector {
                 }
             }
         }
-        
+
         None
     }
 }

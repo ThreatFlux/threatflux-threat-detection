@@ -6,25 +6,30 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono::Utc;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::net::TcpListener;
 use tokio_stream::{wrappers::UnboundedReceiverStream, Stream};
 use tower::ServiceBuilder;
 use uuid::Uuid;
 
+use crate::cache::{AnalysisCache, CacheEntry, CacheSearchQuery};
 use crate::mcp_server::FileScannerMcp;
+use crate::string_tracker::{StringFilter, StringTracker};
 
 #[derive(Clone)]
 pub struct McpServerState {
     handler: FileScannerMcp,
     sse_clients: Arc<Mutex<HashMap<String, tokio::sync::mpsc::UnboundedSender<SseEvent>>>>,
+    cache: Arc<AnalysisCache>,
+    string_tracker: Arc<StringTracker>,
 }
 
 #[derive(Clone, Debug)]
@@ -72,12 +77,20 @@ struct ToolCallParams {
 
 pub struct McpTransportServer {
     handler: FileScannerMcp,
+    cache: Arc<AnalysisCache>,
+    string_tracker: Arc<StringTracker>,
 }
 
 impl McpTransportServer {
     pub fn new() -> Self {
+        let cache_dir = std::env::temp_dir().join("file-scanner-cache");
+        let cache = Arc::new(AnalysisCache::new(cache_dir).expect("Failed to create cache"));
+        let string_tracker = Arc::new(StringTracker::new());
+        
         Self {
             handler: FileScannerMcp,
+            cache,
+            string_tracker,
         }
     }
 
@@ -85,19 +98,21 @@ impl McpTransportServer {
     pub async fn run_stdio(&self) -> Result<()> {
         use rmcp::ServerHandler;
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-        
+
         let info = self.handler.get_info();
         eprintln!("MCP Server starting: {}", info.server_info.name);
         eprintln!("Version: {}", info.server_info.version);
         eprintln!("Protocol: {}", info.protocol_version);
-        eprintln!("Use with: npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio");
-        
+        eprintln!(
+            "Use with: npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio"
+        );
+
         // Use tokio async IO for proper MCP stdio transport
         let stdin = tokio::io::stdin();
         let mut stdout = tokio::io::stdout();
         let mut reader = BufReader::new(stdin);
         let mut line = String::new();
-        
+
         // Process JSON-RPC messages from stdin
         loop {
             line.clear();
@@ -108,7 +123,7 @@ impl McpTransportServer {
                     if trimmed.is_empty() {
                         continue;
                     }
-                    
+
                     match serde_json::from_str::<JsonRpcRequest>(trimmed) {
                         Ok(request) => {
                             let response = self.handle_jsonrpc_request(request).await;
@@ -142,7 +157,7 @@ impl McpTransportServer {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -151,6 +166,8 @@ impl McpTransportServer {
         let state = McpServerState {
             handler: self.handler.clone(),
             sse_clients: Arc::new(Mutex::new(HashMap::new())),
+            cache: self.cache.clone(),
+            string_tracker: self.string_tracker.clone(),
         };
 
         let app = Router::new()
@@ -159,11 +176,17 @@ impl McpTransportServer {
             .route("/initialize", post(handle_initialize))
             .route("/tools/list", post(handle_tools_list))
             .route("/tools/call", post(handle_tools_call))
+            .route("/cache/list", get(handle_cache_list))
+            .route("/cache/search", post(handle_cache_search))
+            .route("/cache/stats", get(handle_cache_stats))
+            .route("/cache/clear", post(handle_cache_clear))
+            .route("/strings/stats", get(handle_strings_stats))
+            .route("/strings/search", post(handle_strings_search))
+            .route("/strings/details", post(handle_string_details))
+            .route("/strings/related", post(handle_strings_related))
+            .route("/strings/filter", post(handle_strings_filter))
             .with_state(state)
-            .layer(
-                ServiceBuilder::new()
-                    .layer(axum::middleware::from_fn(cors_middleware))
-            );
+            .layer(ServiceBuilder::new().layer(axum::middleware::from_fn(cors_middleware)));
 
         let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
         println!("MCP HTTP server listening on http://localhost:{}", port);
@@ -173,10 +196,22 @@ impl McpTransportServer {
         println!("  - POST /initialize - Initialize MCP session");
         println!("  - POST /tools/list - List available tools");
         println!("  - POST /tools/call - Call a tool");
+        println!("  - GET /cache/list - List all cache entries");
+        println!("  - POST /cache/search - Search cache with query");
+        println!("  - GET /cache/stats - Get cache statistics");
+        println!("  - POST /cache/clear - Clear all cache entries");
+        println!("  - GET /strings/stats - Get string statistics");
+        println!("  - POST /strings/search - Search for strings");
+        println!("  - POST /strings/details - Get string details");
+        println!("  - POST /strings/related - Find related strings");
+        println!("  - POST /strings/filter - Filter strings with advanced criteria");
         println!();
         println!("Test with MCP Inspector:");
-        println!("  npx @modelcontextprotocol/inspector http://localhost:{}/mcp", port);
-        
+        println!(
+            "  npx @modelcontextprotocol/inspector http://localhost:{}/mcp",
+            port
+        );
+
         axum::serve(listener, app).await?;
         Ok(())
     }
@@ -186,6 +221,8 @@ impl McpTransportServer {
         let state = McpServerState {
             handler: self.handler.clone(),
             sse_clients: Arc::new(Mutex::new(HashMap::new())),
+            cache: self.cache.clone(),
+            string_tracker: self.string_tracker.clone(),
         };
 
         let app = Router::new()
@@ -193,10 +230,7 @@ impl McpTransportServer {
             .route("/mcp", post(handle_mcp_sse_request))
             .route("/health", get(health_check))
             .with_state(state)
-            .layer(
-                ServiceBuilder::new()
-                    .layer(axum::middleware::from_fn(cors_middleware))
-            );
+            .layer(ServiceBuilder::new().layer(axum::middleware::from_fn(cors_middleware)));
 
         let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
         println!("MCP SSE server listening on http://localhost:{}", port);
@@ -206,15 +240,18 @@ impl McpTransportServer {
         println!("  - GET /health - Health check");
         println!();
         println!("Test with MCP Inspector:");
-        println!("  npx @modelcontextprotocol/inspector http://localhost:{}/sse", port);
-        
+        println!(
+            "  npx @modelcontextprotocol/inspector http://localhost:{}/sse",
+            port
+        );
+
         axum::serve(listener, app).await?;
         Ok(())
     }
 
     async fn handle_jsonrpc_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
         use rmcp::ServerHandler;
-        
+
         match request.method.as_str() {
             "initialize" => {
                 let info = self.handler.get_info();
@@ -229,242 +266,147 @@ impl McpTransportServer {
                     error: None,
                 }
             }
-            "tools/list" => {
-                JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    id: request.id,
-                    result: Some(json!({
-                        "tools": [
-                            {
-                                "name": "calculate_file_hashes",
-                                "description": "Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3) for a file",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to hash"
-                                        }
+            "tools/list" => JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id,
+                result: Some(json!({
+                    "tools": [
+                        {
+                            "name": "analyze_file",
+                            "description": "Comprehensive file analysis tool - use flags to control which analyses to perform",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "file_path": {
+                                        "type": "string",
+                                        "description": "Path to the file to analyze"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "extract_file_strings",
-                                "description": "Extract ASCII and Unicode strings from a file",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to extract strings from"
-                                        },
-                                        "min_length": {
-                                            "type": "integer",
-                                            "description": "Minimum string length",
-                                            "default": 4
-                                        }
+                                    "metadata": {
+                                        "type": "boolean",
+                                        "description": "Include file metadata (size, timestamps, permissions)"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "hex_dump_file",
-                                "description": "Generate a hex dump of a file or part of a file",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to hex dump"
-                                        },
-                                        "size": {
-                                            "type": "integer",
-                                            "description": "Number of bytes to dump",
-                                            "default": 256
-                                        },
-                                        "offset": {
-                                            "type": "integer",
-                                            "description": "Offset from start of file",
-                                            "default": 0
-                                        }
+                                    "hashes": {
+                                        "type": "boolean",
+                                        "description": "Include cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_binary_file",
-                                "description": "Analyze binary file format (PE, ELF, Mach-O) and extract metadata",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to analyze"
-                                        }
+                                    "strings": {
+                                        "type": "boolean",
+                                        "description": "Extract strings from the file"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "get_file_metadata",
-                                "description": "Extract file system metadata including timestamps, permissions, and file type",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to get metadata for"
-                                        }
+                                    "min_string_length": {
+                                        "type": "integer",
+                                        "description": "Minimum string length (default: 4)"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "verify_file_signatures",
-                                "description": "Verify digital signatures on a file",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to verify signatures for"
-                                        }
+                                    "hex_dump": {
+                                        "type": "boolean",
+                                        "description": "Generate hex dump"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_function_symbols",
-                                "description": "Analyze function symbols and cross-references in a binary file",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to analyze"
-                                        }
+                                    "hex_dump_size": {
+                                        "type": "integer",
+                                        "description": "Hex dump size in bytes (default: 256)"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_control_flow_graph",
-                                "description": "Analyze control flow graphs, basic blocks, and complexity metrics in a binary file",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to analyze"
-                                        }
+                                    "hex_dump_offset": {
+                                        "type": "integer",
+                                        "description": "Hex dump offset from start"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "detect_vulnerabilities",
-                                "description": "Detect security vulnerabilities using static analysis patterns and rules",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to analyze for vulnerabilities"
-                                        }
+                                    "binary_info": {
+                                        "type": "boolean",
+                                        "description": "Analyze binary format (PE/ELF/Mach-O)"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_code_quality",
-                                "description": "Analyze code quality metrics including complexity, maintainability, and technical debt",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to analyze for code quality"
-                                        }
+                                    "signatures": {
+                                        "type": "boolean",
+                                        "description": "Verify digital signatures"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_dependencies",
-                                "description": "Analyze library dependencies, detect vulnerable libraries, and check license compliance",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to analyze for dependencies"
-                                        }
+                                    "symbols": {
+                                        "type": "boolean",
+                                        "description": "Analyze function symbols"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_entropy_patterns",
-                                "description": "Analyze entropy patterns to detect packing, encryption, and obfuscation techniques",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to analyze for entropy patterns"
-                                        }
+                                    "control_flow": {
+                                        "type": "boolean",
+                                        "description": "Analyze control flow"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "disassemble_code",
-                                "description": "Disassemble binary code with multi-architecture support and advanced instruction analysis",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the binary file to disassemble"
-                                        }
+                                    "vulnerabilities": {
+                                        "type": "boolean",
+                                        "description": "Detect vulnerabilities"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "detect_threats",
-                                "description": "Detect threats and malware using YARA-X rules with comprehensive pattern matching",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to analyze for threats"
-                                        }
+                                    "code_quality": {
+                                        "type": "boolean",
+                                        "description": "Analyze code quality metrics"
                                     },
-                                    "required": ["file_path"]
-                                }
-                            },
-                            {
-                                "name": "analyze_behavioral_patterns",
-                                "description": "Analyze behavioral patterns including anti-analysis, persistence, and evasion techniques",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "file_path": {
-                                            "type": "string",
-                                            "description": "Path to the file to analyze for behavioral patterns"
-                                        }
+                                    "dependencies": {
+                                        "type": "boolean",
+                                        "description": "Analyze dependencies"
                                     },
-                                    "required": ["file_path"]
-                                }
+                                    "entropy": {
+                                        "type": "boolean",
+                                        "description": "Analyze entropy patterns"
+                                    },
+                                    "disassembly": {
+                                        "type": "boolean",
+                                        "description": "Disassemble code"
+                                    },
+                                    "threats": {
+                                        "type": "boolean",
+                                        "description": "Detect threats and malware"
+                                    },
+                                    "behavioral": {
+                                        "type": "boolean",
+                                        "description": "Analyze behavioral patterns"
+                                    },
+                                    "yara_indicators": {
+                                        "type": "boolean",
+                                        "description": "Extract YARA rule indicators"
+                                    }
+                                },
+                                "required": ["file_path"]
                             }
-                        ]
-                    })),
-                    error: None,
-                }
-            }
+                        },
+                        {
+                            "name": "llm_analyze_file",
+                            "description": "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "file_path": {
+                                        "type": "string",
+                                        "description": "Path to the file to analyze"
+                                    },
+                                    "token_limit": {
+                                        "type": "integer",
+                                        "description": "Token limit for the response (default: 25000)"
+                                    },
+                                    "min_string_length": {
+                                        "type": "integer",
+                                        "description": "Minimum string length to extract (default: 6)"
+                                    },
+                                    "max_strings": {
+                                        "type": "integer",
+                                        "description": "Maximum number of strings to return (default: 50)"
+                                    },
+                                    "max_imports": {
+                                        "type": "integer",
+                                        "description": "Maximum number of imports to return (default: 30)"
+                                    },
+                                    "max_opcodes": {
+                                        "type": "integer",
+                                        "description": "Maximum number of opcodes to return (default: 10)"
+                                    },
+                                    "hex_pattern_size": {
+                                        "type": "integer",
+                                        "description": "Size of hex patterns to extract (default: 32)"
+                                    },
+                                    "suggest_yara_rule": {
+                                        "type": "boolean",
+                                        "description": "Generate YARA rule suggestion (default: true)"
+                                    }
+                                },
+                                "required": ["file_path"]
+                            }
+                        }
+                    ]
+                })),
+                error: None,
+            },
             "tools/call" => {
                 if let Some(params) = request.params {
                     if let Ok(tool_call) = serde_json::from_value::<ToolCallParams>(params) {
@@ -514,298 +456,114 @@ impl McpTransportServer {
     }
 
     async fn handle_tool_call(&self, params: ToolCallParams) -> Value {
-        use crate::{
-            binary_parser::parse_binary,
-            hash::calculate_all_hashes,
-            hexdump::{format_hex_dump_text, generate_hex_dump, HexDumpOptions},
-            metadata::FileMetadata,
-            signature::verify_signature,
-            strings::extract_strings,
-        };
-        use std::path::PathBuf;
-
+        use crate::mcp_server::{FileAnalysisRequest, FileAnalysisResult};
+        use rmcp::handler::server::wrapper::Json;
+        
+        let start_time = Instant::now();
+        
         match params.name.as_str() {
-            "calculate_file_hashes" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match calculate_all_hashes(&path).await {
-                        Ok(hashes) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&hashes).unwrap_or_default()}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "extract_file_strings" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    let min_len = params.arguments.get("min_length").and_then(|v| v.as_u64()).unwrap_or(4) as usize;
-                    match extract_strings(&path, min_len) {
-                        Ok(strings) => {
-                            let all_strings: Vec<String> = [strings.ascii_strings, strings.unicode_strings].concat();
-                            json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&all_strings).unwrap_or_default()}]})
-                        }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "hex_dump_file" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    let size = params.arguments.get("size").and_then(|v| v.as_u64()).unwrap_or(256) as usize;
-                    let offset = params.arguments.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
-                    let hex_options = HexDumpOptions {
-                        offset,
-                        length: Some(size),
-                        bytes_per_line: 16,
-                        max_lines: None,
-                    };
-                    match generate_hex_dump(&path, hex_options) {
-                        Ok(hex_dump) => {
-                            let formatted = format_hex_dump_text(&hex_dump);
-                            json!({"content": [{"type": "text", "text": formatted}]})
-                        }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "analyze_binary_file" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match parse_binary(&path) {
-                        Ok(binary_info) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&binary_info).unwrap_or_default()}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "get_file_metadata" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match FileMetadata::new(&path) {
-                        Ok(mut metadata) => {
-                            if let Err(e) = metadata.extract_basic_info() {
-                                return json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]});
-                            }
-                            if let Err(e) = metadata.calculate_hashes().await {
-                                return json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]});
-                            }
-                            json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&metadata).unwrap_or_default()}]})
-                        }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "verify_file_signatures" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match verify_signature(&path) {
-                        Ok(sig_info) => json!({"content": [{"type": "text", "text": format!("Signatures verified: {:?}", sig_info)}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "analyze_function_symbols" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::function_analysis::analyze_symbols(&path) {
-                        Ok(symbol_table) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&symbol_table).unwrap_or_default()}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "analyze_control_flow_graph" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::function_analysis::analyze_symbols(&path) {
-                        Ok(symbol_table) => {
-                            match crate::control_flow::analyze_control_flow(&path, &symbol_table) {
-                                Ok(cfg_analysis) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&cfg_analysis).unwrap_or_default()}]}),
-                                Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                            }
-                        }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze symbols: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "detect_vulnerabilities" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::function_analysis::analyze_symbols(&path) {
-                        Ok(symbol_table) => {
-                            match crate::control_flow::analyze_control_flow(&path, &symbol_table) {
-                                Ok(cfg_analysis) => {
-                                    match crate::vulnerability_detection::analyze_vulnerabilities(&path, &symbol_table, &cfg_analysis) {
-                                        Ok(vuln_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&vuln_result).unwrap_or_default()}]}),
-                                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
+            "analyze_file" => {
+                // Convert the arguments to FileAnalysisRequest
+                match serde_json::from_value::<FileAnalysisRequest>(serde_json::json!(params.arguments)) {
+                    Ok(request) => {
+                        // Call the unified analyze_file method
+                        match self.handler.analyze_file(request).await {
+                            Ok(Json(result)) => {
+                                // Track strings if extracted
+                                if let (Some(strings), Some(file_path)) = (&result.strings, params.arguments.get("file_path").and_then(|v| v.as_str())) {
+                                    if let Ok(hashes) = crate::hash::calculate_all_hashes(&std::path::PathBuf::from(file_path)).await {
+                                        let _ = self.string_tracker.track_strings_from_results(
+                                            strings,
+                                            file_path,
+                                            &hashes.sha256,
+                                            "analyze_file"
+                                        );
                                     }
                                 }
-                                Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze control flow: {}", e)}]}),
-                            }
-                        }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze symbols: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "analyze_code_quality" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::function_analysis::analyze_symbols(&path) {
-                        Ok(symbol_table) => {
-                            match crate::control_flow::analyze_control_flow(&path, &symbol_table) {
-                                Ok(cfg_analysis) => {
-                                    match crate::code_metrics::analyze_code_quality(&path, &symbol_table, &cfg_analysis) {
-                                        Ok(quality_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&quality_result).unwrap_or_default()}]}),
-                                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
+                                
+                                // Cache the result
+                                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
+                                    if let Ok(metadata) = std::fs::metadata(file_path) {
+                                        if let Ok(hashes) = crate::hash::calculate_all_hashes(&std::path::PathBuf::from(file_path)).await {
+                                            let entry = CacheEntry {
+                                                file_path: file_path.to_string(),
+                                                file_hash: hashes.sha256,
+                                                tool_name: "analyze_file".to_string(),
+                                                tool_args: params.arguments.clone(),
+                                                result: serde_json::to_value(&result).unwrap_or_default(),
+                                                timestamp: Utc::now(),
+                                                file_size: metadata.len(),
+                                                execution_time_ms: start_time.elapsed().as_millis() as u64,
+                                            };
+                                            let _ = self.cache.add_entry(entry);
+                                        }
                                     }
                                 }
-                                Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze control flow: {}", e)}]}),
+                                
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                                    }]
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": format!("Error: {}", e)
+                                    }]
+                                })
                             }
                         }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze symbols: {}", e)}]}),
                     }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
+                    Err(e) => {
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("Error parsing request: {}", e)
+                            }]
+                        })
+                    }
                 }
             }
-            "analyze_dependencies" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::function_analysis::analyze_symbols(&path) {
-                        Ok(symbol_table) => {
-                            let strings = extract_strings(&path, 4).ok();
-                            match crate::dependency_analysis::analyze_dependencies(&path, &symbol_table, strings.as_ref()) {
-                                Ok(dep_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&dep_result).unwrap_or_default()}]}),
-                                Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
+            "llm_analyze_file" => {
+                // Convert the arguments to LlmFileAnalysisRequest
+                match serde_json::from_value::<crate::mcp_server::LlmFileAnalysisRequest>(serde_json::json!(params.arguments)) {
+                    Ok(request) => {
+                        // Call the llm_analyze_file method
+                        match self.handler.llm_analyze_file(request).await {
+                            Ok(Json(result)) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                                    }]
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": format!("Error: {}", e)
+                                    }]
+                                })
                             }
                         }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze symbols: {}", e)}]}),
                     }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
+                    Err(e) => {
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("Error parsing request: {}", e)
+                            }]
+                        })
+                    }
                 }
             }
-            "analyze_entropy_patterns" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::entropy_analysis::analyze_entropy(&path) {
-                        Ok(entropy_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&entropy_result).unwrap_or_default()}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
+            _ => {
+                json!({"content": [{"type": "text", "text": format!("Error: Unknown tool: {}", params.name)}]})
             }
-            "disassemble_code" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::function_analysis::analyze_symbols(&path) {
-                        Ok(symbol_table) => {
-                            match crate::disassembly::disassemble_binary(&path, &symbol_table) {
-                                Ok(disassembly_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&disassembly_result).unwrap_or_default()}]}),
-                                Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                            }
-                        }
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: Failed to analyze symbols: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "detect_threats" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    match crate::threat_detection::analyze_threats(&path) {
-                        Ok(threat_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&threat_result).unwrap_or_default()}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            "analyze_behavioral_patterns" => {
-                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
-                    let path = PathBuf::from(file_path);
-                    if !path.exists() {
-                        return json!({"content": [{"type": "text", "text": format!("Error: File does not exist: {}", file_path)}]});
-                    }
-                    // Extract strings
-                    let strings = crate::strings::extract_strings(&path, 4).ok();
-                    // Get symbols
-                    let symbols = crate::function_analysis::analyze_symbols(&path).ok();
-                    // Get disassembly if possible
-                    let disassembly = if let Some(ref syms) = symbols {
-                        crate::disassembly::disassemble_binary(&path, syms).ok()
-                    } else {
-                        None
-                    };
-                    // Analyze behavior
-                    match crate::behavioral_analysis::analyze_behavior(&path, strings.as_ref(), symbols.as_ref(), disassembly.as_ref()) {
-                        Ok(behavioral_result) => json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&behavioral_result).unwrap_or_default()}]}),
-                        Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}]}),
-                    }
-                } else {
-                    json!({"content": [{"type": "text", "text": "Error: Missing file_path parameter"}]})
-                }
-            }
-            _ => json!({"content": [{"type": "text", "text": format!("Error: Unknown tool: {}", params.name)}]}),
         }
     }
 }
@@ -817,6 +575,8 @@ async fn handle_mcp_http_request(
 ) -> Result<AxumJson<JsonRpcResponse>, StatusCode> {
     let server = McpTransportServer {
         handler: state.handler,
+        cache: state.cache.clone(),
+        string_tracker: state.string_tracker.clone(),
     };
     let response = server.handle_jsonrpc_request(request).await;
     Ok(AxumJson(response))
@@ -840,64 +600,12 @@ async fn handle_tools_list(
     Ok(AxumJson(json!({
         "tools": [
             {
-                "name": "calculate_file_hashes",
-                "description": "Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3) for a file"
+                "name": "analyze_file",
+                "description": "Comprehensive file analysis tool - use flags to control which analyses to perform"
             },
             {
-                "name": "extract_file_strings", 
-                "description": "Extract ASCII and Unicode strings from a file"
-            },
-            {
-                "name": "hex_dump_file",
-                "description": "Generate a hex dump of a file or part of a file"
-            },
-            {
-                "name": "analyze_binary_file",
-                "description": "Analyze binary file format (PE, ELF, Mach-O) and extract metadata"
-            },
-            {
-                "name": "get_file_metadata",
-                "description": "Extract file system metadata including timestamps, permissions, and file type"
-            },
-            {
-                "name": "verify_file_signatures",
-                "description": "Verify digital signatures on a file"
-            },
-            {
-                "name": "analyze_function_symbols",
-                "description": "Analyze function symbols and cross-references in a binary file"
-            },
-            {
-                "name": "analyze_control_flow_graph",
-                "description": "Analyze control flow graphs, basic blocks, and complexity metrics in a binary file"
-            },
-            {
-                "name": "detect_vulnerabilities",
-                "description": "Detect security vulnerabilities using static analysis patterns and rules"
-            },
-            {
-                "name": "analyze_code_quality",
-                "description": "Analyze code quality metrics including complexity, maintainability, and technical debt"
-            },
-            {
-                "name": "analyze_dependencies",
-                "description": "Analyze library dependencies, detect vulnerable libraries, and check license compliance"
-            },
-            {
-                "name": "analyze_entropy_patterns",
-                "description": "Analyze entropy patterns to detect packing, encryption, and obfuscation techniques"
-            },
-            {
-                "name": "disassemble_code",
-                "description": "Disassemble binary code with multi-architecture support and advanced instruction analysis"
-            },
-            {
-                "name": "detect_threats",
-                "description": "Detect threats and malware using YARA-X rules with comprehensive pattern matching"
-            },
-            {
-                "name": "analyze_behavioral_patterns",
-                "description": "Analyze behavioral patterns including anti-analysis, persistence, and evasion techniques"
+                "name": "llm_analyze_file",
+                "description": "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output"
             }
         ]
     })))
@@ -909,6 +617,8 @@ async fn handle_tools_call(
 ) -> Result<AxumJson<Value>, StatusCode> {
     let server = McpTransportServer {
         handler: state.handler,
+        cache: state.cache.clone(),
+        string_tracker: state.string_tracker.clone(),
     };
     let result = server.handle_tool_call(params).await;
     Ok(AxumJson(result))
@@ -919,15 +629,17 @@ async fn handle_sse_connection(
     Query(query): Query<SseQuery>,
     State(state): State<McpServerState>,
 ) -> Sse<impl Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>> {
-    let client_id = query.client_id.unwrap_or_else(|| Uuid::new_v4().to_string());
+    let client_id = query
+        .client_id
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    
+
     // Store the client
     {
         let mut clients = state.sse_clients.lock().unwrap();
         clients.insert(client_id.clone(), tx.clone());
     }
-    
+
     // Send initial connection event
     let _ = tx.send(SseEvent {
         id: Some("init".to_string()),
@@ -935,9 +647,10 @@ async fn handle_sse_connection(
         data: json!({
             "client_id": client_id,
             "message": "Connected to MCP File Scanner server"
-        }).to_string(),
+        })
+        .to_string(),
     });
-    
+
     let stream = UnboundedReceiverStream::new(rx).map(|event| {
         let mut sse_event = axum::response::sse::Event::default().data(event.data);
         if let Some(id) = event.id {
@@ -948,7 +661,7 @@ async fn handle_sse_connection(
         }
         Ok(sse_event)
     });
-    
+
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(Duration::from_secs(15))
@@ -962,21 +675,23 @@ async fn handle_mcp_sse_request(
 ) -> Result<AxumJson<JsonRpcResponse>, StatusCode> {
     let server = McpTransportServer {
         handler: state.handler,
+        cache: state.cache.clone(),
+        string_tracker: state.string_tracker.clone(),
     };
     let response = server.handle_jsonrpc_request(request).await;
-    
+
     // Broadcast response to SSE clients
     let event = SseEvent {
         id: Some(Uuid::new_v4().to_string()),
         event: Some("mcp_response".to_string()),
         data: serde_json::to_string(&response).unwrap_or_default(),
     };
-    
+
     let clients = state.sse_clients.lock().unwrap();
     for (_, sender) in clients.iter() {
         let _ = sender.send(event.clone());
     }
-    
+
     Ok(AxumJson(response))
 }
 
@@ -994,12 +709,136 @@ async fn cors_middleware(
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     let mut response = next.run(request).await;
-    
+
     let headers = response.headers_mut();
     headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-    headers.insert("Access-Control-Allow-Methods", "GET, POST, OPTIONS".parse().unwrap());
-    headers.insert("Access-Control-Allow-Headers", "Content-Type, Authorization, Cache-Control".parse().unwrap());
+    headers.insert(
+        "Access-Control-Allow-Methods",
+        "GET, POST, OPTIONS".parse().unwrap(),
+    );
+    headers.insert(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, Cache-Control"
+            .parse()
+            .unwrap(),
+    );
     headers.insert("Cache-Control", "no-cache".parse().unwrap());
-    
+
     response
+}
+
+// Cache management handlers
+async fn handle_cache_list(
+    State(state): State<McpServerState>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let entries = state.cache.get_all_entries();
+    Ok(AxumJson(json!({
+        "entries": entries,
+        "count": entries.len()
+    })))
+}
+
+async fn handle_cache_search(
+    State(state): State<McpServerState>,
+    AxumJson(query): AxumJson<CacheSearchQuery>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let results = state.cache.search_entries(&query);
+    Ok(AxumJson(json!({
+        "results": results,
+        "count": results.len()
+    })))
+}
+
+async fn handle_cache_stats(
+    State(state): State<McpServerState>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let stats = state.cache.get_statistics();
+    let metadata = state.cache.get_metadata();
+    Ok(AxumJson(json!({
+        "statistics": stats,
+        "metadata": metadata
+    })))
+}
+
+async fn handle_cache_clear(
+    State(state): State<McpServerState>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    match state.cache.clear() {
+        Ok(_) => Ok(AxumJson(json!({
+            "status": "success",
+            "message": "Cache cleared successfully"
+        }))),
+        Err(e) => Ok(AxumJson(json!({
+            "status": "error",
+            "message": format!("Failed to clear cache: {}", e)
+        })))
+    }
+}
+
+// String tracker handlers
+async fn handle_strings_stats(
+    State(state): State<McpServerState>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let stats = state.string_tracker.get_statistics(None);
+    Ok(AxumJson(json!(stats)))
+}
+
+async fn handle_strings_search(
+    State(state): State<McpServerState>,
+    AxumJson(params): AxumJson<HashMap<String, Value>>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let query = params.get("query")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let limit = params.get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(100) as usize;
+    
+    let results = state.string_tracker.search_strings(query, limit);
+    Ok(AxumJson(json!({
+        "results": results,
+        "count": results.len()
+    })))
+}
+
+async fn handle_string_details(
+    State(state): State<McpServerState>,
+    AxumJson(params): AxumJson<HashMap<String, Value>>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let value = params.get("value")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    
+    match state.string_tracker.get_string_details(value) {
+        Some(details) => Ok(AxumJson(json!(details))),
+        None => Ok(AxumJson(json!({
+            "error": "String not found"
+        })))
+    }
+}
+
+async fn handle_strings_related(
+    State(state): State<McpServerState>,
+    AxumJson(params): AxumJson<HashMap<String, Value>>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let value = params.get("value")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let limit = params.get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(20) as usize;
+    
+    let related = state.string_tracker.get_related_strings(value, limit);
+    Ok(AxumJson(json!({
+        "related": related,
+        "count": related.len()
+    })))
+}
+
+async fn handle_strings_filter(
+    State(state): State<McpServerState>,
+    AxumJson(filter): AxumJson<StringFilter>,
+) -> Result<AxumJson<Value>, StatusCode> {
+    let stats = state.string_tracker.get_statistics(Some(&filter));
+    Ok(AxumJson(json!(stats)))
 }

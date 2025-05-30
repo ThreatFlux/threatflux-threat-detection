@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ExtractedStrings {
     pub total_count: usize,
     pub unique_count: usize,
@@ -16,7 +16,7 @@ pub struct ExtractedStrings {
     pub interesting_strings: Vec<InterestingString>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct InterestingString {
     pub category: String,
     pub value: String,
@@ -32,7 +32,7 @@ pub fn extract_strings(path: &Path, min_length: usize) -> Result<ExtractedString
 
     let ascii_pattern = format!(r"[\x20-\x7E]{{{},}}", min_length);
     let ascii_regex = Regex::new(&ascii_pattern)?;
-    
+
     let mut ascii_strings = Vec::new();
     let mut unicode_strings = Vec::new();
     let mut interesting_strings = Vec::new();
@@ -43,7 +43,7 @@ pub fn extract_strings(path: &Path, min_length: usize) -> Result<ExtractedString
             let string = s.to_string();
             unique_strings.insert(string.clone());
             ascii_strings.push(string.clone());
-            
+
             if let Some(interesting) = categorize_string(&string, mat.start()) {
                 interesting_strings.push(interesting);
             }
@@ -52,14 +52,14 @@ pub fn extract_strings(path: &Path, min_length: usize) -> Result<ExtractedString
 
     let utf16_le_pattern = format!(r"(?:[\x00-\x7F]\x00){{{},}}", min_length);
     let utf16_le_regex = Regex::new(&utf16_le_pattern)?;
-    
+
     for mat in utf16_le_regex.find_iter(&buffer) {
         let (decoded, _, _) = UTF_16LE.decode(mat.as_bytes());
         let string = decoded.into_owned();
         if string.len() >= min_length {
             unique_strings.insert(string.clone());
             unicode_strings.push(string.clone());
-            
+
             if let Some(interesting) = categorize_string(&string, mat.start()) {
                 interesting_strings.push(interesting);
             }
@@ -68,14 +68,14 @@ pub fn extract_strings(path: &Path, min_length: usize) -> Result<ExtractedString
 
     let utf16_be_pattern = format!(r"(?:\x00[\x00-\x7F]){{{},}}", min_length);
     let utf16_be_regex = Regex::new(&utf16_be_pattern)?;
-    
+
     for mat in utf16_be_regex.find_iter(&buffer) {
         let (decoded, _, _) = UTF_16BE.decode(mat.as_bytes());
         let string = decoded.into_owned();
         if string.len() >= min_length {
             unique_strings.insert(string.clone());
             unicode_strings.push(string.clone());
-            
+
             if let Some(interesting) = categorize_string(&string, mat.start()) {
                 interesting_strings.push(interesting);
             }
@@ -102,7 +102,10 @@ fn categorize_string(s: &str, offset: usize) -> Option<InterestingString> {
         (r"(?i)copyright\s+.*\d{4}", "Copyright"),
         (r"(?i)version\s*[:=]?\s*\d+\.\d+", "Version"),
         (r"(?:/[a-zA-Z0-9._-]+){3,}", "File Path"),
-        (r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", "IP Address"),
+        (
+            r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}",
+            "IP Address",
+        ),
         (r"(?i)(?:error|warning|fatal|critical).*", "Error/Warning"),
         (r"(?i)(?:debug|trace|info).*", "Debug Info"),
     ];

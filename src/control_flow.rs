@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use capstone::prelude::*;
 use goblin::Object;
 use serde::{Deserialize, Serialize};
@@ -73,13 +73,13 @@ pub enum InstructionType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FlowControl {
-    Fall,          // Falls through to next instruction
-    Jump(u64),     // Unconditional jump to address
-    Branch(u64),   // Conditional branch to address
-    Call(u64),     // Function call to address
-    Return,        // Return from function
-    Indirect,      // Indirect jump/call
-    Halt,          // Stops execution
+    Fall,        // Falls through to next instruction
+    Jump(u64),   // Unconditional jump to address
+    Branch(u64), // Conditional branch to address
+    Call(u64),   // Function call to address
+    Return,      // Return from function
+    Indirect,    // Indirect jump/call
+    Halt,        // Stops execution
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -91,11 +91,11 @@ pub struct CfgEdge {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EdgeType {
-    Fall,          // Sequential execution
-    Jump,          // Unconditional jump
-    Branch,        // Conditional branch
-    Call,          // Function call
-    Return,        // Return edge
+    Fall,   // Sequential execution
+    Jump,   // Unconditional jump
+    Branch, // Conditional branch
+    Call,   // Function call
+    Return, // Return edge
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -109,11 +109,11 @@ pub struct Loop {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum LoopType {
-    Natural,       // Natural loop with single entry
-    Irreducible,   // Multiple entry points
-    DoWhile,       // Test at end
-    While,         // Test at beginning
-    For,           // Counted loop
+    Natural,     // Natural loop with single entry
+    Irreducible, // Multiple entry points
+    DoWhile,     // Test at end
+    While,       // Test at beginning
+    For,         // Counted loop
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -191,23 +191,34 @@ impl ControlFlowAnalyzer {
         for function in &functions_to_analyze {
             // Calculate the offset within the binary file
             let file_offset = (function.address - text_section_addr + text_section_offset) as usize;
-            
+
             // Ensure we don't read beyond the file
             if file_offset >= binary_data.len() {
-                errors.push(format!("Function {} offset {} beyond file size", function.name, file_offset));
+                errors.push(format!(
+                    "Function {} offset {} beyond file size",
+                    function.name, file_offset
+                ));
                 continue;
             }
 
-            let function_size = std::cmp::min(function.size as usize, binary_data.len() - file_offset);
+            let function_size =
+                std::cmp::min(function.size as usize, binary_data.len() - file_offset);
             let function_bytes = &binary_data[file_offset..file_offset + function_size];
 
             match self.analyze_function(function, function_bytes) {
                 Ok(cfg) => {
-                    total_instructions += cfg.basic_blocks.iter().map(|bb| bb.instruction_count).sum::<usize>();
+                    total_instructions += cfg
+                        .basic_blocks
+                        .iter()
+                        .map(|bb| bb.instruction_count)
+                        .sum::<usize>();
                     cfgs.push(cfg);
                 }
                 Err(e) => {
-                    errors.push(format!("Failed to analyze function {}: {}", function.name, e));
+                    errors.push(format!(
+                        "Failed to analyze function {}: {}",
+                        function.name, e
+                    ));
                 }
             }
         }
@@ -219,17 +230,25 @@ impl ControlFlowAnalyzer {
         let average_complexity = if cfgs.is_empty() {
             0.0
         } else {
-            cfgs.iter().map(|cfg| cfg.complexity.cyclomatic_complexity as f64).sum::<f64>() / cfgs.len() as f64
+            cfgs.iter()
+                .map(|cfg| cfg.complexity.cyclomatic_complexity as f64)
+                .sum::<f64>()
+                / cfgs.len() as f64
         };
 
         let (max_complexity, function_with_max_complexity) = cfgs
             .iter()
             .max_by_key(|cfg| cfg.complexity.cyclomatic_complexity)
-            .map(|cfg| (cfg.complexity.cyclomatic_complexity, Some(cfg.function_name.clone())))
+            .map(|cfg| {
+                (
+                    cfg.complexity.cyclomatic_complexity,
+                    Some(cfg.function_name.clone()),
+                )
+            })
             .unwrap_or((0, None));
 
         let analyzed_functions = cfgs.len();
-        
+
         Ok(ControlFlowAnalysis {
             cfgs,
             overall_metrics: OverallMetrics {
@@ -249,29 +268,33 @@ impl ControlFlowAnalyzer {
         })
     }
 
-    fn analyze_function(&self, function: &FunctionInfo, function_bytes: &[u8]) -> Result<ControlFlowGraph> {
+    fn analyze_function(
+        &self,
+        function: &FunctionInfo,
+        function_bytes: &[u8],
+    ) -> Result<ControlFlowGraph> {
         // Disassemble the function
         let instructions = self.disassemble_function(function_bytes, function.address)?;
-        
+
         if instructions.is_empty() {
             return Err(anyhow!("No instructions found in function"));
         }
 
         // Find basic block boundaries
         let block_boundaries = self.find_basic_block_boundaries(&instructions);
-        
+
         // Create basic blocks
         let basic_blocks = self.create_basic_blocks(&instructions, &block_boundaries);
-        
+
         // Build control flow edges
         let edges = self.build_control_flow_edges(&basic_blocks);
-        
+
         // Detect loops
         let loops = self.detect_loops(&basic_blocks, &edges);
-        
+
         // Calculate complexity metrics
         let complexity = self.calculate_complexity_metrics(&basic_blocks, &edges, &loops);
-        
+
         // Determine entry and exit blocks
         let entry_block = 0; // First block is always entry
         let exit_blocks = self.find_exit_blocks(&basic_blocks);
@@ -289,9 +312,11 @@ impl ControlFlowAnalyzer {
     }
 
     fn disassemble_function(&self, bytes: &[u8], base_address: u64) -> Result<Vec<Instruction>> {
-        let instructions = self.capstone.disasm_all(bytes, base_address)
+        let instructions = self
+            .capstone
+            .disasm_all(bytes, base_address)
             .map_err(|e| anyhow!("Failed to disassemble: {:?}", e))?;
-        
+
         let mut result = Vec::new();
 
         for insn in instructions.as_ref() {
@@ -314,41 +339,45 @@ impl ControlFlowAnalyzer {
 
     fn classify_instruction(&self, insn: &capstone::Insn) -> InstructionType {
         let mnemonic = insn.mnemonic().unwrap_or("");
-        
+
         match mnemonic {
             // Control flow instructions
-            "jmp" | "je" | "jne" | "jz" | "jnz" | "jg" | "jge" | "jl" | "jle" | 
-            "ja" | "jae" | "jb" | "jbe" | "jo" | "jno" | "js" | "jns" | "jp" | "jnp" => InstructionType::Jump,
-            
+            "jmp" | "je" | "jne" | "jz" | "jnz" | "jg" | "jge" | "jl" | "jle" | "ja" | "jae"
+            | "jb" | "jbe" | "jo" | "jno" | "js" | "jns" | "jp" | "jnp" => InstructionType::Jump,
+
             // Conditional jumps
             "test" | "cmp" => InstructionType::Conditional,
-            
+
             // Function calls and returns
             "call" => InstructionType::Call,
             "ret" | "retf" | "retn" => InstructionType::Return,
-            
+
             // Arithmetic operations
-            "add" | "sub" | "mul" | "div" | "inc" | "dec" | "imul" | "idiv" | "neg" => InstructionType::Arithmetic,
-            
+            "add" | "sub" | "mul" | "div" | "inc" | "dec" | "imul" | "idiv" | "neg" => {
+                InstructionType::Arithmetic
+            }
+
             // Logic operations
             "and" | "or" | "xor" | "not" | "shl" | "shr" | "sal" | "sar" => InstructionType::Logic,
-            
+
             // Memory operations
-            "mov" | "lea" | "push" | "pop" | "movsb" | "movsw" | "movsd" | "movsq" => InstructionType::Memory,
-            
+            "mov" | "lea" | "push" | "pop" | "movsb" | "movsw" | "movsd" | "movsq" => {
+                InstructionType::Memory
+            }
+
             // No operation
             "nop" => InstructionType::Nop,
-            
+
             // System calls and interrupts
             "syscall" | "int" | "sysenter" | "sysexit" => InstructionType::System,
-            
+
             _ => InstructionType::Other,
         }
     }
 
     fn analyze_flow_control(&self, insn: &capstone::Insn) -> FlowControl {
         let mnemonic = insn.mnemonic().unwrap_or("");
-        
+
         match mnemonic {
             "ret" | "retf" | "retn" => FlowControl::Return,
             "jmp" => {
@@ -363,8 +392,8 @@ impl ControlFlowAnalyzer {
                     FlowControl::Indirect
                 }
             }
-            "je" | "jne" | "jz" | "jnz" | "jg" | "jge" | "jl" | "jle" | 
-            "ja" | "jae" | "jb" | "jbe" | "jo" | "jno" | "js" | "jns" | "jp" | "jnp" => {
+            "je" | "jne" | "jz" | "jnz" | "jg" | "jge" | "jl" | "jle" | "ja" | "jae" | "jb"
+            | "jbe" | "jo" | "jno" | "js" | "jns" | "jp" | "jnp" => {
                 // Try to extract target address for conditional branches
                 if let Some(op_str) = insn.op_str() {
                     if let Ok(addr) = u64::from_str_radix(op_str.trim_start_matches("0x"), 16) {
@@ -395,7 +424,7 @@ impl ControlFlowAnalyzer {
 
     fn find_basic_block_boundaries(&self, instructions: &[Instruction]) -> HashSet<u64> {
         let mut boundaries = HashSet::new();
-        
+
         // First instruction is always a boundary
         if let Some(first) = instructions.first() {
             boundaries.insert(first.address);
@@ -403,10 +432,12 @@ impl ControlFlowAnalyzer {
 
         for (i, instruction) in instructions.iter().enumerate() {
             match &instruction.flow_control {
-                FlowControl::Jump(target) | FlowControl::Branch(target) | FlowControl::Call(target) => {
+                FlowControl::Jump(target)
+                | FlowControl::Branch(target)
+                | FlowControl::Call(target) => {
                     // Target of jump/branch/call is a boundary
                     boundaries.insert(*target);
-                    
+
                     // For conditional branches, the next instruction is also a boundary
                     if matches!(instruction.flow_control, FlowControl::Branch(_)) {
                         if let Some(next_insn) = instructions.get(i + 1) {
@@ -427,7 +458,11 @@ impl ControlFlowAnalyzer {
         boundaries
     }
 
-    fn create_basic_blocks(&self, instructions: &[Instruction], boundaries: &HashSet<u64>) -> Vec<BasicBlock> {
+    fn create_basic_blocks(
+        &self,
+        instructions: &[Instruction],
+        boundaries: &HashSet<u64>,
+    ) -> Vec<BasicBlock> {
         let mut basic_blocks = Vec::new();
         let mut current_block_instructions: Vec<Instruction> = Vec::new();
         let mut block_id = 0;
@@ -437,11 +472,11 @@ impl ControlFlowAnalyzer {
             // Start a new block if this address is a boundary
             if boundaries.contains(&instruction.address) && !current_block_instructions.is_empty() {
                 // Finish the current block
-                let end_addr = current_block_instructions.last().unwrap().address + 
-                              current_block_instructions.last().unwrap().size as u64;
-                
+                let end_addr = current_block_instructions.last().unwrap().address
+                    + current_block_instructions.last().unwrap().size as u64;
+
                 let block_type = self.determine_block_type(&current_block_instructions);
-                
+
                 basic_blocks.push(BasicBlock {
                     id: block_id,
                     start_address: block_start_addr,
@@ -452,7 +487,7 @@ impl ControlFlowAnalyzer {
                     predecessors: Vec::new(),
                     block_type,
                 });
-                
+
                 block_id += 1;
                 current_block_instructions.clear();
             }
@@ -469,7 +504,7 @@ impl ControlFlowAnalyzer {
                 FlowControl::Return | FlowControl::Jump(_) | FlowControl::Halt => {
                     let end_addr = instruction.address + instruction.size as u64;
                     let block_type = self.determine_block_type(&current_block_instructions);
-                    
+
                     basic_blocks.push(BasicBlock {
                         id: block_id,
                         start_address: block_start_addr,
@@ -480,7 +515,7 @@ impl ControlFlowAnalyzer {
                         predecessors: Vec::new(),
                         block_type,
                     });
-                    
+
                     block_id += 1;
                     current_block_instructions.clear();
                 }
@@ -490,10 +525,10 @@ impl ControlFlowAnalyzer {
 
         // Handle any remaining instructions
         if !current_block_instructions.is_empty() {
-            let end_addr = current_block_instructions.last().unwrap().address + 
-                          current_block_instructions.last().unwrap().size as u64;
+            let end_addr = current_block_instructions.last().unwrap().address
+                + current_block_instructions.last().unwrap().size as u64;
             let block_type = self.determine_block_type(&current_block_instructions);
-            
+
             basic_blocks.push(BasicBlock {
                 id: block_id,
                 start_address: block_start_addr,
@@ -524,7 +559,7 @@ impl ControlFlowAnalyzer {
 
     fn build_control_flow_edges(&self, basic_blocks: &[BasicBlock]) -> Vec<CfgEdge> {
         let mut edges = Vec::new();
-        
+
         // Create address to block ID mapping
         let mut addr_to_block: HashMap<u64, usize> = HashMap::new();
         for block in basic_blocks {
@@ -552,7 +587,7 @@ impl ControlFlowAnalyzer {
                                 edge_type: EdgeType::Branch,
                             });
                         }
-                        
+
                         // Fall-through edge to next block
                         if let Some(next_block) = basic_blocks.get(block.id + 1) {
                             edges.push(CfgEdge {
@@ -570,7 +605,7 @@ impl ControlFlowAnalyzer {
                                 edge_type: EdgeType::Call,
                             });
                         }
-                        
+
                         // Fall-through after call
                         if let Some(next_block) = basic_blocks.get(block.id + 1) {
                             edges.push(CfgEdge {
@@ -606,7 +641,7 @@ impl ControlFlowAnalyzer {
 
     fn detect_loops(&self, _basic_blocks: &[BasicBlock], edges: &[CfgEdge]) -> Vec<Loop> {
         let mut loops = Vec::new();
-        
+
         // Simple back-edge detection for natural loops
         for edge in edges {
             if edge.to_block <= edge.from_block {
@@ -624,7 +659,12 @@ impl ControlFlowAnalyzer {
         loops
     }
 
-    fn calculate_complexity_metrics(&self, basic_blocks: &[BasicBlock], edges: &[CfgEdge], loops: &[Loop]) -> ControlFlowMetrics {
+    fn calculate_complexity_metrics(
+        &self,
+        basic_blocks: &[BasicBlock],
+        edges: &[CfgEdge],
+        loops: &[Loop],
+    ) -> ControlFlowMetrics {
         // Cyclomatic complexity: V(G) = E - N + 2P
         // Where E = edges, N = nodes (basic blocks), P = connected components (assume 1)
         let cyclomatic_complexity = if basic_blocks.len() <= 1 {
@@ -635,10 +675,10 @@ impl ControlFlowAnalyzer {
 
         // Simple cognitive complexity based on control structures
         let cognitive_complexity = self.calculate_cognitive_complexity(basic_blocks);
-        
+
         // Nesting depth
         let nesting_depth = self.calculate_nesting_depth(basic_blocks);
-        
+
         // Find unreachable blocks
         let unreachable_blocks = self.find_unreachable_blocks(basic_blocks, edges);
 
@@ -655,7 +695,7 @@ impl ControlFlowAnalyzer {
 
     fn calculate_cognitive_complexity(&self, basic_blocks: &[BasicBlock]) -> u32 {
         let mut complexity = 0;
-        
+
         for block in basic_blocks {
             match block.block_type {
                 BlockType::Conditional => complexity += 1,
@@ -663,7 +703,7 @@ impl ControlFlowAnalyzer {
                 _ => {}
             }
         }
-        
+
         complexity
     }
 
@@ -671,7 +711,7 @@ impl ControlFlowAnalyzer {
         // Simplified nesting depth calculation
         let mut max_depth: u32 = 0;
         let mut current_depth: i32 = 0;
-        
+
         for block in basic_blocks {
             match block.block_type {
                 BlockType::Conditional => {
@@ -684,20 +724,24 @@ impl ControlFlowAnalyzer {
                 _ => {}
             }
         }
-        
+
         max_depth
     }
 
-    fn find_unreachable_blocks(&self, basic_blocks: &[BasicBlock], edges: &[CfgEdge]) -> Vec<usize> {
+    fn find_unreachable_blocks(
+        &self,
+        basic_blocks: &[BasicBlock],
+        edges: &[CfgEdge],
+    ) -> Vec<usize> {
         let mut reachable = HashSet::new();
         let mut queue = VecDeque::new();
-        
+
         // Start from entry block (block 0)
         if !basic_blocks.is_empty() {
             queue.push_back(0);
             reachable.insert(0);
         }
-        
+
         // BFS to find all reachable blocks
         while let Some(block_id) = queue.pop_front() {
             for edge in edges {
@@ -707,7 +751,7 @@ impl ControlFlowAnalyzer {
                 }
             }
         }
-        
+
         // Find unreachable blocks
         basic_blocks
             .iter()
@@ -725,7 +769,10 @@ impl ControlFlowAnalyzer {
     }
 }
 
-pub fn analyze_control_flow(path: &Path, symbol_table: &SymbolTable) -> Result<ControlFlowAnalysis> {
+pub fn analyze_control_flow(
+    path: &Path,
+    symbol_table: &SymbolTable,
+) -> Result<ControlFlowAnalysis> {
     // Read the binary file
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
@@ -733,7 +780,7 @@ pub fn analyze_control_flow(path: &Path, symbol_table: &SymbolTable) -> Result<C
 
     // Parse the binary to get the text section info
     let obj = Object::parse(&buffer)?;
-    
+
     match obj {
         Object::Elf(elf) => {
             // Find the .text section
@@ -763,6 +810,8 @@ pub fn analyze_control_flow(path: &Path, symbol_table: &SymbolTable) -> Result<C
             }
             Err(anyhow!("No .text section found"))
         }
-        _ => Err(anyhow!("Only ELF binaries are currently supported for CFG analysis")),
+        _ => Err(anyhow!(
+            "Only ELF binaries are currently supported for CFG analysis"
+        )),
     }
 }
