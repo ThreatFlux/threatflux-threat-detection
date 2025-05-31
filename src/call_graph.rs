@@ -540,13 +540,11 @@ impl CallGraph {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
-
+    
     #[test]
     fn test_call_graph_generation() {
-        // Test would require mock data for disassembly and symbols
-        // This is a placeholder for actual tests
+        // Placeholder test
         assert!(true);
     }
 }

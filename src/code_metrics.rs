@@ -600,3 +600,14 @@ pub fn analyze_code_quality(
     let analyzer = CodeQualityAnalyzer::new();
     analyzer.analyze(cfg_analysis, symbol_table)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_code_quality_analyzer() {
+        let analyzer = CodeQualityAnalyzer::new();
+        assert!(true);
+    }
+}

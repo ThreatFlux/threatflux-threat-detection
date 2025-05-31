@@ -338,7 +338,7 @@ rule backdoor_patterns : backdoor {
     ]
 }
 
-fn extract_rule_name(rule_text: &str) -> Option<String> {
+pub fn extract_rule_name(rule_text: &str) -> Option<String> {
     // Extract rule name from "rule name : tags {"
     if let Some(start) = rule_text.find("rule ") {
         let name_start = start + 5;
@@ -351,7 +351,7 @@ fn extract_rule_name(rule_text: &str) -> Option<String> {
     None
 }
 
-fn extract_tags_from_rule(rule_text: &str) -> Vec<String> {
+pub fn extract_tags_from_rule(rule_text: &str) -> Vec<String> {
     let mut tags = Vec::new();
 
     // Extract tags between rule name and {
@@ -367,7 +367,7 @@ fn extract_tags_from_rule(rule_text: &str) -> Vec<String> {
     tags
 }
 
-fn extract_metadata_from_rule(rule_text: &str) -> HashMap<String, String> {
+pub fn extract_metadata_from_rule(rule_text: &str) -> HashMap<String, String> {
     let mut metadata = HashMap::new();
 
     // Find meta section
@@ -390,7 +390,7 @@ fn extract_metadata_from_rule(rule_text: &str) -> HashMap<String, String> {
     metadata
 }
 
-fn should_include_match(rule_match: &YaraMatch, file_data: &[u8]) -> bool {
+pub fn should_include_match(rule_match: &YaraMatch, file_data: &[u8]) -> bool {
     // Simplified matching - in real implementation, we'd check actual YARA matches
     // For now, just do basic string matching for demo purposes
 
@@ -422,12 +422,12 @@ fn should_include_match(rule_match: &YaraMatch, file_data: &[u8]) -> bool {
     }
 }
 
-fn contains_string(data: &[u8], pattern: &str) -> bool {
+pub fn contains_string(data: &[u8], pattern: &str) -> bool {
     data.windows(pattern.len())
         .any(|window| window == pattern.as_bytes())
 }
 
-fn tag_to_classification(tag: &str) -> Option<ThreatClassification> {
+pub fn tag_to_classification(tag: &str) -> Option<ThreatClassification> {
     match tag.to_lowercase().as_str() {
         "trojan" => Some(ThreatClassification::Trojan),
         "virus" => Some(ThreatClassification::Virus),
@@ -448,7 +448,7 @@ fn tag_to_classification(tag: &str) -> Option<ThreatClassification> {
     }
 }
 
-fn create_threat_indicator(rule_match: &YaraMatch) -> Option<ThreatIndicator> {
+pub fn create_threat_indicator(rule_match: &YaraMatch) -> Option<ThreatIndicator> {
     let description = rule_match
         .metadata
         .get("description")
@@ -493,7 +493,7 @@ fn create_threat_indicator(rule_match: &YaraMatch) -> Option<ThreatIndicator> {
     })
 }
 
-fn calculate_threat_level(matches: &[YaraMatch], indicators: &[ThreatIndicator]) -> ThreatLevel {
+pub fn calculate_threat_level(matches: &[YaraMatch], indicators: &[ThreatIndicator]) -> ThreatLevel {
     if matches.is_empty() {
         return ThreatLevel::Clean;
     }
@@ -530,7 +530,7 @@ fn calculate_threat_level(matches: &[YaraMatch], indicators: &[ThreatIndicator])
     ThreatLevel::Clean
 }
 
-fn generate_recommendations(
+pub fn generate_recommendations(
     threat_level: &ThreatLevel,
     matches: &[YaraMatch],
     classifications: &[ThreatClassification],
