@@ -27,13 +27,14 @@ This document outlines the comprehensive static analysis features to be added to
 **Estimated Effort: 36-46 days | Actual: ~10 days**
 
 ### Key Achievements:
-- Comprehensive static analysis toolset with 15+ MCP tools
+- Comprehensive static analysis toolset exposed through 2 unified MCP tools
 - Multi-architecture support (x86, ARM, etc.)
 - Advanced threat detection with YARA-X
 - Complete behavioral analysis including anti-analysis detection
 - Full code quality metrics and vulnerability detection
 - Inter-procedural call graph generation
 - Integration with MCP protocol (STDIO, HTTP, SSE)
+- Smart consolidation to stay within MCP tool limits while maintaining all functionality
 
 ## Phase 1: Core Static Analysis Foundation
 
@@ -948,10 +949,10 @@ pub struct CallGraphStatistics {
 - ✅ Support for multiple call types (direct, indirect, virtual, tail)
 
 #### MCP Integration:
-- **New MCP Tool:** `generate_call_graph` (implemented)
-- **Input:** `file_path` (string)
-- **Output:** Complete `CallGraph` with nodes, edges, statistics
-- **Status:** ⚠️ Implementation complete but MCP registration issue (possible rmcp tool limit)
+- **New MCP Tool:** Integrated into `analyze_file` tool
+- **Input:** `file_path` (string) with appropriate analysis flags
+- **Output:** Complete analysis results including call graph data when requested
+- **Status:** ✅ Fully integrated into the unified tool architecture
 
 ---
 

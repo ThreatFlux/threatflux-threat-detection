@@ -86,69 +86,68 @@ curl -X GET http://localhost:3000/health
 
 ## Available MCP Tools
 
-The file-scanner MCP server exposes the following tools:
+The file-scanner MCP server exposes 2 comprehensive tools:
 
-### 1. `calculate_file_hashes`
-Calculate cryptographic hashes for a file.
-
-**Parameters:**
-- `file_path` (string): Path to the file to hash
-
-### 2. `extract_file_strings`
-Extract ASCII and Unicode strings from a file.
+### 1. `analyze_file`
+Comprehensive file analysis tool with configurable analysis options.
 
 **Parameters:**
-- `file_path` (string): Path to the file
-- `min_length` (number, optional): Minimum string length
+- `file_path` (string, required): Path to the file to analyze
+- **Analysis flags (all optional, default to false):**
+  - `metadata`: Include file metadata
+  - `hashes`: Calculate cryptographic hashes
+  - `strings`: Extract ASCII and Unicode strings
+  - `min_string_length`: Minimum string length (default: 4)
+  - `hex_dump`: Generate hex dump
+  - `hex_dump_size`: Hex dump size in bytes (default: 256)
+  - `hex_dump_offset`: Hex dump offset from start
+  - `binary_info`: Analyze binary format
+  - `signatures`: Verify digital signatures
+  - `symbols`: Analyze function symbols
+  - `control_flow`: Analyze control flow
+  - `vulnerabilities`: Detect vulnerabilities
+  - `code_quality`: Analyze code quality metrics
+  - `dependencies`: Analyze dependencies
+  - `entropy`: Analyze entropy patterns
+  - `disassembly`: Disassemble code
+  - `threats`: Detect threats and malware
+  - `behavioral`: Analyze behavioral patterns
+  - `yara_indicators`: Extract YARA rule indicators
 
-### 3. `hex_dump_file`
-Generate a hex dump of a file.
+### 2. `llm_analyze_file`
+LLM-optimized analysis tool for focused analysis with token limits.
 
-**Parameters:**
-- `file_path` (string): Path to the file
-- `size` (number, optional): Number of bytes to dump
-- `offset` (number, optional): Offset from start of file
-
-### 4. `analyze_binary_file`
-Analyze binary file format (PE, ELF, Mach-O).
-
-**Parameters:**
-- `file_path` (string): Path to the binary file
-
-### 5. `get_file_metadata`
-Extract file system metadata.
-
-**Parameters:**
-- `file_path` (string): Path to the file
-
-### 6. `verify_file_signatures`
-Verify digital signatures on a file.
-
-**Parameters:**
-- `file_path` (string): Path to the file
+- `file_path` (string, required): Path to the file to analyze
+- `token_limit` (number, optional): Maximum response size in characters (default: 25000)
+- `min_string_length` (number, optional): Minimum string length to extract (default: 6)
+- `max_strings` (number, optional): Maximum number of strings to return (default: 50)
+- `max_imports` (number, optional): Maximum number of imports to return (default: 30)
+- `max_opcodes` (number, optional): Maximum number of opcodes to return (default: 10)
+- `hex_pattern_size` (number, optional): Size of hex patterns to extract (default: 32)
+- `suggest_yara_rule` (boolean, optional): Generate YARA rule suggestion (default: true)
 
 ## Example Test Commands
 
 ### Using CLI Mode
 
 ```bash
-# List available tools
+# List available tools (should show 2 tools)
 npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
 
+# Basic file analysis (metadata only)
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_file --tool-arg file_path=/bin/ls --tool-arg metadata=true
+
 # Calculate hashes
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name calculate_file_hashes --tool-arg file_path=/bin/ls
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_file --tool-arg file_path=/bin/ls --tool-arg hashes=true
 
 # Extract strings
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name extract_file_strings --tool-arg file_path=/bin/ls --tool-arg min_length=8
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_file --tool-arg file_path=/bin/ls --tool-arg strings=true --tool-arg min_string_length=8
 
-# Hex dump
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name hex_dump_file --tool-arg file_path=/bin/ls --tool-arg size=256
+# Comprehensive analysis (multiple flags)
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_file --tool-arg file_path=/bin/ls --tool-arg metadata=true --tool-arg hashes=true --tool-arg strings=true --tool-arg binary_info=true --tool-arg entropy=true
 
-# Binary analysis
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_binary_file --tool-arg file_path=/bin/ls
-
-# Get metadata
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name get_file_metadata --tool-arg file_path=/bin/ls
+# LLM-optimized analysis
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name llm_analyze_file --tool-arg file_path=/bin/ls --tool-arg token_limit=10000 --tool-arg suggest_yara_rule=true
 ```
 
 ## Configuration Export

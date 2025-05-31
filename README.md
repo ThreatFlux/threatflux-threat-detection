@@ -105,21 +105,36 @@ npx @modelcontextprotocol/inspector http://localhost:3000/sse
 
 ### Available MCP Tools
 
-1. **calculate_file_hashes** - Calculate cryptographic hashes
-2. **extract_file_strings** - Extract ASCII and Unicode strings  
-3. **hex_dump_file** - Generate hex dump of file contents
-4. **analyze_binary_file** - Analyze binary file formats
-5. **get_file_metadata** - Extract file system metadata
-6. **verify_file_signatures** - Verify digital signatures
-7. **analyze_function_symbols** - Analyze function symbols and cross-references
-8. **analyze_control_flow_graph** - Analyze control flow and complexity
-9. **detect_vulnerabilities** - Detect security vulnerabilities
-10. **analyze_code_quality** - Analyze code quality metrics
-11. **analyze_dependencies** - Analyze library dependencies
-12. **analyze_entropy_patterns** - Detect packing and obfuscation
-13. **disassemble_code** - Disassemble binary code
-14. **detect_threats** - Detect malware patterns
-15. **analyze_behavioral_patterns** - Analyze behavioral patterns
+The file scanner provides 2 powerful MCP tools that consolidate all analysis features:
+
+#### 1. `analyze_file` - Comprehensive Analysis Tool
+A unified tool that allows you to specify exactly which analyses to perform using boolean flags:
+
+**Parameters:**
+- `file_path` (required): Path to the file to analyze
+- **Analysis flags** (all optional, default to false):
+  - `metadata`: Include file metadata (size, timestamps, permissions)
+  - `hashes`: Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)
+  - `strings`: Extract ASCII and Unicode strings
+  - `min_string_length`: Minimum string length (default: 4)
+  - `hex_dump`: Generate hex dump
+  - `hex_dump_size`: Hex dump size in bytes (default: 256)
+  - `hex_dump_offset`: Hex dump offset from start
+  - `binary_info`: Analyze binary format (PE/ELF/Mach-O)
+  - `signatures`: Verify digital signatures
+  - `symbols`: Analyze function symbols
+  - `control_flow`: Analyze control flow
+  - `vulnerabilities`: Detect vulnerabilities
+  - `code_quality`: Analyze code quality metrics
+  - `dependencies`: Analyze dependencies
+  - `entropy`: Analyze entropy patterns
+  - `disassembly`: Disassemble code
+  - `threats`: Detect threats and malware
+  - `behavioral`: Analyze behavioral patterns
+  - `yara_indicators`: Extract YARA rule indicators
+
+#### 2. `llm_analyze_file` - LLM-Optimized Analysis Tool
+A focused analysis tool designed for AI consumption with token limits (see CLAUDE.md for details)
 
 ### Claude Code Configuration
 
