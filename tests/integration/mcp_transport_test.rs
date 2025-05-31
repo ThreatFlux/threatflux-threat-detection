@@ -1,15 +1,11 @@
 use file_scanner::mcp_transport::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, McpServerState, McpTransportServer, SseEvent,
-    SseQuery,
 };
 use file_scanner::mcp_server::FileScannerMcp;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use tempfile::TempDir;
-use tokio::sync::mpsc;
-use tokio::time::timeout;
 
 #[cfg(test)]
 mod tests {
@@ -21,7 +17,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mcp_transport_server_creation() {
-        let server = create_test_server();
+        let _server = create_test_server();
         // Server should be created with cache and string tracker
         assert!(true); // Basic creation test
     }
@@ -347,15 +343,15 @@ mod tests {
         );
         let string_tracker = Arc::new(file_scanner::string_tracker::StringTracker::new());
 
-        let state = McpServerState {
+        let state = McpServerState::new_for_testing(
             handler,
-            sse_clients: sse_clients.clone(),
+            sse_clients.clone(),
             cache,
             string_tracker,
-        };
+        );
 
         // Test that state can be cloned
-        let cloned_state = state.clone();
+        let _cloned_state = state.clone();
         assert_eq!(
             Arc::strong_count(&sse_clients),
             2

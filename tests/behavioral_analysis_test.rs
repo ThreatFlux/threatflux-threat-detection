@@ -1,7 +1,6 @@
 use file_scanner::behavioral_analysis::*;
 use file_scanner::function_analysis::*;
 use file_scanner::strings::ExtractedStrings;
-use std::collections::HashMap;
 use tempfile::tempdir;
 
 /// Helper function to create test strings with specific patterns
@@ -652,7 +651,7 @@ fn test_dropper_behavior_identification() {
 
 #[test]
 fn test_evasion_score_calculation() {
-    let anti_analysis = vec![
+    let _anti_analysis = vec![
         AntiAnalysisTechnique {
             technique_type: AntiAnalysisType::AntiDebug,
             indicators: vec!["IsDebuggerPresent".to_string()],
@@ -667,7 +666,7 @@ fn test_evasion_score_calculation() {
         },
     ];
 
-    let suspicious_behaviors = vec![
+    let _suspicious_behaviors = vec![
         SuspiciousBehavior {
             behavior_type: "Ransomware".to_string(),
             description: "File encryption".to_string(),

@@ -32,6 +32,23 @@ pub struct McpServerState {
     string_tracker: Arc<StringTracker>,
 }
 
+impl McpServerState {
+    #[allow(dead_code)]
+    pub fn new_for_testing(
+        handler: FileScannerMcp,
+        sse_clients: Arc<Mutex<HashMap<String, tokio::sync::mpsc::UnboundedSender<SseEvent>>>>,
+        cache: Arc<AnalysisCache>,
+        string_tracker: Arc<StringTracker>,
+    ) -> Self {
+        Self {
+            handler,
+            sse_clients,
+            cache,
+            string_tracker,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SseEvent {
     pub id: Option<String>,
@@ -44,7 +61,7 @@ pub struct SseQuery {
     pub client_id: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct JsonRpcRequest {
     pub jsonrpc: String,
     pub id: Option<Value>,
@@ -52,7 +69,7 @@ pub struct JsonRpcRequest {
     pub params: Option<Value>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct JsonRpcResponse {
     pub jsonrpc: String,
     pub id: Option<Value>,
@@ -62,7 +79,7 @@ pub struct JsonRpcResponse {
     pub error: Option<JsonRpcError>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct JsonRpcError {
     pub code: i32,
     pub message: String,

@@ -1,7 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use file_scanner::hash::{calculate_all_hashes, calculate_md5};
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 

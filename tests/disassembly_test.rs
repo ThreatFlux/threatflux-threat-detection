@@ -1,7 +1,6 @@
 use file_scanner::disassembly::*;
 use file_scanner::function_analysis::{FunctionInfo, FunctionType, SymbolTable, SymbolCounts};
 use std::collections::HashMap;
-use std::path::Path;
 use tempfile::NamedTempFile;
 use std::io::Write;
 

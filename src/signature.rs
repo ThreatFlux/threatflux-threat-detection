@@ -580,4 +580,435 @@ gpg: WARNING: This key is not certified with a trusted signature!
         let result = check_authenticode_signature(&file_path);
         assert!(result.is_err());
     }
+
+    // Additional comprehensive tests for better coverage
+
+    #[test]
+    fn test_pe_file_exact_64_bytes() {
+        let mut content = b"MZ".to_vec();
+        while content.len() < 64 {
+            content.push(0);
+        }
+        let (_temp_dir, file_path) = create_test_file(&content).unwrap();
+        
+        let result = check_authenticode_signature(&file_path);
+        assert!(result.is_err()); // No signature in minimal PE
+    }
+
+    #[test]
+    fn test_verify_signature_with_all_file_types() {
+        // Test various file types
+        let test_files = vec![
+            (b"#!/bin/bash\necho test".to_vec(), "script.sh"),
+            (b"<?xml version=\"1.0\"?>".to_vec(), "data.xml"),
+            (b"{\"test\": \"json\"}".to_vec(), "data.json"),
+            (vec![0xFF, 0xD8, 0xFF, 0xE0], "image.jpg"), // JPEG header
+            (vec![0x89, 0x50, 0x4E, 0x47], "image.png"), // PNG header
+        ];
+
+        for (content, name) in test_files {
+            let temp_dir = TempDir::new().unwrap();
+            let file_path = temp_dir.path().join(name);
+            fs::write(&file_path, content).unwrap();
+            
+            let result = verify_signature(&file_path).unwrap();
+            assert!(!result.is_signed);
+            assert_eq!(result.verification_status, "No signature found");
+        }
+    }
+
+    #[test]
+    fn test_gpg_signature_extensions() {
+        let content = b"Test content";
+        let temp_dir = TempDir::new().unwrap();
+        
+        // Test with different base extensions
+        let extensions = vec!["txt", "bin", "exe", "tar.gz", ""];
+        
+        for ext in extensions {
+            let filename = if ext.is_empty() {
+                "file"
+            } else {
+                &format!("file.{}", ext)
+            };
+            
+            let file_path = temp_dir.path().join(filename);
+            fs::write(&file_path, content).unwrap();
+            
+            // Create corresponding .sig file
+            let sig_extension = if ext.is_empty() {
+                "sig".to_string()
+            } else {
+                format!("{}.sig", ext)
+            };
+            
+            let sig_path = file_path.with_extension(&sig_extension);
+            fs::write(&sig_path, b"dummy sig").unwrap();
+            
+            let result = check_gpg_signature(&file_path);
+            assert!(result.is_err()); // GPG will fail on dummy signature
+        }
+    }
+
+    #[test]
+    fn test_extract_signer_various_formats() {
+        let test_cases = vec![
+            ("Subject: CN=Test", "CN=Test"),
+            ("Subject:CN=Test", "CN=Test"), // No space after colon
+            ("Subject:    CN=Test    ", "CN=Test"), // Extra spaces
+            ("Subject: CN=Test, O=Org, C=US", "CN=Test, O=Org, C=US"),
+            ("Subject: ", ""), // Empty subject
+        ];
+
+        for (input, expected) in test_cases {
+            let result = extract_signer_from_output(input);
+            assert_eq!(result, Some(expected.to_string()));
+        }
+    }
+
+    #[test]
+    fn test_extract_timestamp_various_formats() {
+        let test_cases = vec![
+            ("Timestamp: 2024-01-01", "2024-01-01"),
+            ("Timestamp:2024-01-01", "2024-01-01"), // No space
+            ("Timestamp:    2024-01-01    ", "2024-01-01"), // Extra spaces
+            ("Timestamp: ", ""), // Empty timestamp
+            ("Timestamp: 2024-01-01T10:30:45.123Z", "2024-01-01T10:30:45.123Z"), // ISO format
+        ];
+
+        for (input, expected) in test_cases {
+            let result = extract_timestamp_from_output(input);
+            assert_eq!(result, Some(expected.to_string()));
+        }
+    }
+
+    #[test]
+    fn test_extract_gpg_signer_edge_cases() {
+        let test_cases = vec![
+            (
+                "gpg: Good signature from \"Test \\\"Quoted\\\" User\"",
+                "Test \\\"Quoted\\\" User"
+            ),
+            (
+                "gpg: Good signature from \"\"", // Empty quotes
+                ""
+            ),
+        ];
+
+        for (input, expected) in test_cases {
+            let result = extract_gpg_signer(input);
+            assert_eq!(result, Some(expected.to_string()));
+        }
+        
+        // Test newline case separately - extract_gpg_signer works line by line
+        let input_with_newline = "gpg: Good signature from \"User with\nnewline\"";
+        let result = extract_gpg_signer(input_with_newline);
+        // The function splits by lines and only gets first part before newline
+        assert_eq!(result, Some("User with".to_string()));
+    }
+
+    #[test]
+    fn test_certificate_chain_operations() {
+        let mut info = SignatureInfo {
+            is_signed: true,
+            signature_type: Some("Test".to_string()),
+            signer: Some("Test Signer".to_string()),
+            timestamp: None,
+            certificate_chain: Vec::new(),
+            verification_status: "Unknown".to_string(),
+        };
+
+        // Test adding certificates
+        for i in 0..5 {
+            info.certificate_chain.push(CertificateInfo {
+                subject: format!("CN=Cert{}", i),
+                issuer: format!("CN=Issuer{}", i),
+                serial_number: format!("{:X}", i),
+                not_before: "2024-01-01".to_string(),
+                not_after: "2025-01-01".to_string(),
+            });
+        }
+
+        assert_eq!(info.certificate_chain.len(), 5);
+        assert_eq!(info.certificate_chain[0].subject, "CN=Cert0");
+        assert_eq!(info.certificate_chain[4].subject, "CN=Cert4");
+    }
+
+    #[test]
+    fn test_complex_certificate_chain() {
+        let chain = vec![
+            CertificateInfo {
+                subject: "CN=End Entity, O=Company".to_string(),
+                issuer: "CN=Intermediate CA, O=CA Company".to_string(),
+                serial_number: "01".to_string(),
+                not_before: "2024-01-01".to_string(),
+                not_after: "2025-01-01".to_string(),
+            },
+            CertificateInfo {
+                subject: "CN=Intermediate CA, O=CA Company".to_string(),
+                issuer: "CN=Root CA, O=Root CA Company".to_string(),
+                serial_number: "02".to_string(),
+                not_before: "2020-01-01".to_string(),
+                not_after: "2030-01-01".to_string(),
+            },
+            CertificateInfo {
+                subject: "CN=Root CA, O=Root CA Company".to_string(),
+                issuer: "CN=Root CA, O=Root CA Company".to_string(), // Self-signed
+                serial_number: "03".to_string(),
+                not_before: "2010-01-01".to_string(),
+                not_after: "2040-01-01".to_string(),
+            },
+        ];
+
+        let info = SignatureInfo {
+            is_signed: true,
+            signature_type: Some("Authenticode".to_string()),
+            signer: Some("CN=End Entity, O=Company".to_string()),
+            timestamp: Some("2024-06-01".to_string()),
+            certificate_chain: chain,
+            verification_status: "Valid".to_string(),
+        };
+
+        // Verify chain structure
+        assert_eq!(info.certificate_chain.len(), 3);
+        assert_eq!(info.certificate_chain[0].subject, info.signer.unwrap());
+        assert_eq!(info.certificate_chain[2].subject, info.certificate_chain[2].issuer); // Root is self-signed
+    }
+
+    #[test]
+    fn test_signature_verification_error_handling() {
+        // Test with directory instead of file
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path().join("testdir");
+        fs::create_dir(&dir_path).unwrap();
+        
+        let result = verify_signature(&dir_path);
+        assert!(result.is_ok()); // Should handle gracefully
+        let info = result.unwrap();
+        assert!(!info.is_signed);
+        assert_eq!(info.verification_status, "No signature found");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        
+        let content = b"Test file";
+        let (_temp_dir, file_path) = create_test_file(content).unwrap();
+        
+        // Make file unreadable
+        fs::set_permissions(&file_path, fs::Permissions::from_mode(0o000)).unwrap();
+        
+        let result = verify_signature(&file_path);
+        
+        // Restore permissions for cleanup
+        fs::set_permissions(&file_path, fs::Permissions::from_mode(0o644)).unwrap();
+        
+        // Should handle permission errors gracefully
+        assert!(result.is_ok());
+        let info = result.unwrap();
+        assert!(!info.is_signed);
+    }
+
+    #[test]
+    fn test_yaml_serialization_all_fields() {
+        let info = SignatureInfo {
+            is_signed: true,
+            signature_type: Some("GPG".to_string()),
+            signer: Some("Test User <test@example.com>".to_string()),
+            timestamp: Some("2024-01-01T00:00:00Z".to_string()),
+            certificate_chain: vec![
+                CertificateInfo {
+                    subject: "CN=Test".to_string(),
+                    issuer: "CN=CA".to_string(),
+                    serial_number: "123456".to_string(),
+                    not_before: "2024-01-01".to_string(),
+                    not_after: "2025-01-01".to_string(),
+                }
+            ],
+            verification_status: "Valid".to_string(),
+        };
+
+        let yaml = serde_yaml::to_string(&info).unwrap();
+        assert!(yaml.contains("is_signed: true"));
+        assert!(yaml.contains("signature_type: GPG"));
+        assert!(yaml.contains("signer: Test User"));
+        
+        let deserialized: SignatureInfo = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(deserialized.is_signed, info.is_signed);
+        assert_eq!(deserialized.signature_type, info.signature_type);
+    }
+
+    #[test]
+    fn test_parse_osslsigncode_complex_output() {
+        let output = r#"
+Current PE checksum   : 00012345
+Calculated PE checksum: 00012345
+
+Signature Index: 0  (Primary Signature)
+
+Message digest algorithm  : SHA256
+Current message digest    : 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF
+Calculated message digest : 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF
+
+Signer's certificate:
+    Signer #0:
+        Subject: /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Corporation
+        Issuer : /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Code Signing PCA 2011
+        Serial : 33000002EC630E593A91424F37000000000EC
+        Certificate expiration date:
+            notBefore : Jul 29 20:47:31 2021 GMT
+            notAfter  : Jul 27 20:47:31 2022 GMT
+
+Timestamp: Jul 30 21:15:45 2021 GMT
+
+Number of certificates: 3
+    Signer #0:
+        Subject: /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Corporation
+        Issuer : /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Code Signing PCA 2011
+        Serial : 33000002EC630E593A91424F37000000000EC
+    Signer #1:
+        Subject: /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Code Signing PCA 2011
+        Issuer : /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Root Certificate Authority 2011
+        Serial : 61077656000000000008
+    Signer #2:
+        Subject: /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Root Certificate Authority 2011
+        Issuer : /C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Root Certificate Authority 2011
+        Serial : 3F8BC8B5FC9FB29643B569D66C42E144
+
+Signature verification: ok
+
+Number of signatures  : 1
+"#;
+
+        let signer = extract_signer_from_output(output);
+        assert_eq!(signer, Some("/C=US/ST=Washington/L=Redmond/O=Microsoft Corporation/CN=Microsoft Corporation".to_string()));
+        
+        let timestamp = extract_timestamp_from_output(output);
+        assert_eq!(timestamp, Some("Jul 30 21:15:45 2021 GMT".to_string()));
+    }
+
+    #[test]
+    fn test_concurrent_access() {
+        use std::sync::Arc;
+        use std::thread;
+        
+        let content = b"Test file";
+        let (_temp_dir, file_path) = create_test_file(content).unwrap();
+        let path = Arc::new(file_path);
+        
+        let mut handles = vec![];
+        
+        // Spawn multiple threads to verify signature concurrently
+        for i in 0..10 {
+            let path_clone = Arc::clone(&path);
+            let handle = thread::spawn(move || {
+                let result = verify_signature(&path_clone).unwrap();
+                assert!(!result.is_signed);
+                assert_eq!(result.verification_status, "No signature found");
+                i
+            });
+            handles.push(handle);
+        }
+        
+        // Wait for all threads to complete
+        for handle in handles {
+            let thread_id = handle.join().unwrap();
+            assert!(thread_id < 10);
+        }
+    }
+
+    #[test]
+    fn test_special_characters_in_output() {
+        // Test with various special characters
+        let outputs = vec![
+            "Subject: CN=Test\x00User", // Null byte
+            "Subject: CN=Test\tUser", // Tab
+            "Subject: CN=Test\rUser", // Carriage return
+            "Subject: CN=Test\\User", // Backslash
+            "Subject: CN=Test$User", // Dollar sign
+        ];
+        
+        for output in outputs {
+            let result = extract_signer_from_output(output);
+            assert!(result.is_some());
+            assert!(result.unwrap().contains("Test"));
+        }
+    }
+
+    #[test]
+    fn test_large_certificate_info() {
+        let mut large_subject = String::from("CN=");
+        for _ in 0..1000 {
+            large_subject.push_str("VeryLongCertificateName");
+        }
+        
+        let cert = CertificateInfo {
+            subject: large_subject.clone(),
+            issuer: large_subject.clone(),
+            serial_number: "A".repeat(256),
+            not_before: "2024-01-01T00:00:00Z".to_string(),
+            not_after: "2025-01-01T00:00:00Z".to_string(),
+        };
+        
+        // Should handle large data without panic
+        let json = serde_json::to_string(&cert).unwrap();
+        assert!(json.len() > 40000); // Verify it's actually large
+        
+        let deserialized: CertificateInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.subject.len(), cert.subject.len());
+    }
+
+    #[test]
+    fn test_signature_info_partial_data() {
+        // Test with various combinations of missing data
+        let test_cases = vec![
+            (false, None, None, None, "No signature found"),
+            (true, Some("GPG"), None, None, "Unknown"),
+            (false, None, Some("User"), None, "Invalid"),
+            (true, Some("Test"), Some("User"), Some("2024"), "Valid"),
+        ];
+        
+        for (is_signed, sig_type, signer, timestamp, status) in test_cases {
+            let info = SignatureInfo {
+                is_signed,
+                signature_type: sig_type.map(String::from),
+                signer: signer.map(String::from),
+                timestamp: timestamp.map(String::from),
+                certificate_chain: vec![],
+                verification_status: status.to_string(),
+            };
+            
+            // Verify the structure is valid
+            if is_signed {
+                // If it's signed, at least one of these should be present
+                assert!(info.signature_type.is_some() || info.signer.is_some() || info.timestamp.is_some(),
+                    "If is_signed=true, at least one of signature_type, signer, or timestamp should be Some");
+            }
+        }
+    }
+
+    #[test]
+    fn test_binary_file_signatures() {
+        // Create various binary file headers
+        let binary_headers = vec![
+            vec![0x7F, 0x45, 0x4C, 0x46], // ELF
+            vec![0xCA, 0xFE, 0xBA, 0xBE], // Mach-O
+            vec![0xFE, 0xED, 0xFA, 0xCE], // Mach-O
+            vec![0xCE, 0xFA, 0xED, 0xFE], // Mach-O
+            vec![0x50, 0x4B, 0x03, 0x04], // ZIP/JAR
+        ];
+        
+        for header in binary_headers {
+            let mut content = header.clone();
+            content.extend_from_slice(&vec![0; 100]); // Pad with zeros
+            
+            let (_temp_dir, file_path) = create_test_file(&content).unwrap();
+            let result = verify_signature(&file_path).unwrap();
+            
+            assert!(!result.is_signed);
+            assert_eq!(result.verification_status, "No signature found");
+        }
+    }
 }

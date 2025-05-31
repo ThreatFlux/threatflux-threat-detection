@@ -1,6 +1,5 @@
 use file_scanner::metadata::FileMetadata;
-use std::path::Path;
-use std::time::SystemTime;
+use chrono::{DateTime, Utc};
 
 /// Common test utilities
 pub mod utils {
@@ -8,23 +7,23 @@ pub mod utils {
     
     /// Compare two FileMetadata structs, ignoring timestamps
     pub fn assert_metadata_equal_ignore_time(actual: &FileMetadata, expected: &FileMetadata) {
-        assert_eq!(actual.path, expected.path);
-        assert_eq!(actual.size, expected.size);
-        assert_eq!(actual.file_type, expected.file_type);
+        assert_eq!(actual.file_path, expected.file_path);
+        assert_eq!(actual.file_size, expected.file_size);
+        assert_eq!(actual.mime_type, expected.mime_type);
         assert_eq!(actual.permissions, expected.permissions);
-        assert_eq!(actual.owner, expected.owner);
-        assert_eq!(actual.group, expected.group);
-        assert_eq!(actual.is_hidden, expected.is_hidden);
-        assert_eq!(actual.is_symlink, expected.is_symlink);
-        assert_eq!(actual.symlink_target, expected.symlink_target);
+        assert_eq!(actual.owner_uid, expected.owner_uid);
+        assert_eq!(actual.group_gid, expected.group_gid);
+        assert_eq!(actual.is_executable, expected.is_executable);
+        // Note: FileMetadata doesn't have is_hidden, is_symlink, symlink_target fields
+        // These would need to be added to the struct if needed for testing
     }
     
     /// Check if a timestamp is recent (within last minute)
-    pub fn is_recent_timestamp(time: &Option<SystemTime>) -> bool {
+    pub fn is_recent_timestamp(time: &Option<DateTime<Utc>>) -> bool {
         if let Some(t) = time {
-            if let Ok(elapsed) = t.elapsed() {
-                return elapsed.as_secs() < 60;
-            }
+            let now = Utc::now();
+            let elapsed = now.signed_duration_since(*t);
+            return elapsed.num_seconds() < 60 && elapsed.num_seconds() >= 0;
         }
         false
     }

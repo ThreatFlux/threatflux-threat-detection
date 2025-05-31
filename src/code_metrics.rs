@@ -607,7 +607,7 @@ mod tests {
     
     #[test]
     fn test_code_quality_analyzer() {
-        let analyzer = CodeQualityAnalyzer::new();
+        let _analyzer = CodeQualityAnalyzer::new();
         assert!(true);
     }
 }

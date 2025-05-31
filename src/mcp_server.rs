@@ -1254,7 +1254,7 @@ mod tests {
     fn test_trim_results_to_token_limit() {
         let mcp = FileScannerMcp;
         
-        let mut result = LlmFileAnalysisResult {
+        let result = LlmFileAnalysisResult {
             md5: "abc123".to_string(),
             file_size: 1024,
             key_strings: (0..50).map(|i| format!("string_{}", i)).collect(),

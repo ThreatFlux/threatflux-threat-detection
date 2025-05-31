@@ -1,6 +1,6 @@
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Creates a temporary directory with test files
@@ -88,8 +88,12 @@ impl TestFixture {
         pe_data.extend_from_slice(&[0x90; 58]); // Padding
         pe_data.extend_from_slice(&[0x3c, 0x00, 0x00, 0x00]); // PE header offset at 0x3c
         
-        // Pad to PE header
-        pe_data.extend_from_slice(&[0x00; 0x3c - pe_data.len()]);
+        // Pad to PE header (should be at 0x3c = 60 bytes total)
+        let current_len = pe_data.len();
+        if current_len < 0x3c {
+            let padding_size = 0x3c - current_len;
+            pe_data.extend_from_slice(&vec![0x00; padding_size]);
+        }
         
         // PE header
         pe_data.extend_from_slice(b"PE\x00\x00"); // PE signature

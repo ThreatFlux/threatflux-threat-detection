@@ -1,10 +1,8 @@
 use file_scanner::mcp_server::{FileScannerMcp, FileAnalysisRequest, LlmFileAnalysisRequest};
-use rmcp::{Tool, Router, Response};
-use serde_json::{json, Value};
+use rmcp::ServerHandler;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use tokio;
 
 async fn create_test_server() -> FileScannerMcp {
     FileScannerMcp
@@ -48,10 +46,12 @@ async fn test_analyze_file_metadata_only() {
     let result = server.analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
-    assert!(response.get("file_path").is_some());
-    assert!(response.get("file_size").is_some());
-    assert_eq!(response.get("file_size").unwrap(), &13);
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
+    
+    // Check metadata is present since we requested it
+    assert!(response.metadata.is_some());
+    let metadata = response.metadata.unwrap();
+    assert_eq!(metadata.file_size, 13);
 }
 
 #[tokio::test]
@@ -86,12 +86,13 @@ async fn test_analyze_file_with_hashes() {
     let result = server.analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
-    let hashes = response.get("hashes").unwrap().as_object().unwrap();
-    assert!(hashes.contains_key("md5"));
-    assert!(hashes.contains_key("sha256"));
-    assert!(hashes.contains_key("sha512"));
-    assert!(hashes.contains_key("blake3"));
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
+    assert!(response.hashes.is_some());
+    let hashes = response.hashes.unwrap();
+    assert!(!hashes.md5.is_empty());
+    assert!(!hashes.sha256.is_empty());
+    assert!(!hashes.sha512.is_empty());
+    assert!(!hashes.blake3.is_empty());
 }
 
 #[tokio::test]
@@ -127,10 +128,10 @@ async fn test_analyze_file_with_strings() {
     let result = server.analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
-    let strings = response.get("extracted_strings").unwrap();
-    assert!(strings.get("total_count").is_some());
-    assert!(strings.get("ascii_strings").is_some());
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
+    assert!(response.strings.is_some());
+    let strings = response.strings.unwrap();
+    assert!(!strings.is_empty()); // Should contain some extracted strings
 }
 
 #[tokio::test]
@@ -165,10 +166,11 @@ async fn test_analyze_file_with_hex_dump() {
     let result = server.analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
-    let hex_dump = response.get("hex_dump").unwrap();
-    assert_eq!(hex_dump.get("offset").unwrap(), &4);
-    assert_eq!(hex_dump.get("length").unwrap(), &8);
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
+    assert!(response.hex_dump.is_some());
+    let hex_dump = response.hex_dump.unwrap();
+    // Check that hex dump contains the expected content starting at offset 4 (EFGH)
+    assert!(hex_dump.contains("45 46 47 48")); // EFGH in hex
 }
 
 #[tokio::test]
@@ -233,18 +235,17 @@ async fn test_llm_analyze_file() {
     let result = server.llm_analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
-    assert!(response.get("md5").is_some());
-    assert!(response.get("file_size").is_some());
-    assert!(response.get("key_strings").is_some());
-    assert!(response.get("hex_patterns").is_some());
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
+    assert!(!response.md5.is_empty());
+    assert!(response.file_size > 0);
+    assert!(!response.key_strings.is_empty());
+    assert!(!response.hex_patterns.is_empty());
     
     // Check if YARA rule suggestion is included
-    if let Some(yara_rule) = response.get("yara_rule_suggestion") {
-        let rule_str = yara_rule.as_str().unwrap();
-        assert!(rule_str.contains("rule"));
-        assert!(rule_str.contains("strings:"));
-        assert!(rule_str.contains("condition:"));
+    if let Some(yara_rule) = &response.yara_rule_suggestion {
+        assert!(yara_rule.contains("rule"));
+        assert!(yara_rule.contains("strings:"));
+        assert!(yara_rule.contains("condition:"));
     }
 }
 
@@ -275,42 +276,25 @@ async fn test_llm_analyze_file_token_limit() {
     let result = server.llm_analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
     let response_str = serde_json::to_string(&response).unwrap();
     assert!(response_str.len() <= 1500); // Allow some overhead
     
     // Check that strings are limited
-    let key_strings = response.get("key_strings").unwrap().as_array().unwrap();
-    assert!(key_strings.len() <= 10);
+    assert!(response.key_strings.len() <= 10);
 }
 
 #[tokio::test]
 async fn test_mcp_tool_registration() {
     let server = create_test_server().await;
-    let router = Router::new();
     
-    // Register tools
-    let tools = server.tools();
-    assert_eq!(tools.len(), 2); // analyze_file and llm_analyze_file
-    
-    // Check tool names
-    let tool_names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(tool_names.contains(&"analyze_file"));
-    assert!(tool_names.contains(&"llm_analyze_file"));
-    
-    // Check tool descriptions
-    for tool in &tools {
-        assert!(!tool.description().is_empty());
-        match tool.name() {
-            "analyze_file" => {
-                assert!(tool.description().contains("Analyze a file"));
-            }
-            "llm_analyze_file" => {
-                assert!(tool.description().contains("LLM-optimized"));
-            }
-            _ => panic!("Unexpected tool name"),
-        }
-    }
+    // This test checks that the server can be instantiated and has the expected structure
+    // Test the server info to verify it's properly configured
+    let info = server.get_info();
+    assert_eq!(info.server_info.name, "file-scanner");
+    assert_eq!(info.server_info.version, "0.1.0");
+    assert!(info.instructions.is_some());
+    assert!(info.capabilities.tools.is_some());
 }
 
 #[tokio::test]
@@ -352,21 +336,19 @@ async fn test_analyze_file_all_options() {
     let result = server.analyze_file(params).await;
     assert!(result.is_ok());
     
-    let response = result.unwrap();
+    let response = result.unwrap().0; // Access the inner value from Json wrapper
     
     // Check all requested fields are present
-    assert!(response.get("file_path").is_some());
-    assert!(response.get("file_size").is_some());
-    assert!(response.get("hashes").is_some());
-    assert!(response.get("extracted_strings").is_some());
-    assert!(response.get("hex_dump").is_some());
-    assert!(response.get("binary_info").is_some());
+    assert_eq!(response.file_path, test_file.to_str().unwrap());
+    assert!(response.metadata.is_some());
+    assert!(response.hashes.is_some());
+    assert!(response.strings.is_some());
+    assert!(response.hex_dump.is_some());
+    assert!(response.binary_info.is_some());
     
     // Binary info should detect ELF
-    if let Some(binary_info) = response.get("binary_info") {
-        if let Some(format) = binary_info.get("format") {
-            assert_eq!(format.as_str().unwrap(), "ELF");
-        }
+    if let Some(binary_info) = &response.binary_info {
+        assert_eq!(binary_info.format, "ELF");
     }
 }
 

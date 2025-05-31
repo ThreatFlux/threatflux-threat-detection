@@ -2,7 +2,6 @@ use file_scanner::dependency_analysis::*;
 use file_scanner::function_analysis::{ImportInfo, SymbolTable, SymbolCounts};
 use file_scanner::strings::ExtractedStrings;
 use std::collections::HashMap;
-use std::path::Path;
 use tempfile::NamedTempFile;
 use std::io::Write;
 

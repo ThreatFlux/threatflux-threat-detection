@@ -512,7 +512,7 @@ impl StringTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, Utc};
+    use chrono::Utc;
 
     #[test]
     fn test_string_tracker_new() {
@@ -845,7 +845,7 @@ mod tests {
     fn test_calculate_similarity() {
         let tracker = StringTracker::new();
         
-        let mut entry_a = StringEntry {
+        let entry_a = StringEntry {
             value: "string_a".to_string(),
             first_seen: Utc::now(),
             last_seen: Utc::now(),
@@ -857,7 +857,7 @@ mod tests {
             entropy: 3.5,
         };
         
-        let mut entry_b = StringEntry {
+        let entry_b = StringEntry {
             value: "string_b".to_string(),
             first_seen: Utc::now(),
             last_seen: Utc::now(),

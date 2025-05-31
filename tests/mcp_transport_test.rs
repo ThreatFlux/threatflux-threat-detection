@@ -1,12 +1,12 @@
-use file_scanner::mcp_transport::{McpTransportServer, JsonRpcRequest, JsonRpcResponse};
-use serde_json::{json, Value};
+use file_scanner::mcp_transport::{McpTransportServer, JsonRpcRequest};
+use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
 use tokio;
 
 #[tokio::test]
 async fn test_transport_creation() {
-    let transport = McpTransportServer::new();
+    let _transport = McpTransportServer::new();
     // Just verify it can be created without panicking
     assert!(true);
 }

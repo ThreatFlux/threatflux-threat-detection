@@ -38,8 +38,12 @@ fn create_pe_file() -> (TempDir, std::path::PathBuf) {
     pe_data.extend_from_slice(&[0x90; 58]); // Padding
     pe_data.extend_from_slice(&[0x3c, 0x00, 0x00, 0x00]); // PE header offset
     
-    // Pad to PE header
-    pe_data.extend_from_slice(&[0x00; 0x3c - pe_data.len()]);
+    // Pad to PE header (should be at 0x3c = 60 bytes total)
+    let current_len = pe_data.len();
+    if current_len < 0x3c {
+        let padding_size = 0x3c - current_len;
+        pe_data.extend_from_slice(&vec![0x00; padding_size]);
+    }
     
     // PE header
     pe_data.extend_from_slice(b"PE\x00\x00");

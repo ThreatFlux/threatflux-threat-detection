@@ -2,7 +2,6 @@ use file_scanner::function_analysis::*;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 use tempfile::tempdir;
 
 /// Creates a simple ELF binary for testing
