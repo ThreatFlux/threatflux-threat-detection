@@ -5,7 +5,7 @@ use rmcp::{
     schemars, tool, ServerHandler,
 };
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::{
     behavioral_analysis::{analyze_behavior, BehavioralAnalysis},
@@ -29,7 +29,7 @@ use crate::{
 pub struct FileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
     pub file_path: String,
-    
+
     // Analysis options
     #[schemars(description = "Include file metadata (size, timestamps, permissions)")]
     pub metadata: Option<bool>,
@@ -121,25 +121,25 @@ pub struct YaraIndicators {
 pub struct LlmFileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
     pub file_path: String,
-    
+
     #[schemars(description = "Token limit for the response (default: 25000)")]
     pub token_limit: Option<usize>,
-    
+
     #[schemars(description = "Minimum string length to extract (default: 6)")]
     pub min_string_length: Option<usize>,
-    
+
     #[schemars(description = "Maximum number of strings to return (default: 50)")]
     pub max_strings: Option<usize>,
-    
+
     #[schemars(description = "Maximum number of imports to return (default: 30)")]
     pub max_imports: Option<usize>,
-    
+
     #[schemars(description = "Maximum number of opcodes to return (default: 10)")]
     pub max_opcodes: Option<usize>,
-    
+
     #[schemars(description = "Size of hex patterns to extract (default: 32)")]
     pub hex_pattern_size: Option<usize>,
-    
+
     #[schemars(description = "Generate YARA rule suggestion (default: true)")]
     pub suggest_yara_rule: Option<bool>,
 }
@@ -161,7 +161,9 @@ pub struct FileScannerMcp;
 
 #[tool(tool_box)]
 impl FileScannerMcp {
-    #[tool(description = "Comprehensive file analysis tool - use flags to control which analyses to perform (metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, yara_indicators)")]
+    #[tool(
+        description = "Comprehensive file analysis tool - use flags to control which analyses to perform (metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, yara_indicators)"
+    )]
     pub async fn analyze_file(
         &self,
         #[tool(aggr)] request: FileAnalysisRequest,
@@ -196,13 +198,18 @@ impl FileScannerMcp {
         if request.metadata.unwrap_or(false) {
             let mut metadata = FileMetadata::new(&path).map_err(|e| e.to_string())?;
             metadata.extract_basic_info().map_err(|e| e.to_string())?;
-            metadata.calculate_hashes().await.map_err(|e| e.to_string())?;
+            metadata
+                .calculate_hashes()
+                .await
+                .map_err(|e| e.to_string())?;
             result.metadata = Some(metadata);
         }
 
         // Hashes
         if request.hashes.unwrap_or(false) {
-            let hashes = calculate_all_hashes(&path).await.map_err(|e| e.to_string())?;
+            let hashes = calculate_all_hashes(&path)
+                .await
+                .map_err(|e| e.to_string())?;
             result.hashes = Some(hashes);
         }
 
@@ -336,8 +343,13 @@ impl FileScannerMcp {
             } else {
                 None
             };
-            
-            if let Ok(behavioral) = analyze_behavior(&path, strings.as_ref(), symbols.as_ref(), disassembly.as_ref()) {
+
+            if let Ok(behavioral) = analyze_behavior(
+                &path,
+                strings.as_ref(),
+                symbols.as_ref(),
+                disassembly.as_ref(),
+            ) {
                 result.behavioral = Some(behavioral);
             }
         }
@@ -350,7 +362,9 @@ impl FileScannerMcp {
             // Get hashes if not already calculated
             let hashes = match &result.hashes {
                 Some(_) => result.hashes.take().unwrap(),
-                None => calculate_all_hashes(&path).await.map_err(|e| e.to_string())?,
+                None => calculate_all_hashes(&path)
+                    .await
+                    .map_err(|e| e.to_string())?,
             };
 
             // Get magic bytes
@@ -361,11 +375,16 @@ impl FileScannerMcp {
                 max_lines: Some(1),
             };
             let hex_dump = generate_hex_dump(&path, hex_options).map_err(|e| e.to_string())?;
-            let magic_bytes = hex_dump.lines.first()
-                .map(|line| line.raw_bytes.iter()
-                    .map(|b| format!("{:02X}", b))
-                    .collect::<Vec<_>>()
-                    .join(" "))
+            let magic_bytes = hex_dump
+                .lines
+                .first()
+                .map(|line| {
+                    line.raw_bytes
+                        .iter()
+                        .map(|b| format!("{:02X}", b))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
                 .unwrap_or_default();
 
             // Get entropy if not already calculated
@@ -377,7 +396,8 @@ impl FileScannerMcp {
 
             // Extract unique strings
             let strings = extract_strings(&path, 8).map_err(|e| e.to_string())?;
-            let mut unique_strings: Vec<String> = strings.interesting_strings
+            let mut unique_strings: Vec<String> = strings
+                .interesting_strings
                 .iter()
                 .filter(|s| s.value.len() >= 8 && s.value.len() <= 50)
                 .map(|s| s.value.clone())
@@ -389,9 +409,15 @@ impl FileScannerMcp {
 
             // Get imports and sections
             let (imports, sections) = if let Some(ref bi) = result.binary_info {
-                (bi.imports.clone(), bi.sections.iter().map(|s| s.name.clone()).collect())
+                (
+                    bi.imports.clone(),
+                    bi.sections.iter().map(|s| s.name.clone()).collect(),
+                )
             } else if let Ok(bi) = parse_binary(&path) {
-                (bi.imports.clone(), bi.sections.iter().map(|s| s.name.clone()).collect())
+                (
+                    bi.imports.clone(),
+                    bi.sections.iter().map(|s| s.name.clone()).collect(),
+                )
             } else {
                 (vec![], vec![])
             };
@@ -405,24 +431,26 @@ impl FileScannerMcp {
                 unique_strings,
                 imports,
                 sections,
-                is_packed: entropy_analysis.packed_indicators.likely_packed || entropy_analysis.overall_entropy > 7.0,
+                is_packed: entropy_analysis.packed_indicators.likely_packed
+                    || entropy_analysis.overall_entropy > 7.0,
             });
         }
 
         Ok(Json(result))
     }
 
-    #[tool(description = "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output with key indicators")]
+    #[tool(
+        description = "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output with key indicators"
+    )]
     pub async fn llm_analyze_file(
         &self,
         #[tool(aggr)] request: LlmFileAnalysisRequest,
     ) -> Result<Json<LlmFileAnalysisResult>, String> {
         use crate::{
-            strings::{extract_strings, InterestingString},
-            binary_parser::parse_binary,
-            entropy_analysis::analyze_entropy,
+            binary_parser::parse_binary, entropy_analysis::analyze_entropy,
+            strings::extract_strings,
         };
-        
+
         let path = PathBuf::from(&request.file_path);
         if !path.exists() {
             return Err(format!("File does not exist: {}", request.file_path));
@@ -431,35 +459,40 @@ impl FileScannerMcp {
         // Get file metadata for MD5 hash
         let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
         let file_size = metadata.len();
-        
+
         // Calculate MD5 hash only
-        let md5_hash = crate::hash::calculate_md5(&path).await.map_err(|e| e.to_string())?;
-        
+        let md5_hash = crate::hash::calculate_md5(&path)
+            .await
+            .map_err(|e| e.to_string())?;
+
         // Extract strings with focus on interesting patterns
         let min_string_len = request.min_string_length.unwrap_or(6);
         let strings = extract_strings(&path, min_string_len).map_err(|e| e.to_string())?;
-        
+
         // Filter and prioritize strings for YARA rules
         let key_strings = self.extract_key_strings(&strings, request.max_strings.unwrap_or(50));
-        
+
         // Get hex patterns from file header/footer
-        let hex_patterns = self.extract_hex_patterns(&path, request.hex_pattern_size.unwrap_or(32))?;
-        
+        let hex_patterns =
+            self.extract_hex_patterns(&path, request.hex_pattern_size.unwrap_or(32))?;
+
         // Parse binary for imports
         let imports = if let Ok(binary_info) = parse_binary(&path) {
-            binary_info.imports.into_iter()
+            binary_info
+                .imports
+                .into_iter()
                 .take(request.max_imports.unwrap_or(30))
                 .collect()
         } else {
             vec![]
         };
-        
+
         // Get interesting opcodes/byte sequences
         let opcodes = self.extract_key_opcodes(&path, request.max_opcodes.unwrap_or(10))?;
-        
+
         // Calculate entropy for packing detection
         let entropy = analyze_entropy(&path).ok().map(|e| e.overall_entropy);
-        
+
         // Build focused result
         let mut result = LlmFileAnalysisResult {
             md5: md5_hash,
@@ -471,52 +504,65 @@ impl FileScannerMcp {
             entropy,
             yara_rule_suggestion: None,
         };
-        
+
         // Generate YARA rule suggestion if requested
         if request.suggest_yara_rule.unwrap_or(true) {
-            result.yara_rule_suggestion = Some(self.generate_yara_rule_suggestion(&result, &request.file_path));
+            result.yara_rule_suggestion =
+                Some(self.generate_yara_rule_suggestion(&result, &request.file_path));
         }
-        
+
         // Ensure we're within token limit
         let serialized = serde_json::to_string(&result).unwrap_or_default();
         let token_limit = request.token_limit.unwrap_or(25000);
-        
+
         if serialized.len() > token_limit {
             // Trim results to fit token limit
             result = self.trim_results_to_token_limit(result, token_limit);
         }
-        
+
         Ok(Json(result))
     }
-    
-    fn extract_key_strings(&self, strings: &crate::strings::ExtractedStrings, max_count: usize) -> Vec<String> {
+
+    fn extract_key_strings(
+        &self,
+        strings: &crate::strings::ExtractedStrings,
+        max_count: usize,
+    ) -> Vec<String> {
         let mut key_strings = Vec::new();
-        
+
         // Prioritize interesting strings
         for s in &strings.interesting_strings {
-            if key_strings.len() >= max_count { break; }
+            if key_strings.len() >= max_count {
+                break;
+            }
             if s.value.len() >= 8 && s.value.len() <= 100 {
                 key_strings.push(s.value.clone());
             }
         }
-        
+
         // Add unique ASCII strings
         let mut seen = std::collections::HashSet::new();
         for s in &strings.ascii_strings {
-            if key_strings.len() >= max_count { break; }
+            if key_strings.len() >= max_count {
+                break;
+            }
             if s.len() >= 8 && s.len() <= 100 && seen.insert(s) {
                 key_strings.push(s.clone());
             }
         }
-        
+
         key_strings
     }
-    
-    fn extract_hex_patterns(&self, path: &PathBuf, pattern_size: usize) -> Result<Vec<String>, String> {
+
+    fn extract_hex_patterns(
+        &self,
+        path: &PathBuf,
+        pattern_size: usize,
+    ) -> Result<Vec<String>, String> {
         use crate::hexdump::{generate_hex_dump, HexDumpOptions};
-        
+
         let mut patterns = Vec::new();
-        
+
         // Get file header pattern
         let header_options = HexDumpOptions {
             offset: 0,
@@ -524,17 +570,19 @@ impl FileScannerMcp {
             bytes_per_line: pattern_size,
             max_lines: Some(1),
         };
-        
+
         if let Ok(header_dump) = generate_hex_dump(path, header_options) {
             if let Some(line) = header_dump.lines.first() {
-                let hex_pattern = line.raw_bytes.iter()
+                let hex_pattern = line
+                    .raw_bytes
+                    .iter()
                     .map(|b| format!("{:02X}", b))
                     .collect::<Vec<_>>()
                     .join(" ");
                 patterns.push(hex_pattern);
             }
         }
-        
+
         // Get file footer pattern if file is large enough
         if let Ok(metadata) = std::fs::metadata(path) {
             if metadata.len() > pattern_size as u64 {
@@ -544,10 +592,12 @@ impl FileScannerMcp {
                     bytes_per_line: pattern_size,
                     max_lines: Some(1),
                 };
-                
+
                 if let Ok(footer_dump) = generate_hex_dump(path, footer_options) {
                     if let Some(line) = footer_dump.lines.first() {
-                        let hex_pattern = line.raw_bytes.iter()
+                        let hex_pattern = line
+                            .raw_bytes
+                            .iter()
                             .map(|b| format!("{:02X}", b))
                             .collect::<Vec<_>>()
                             .join(" ");
@@ -556,15 +606,15 @@ impl FileScannerMcp {
                 }
             }
         }
-        
+
         Ok(patterns)
     }
-    
-    fn extract_key_opcodes(&self, path: &PathBuf, max_count: usize) -> Result<Vec<String>, String> {
+
+    fn extract_key_opcodes(&self, path: &Path, max_count: usize) -> Result<Vec<String>, String> {
         use crate::hexdump::{generate_hex_dump, HexDumpOptions};
-        
+
         let mut opcodes = Vec::new();
-        
+
         // Look for common opcode patterns in code sections
         let options = HexDumpOptions {
             offset: 0x1000, // Common code section offset
@@ -572,7 +622,7 @@ impl FileScannerMcp {
             bytes_per_line: 16,
             max_lines: Some(16),
         };
-        
+
         if let Ok(dump) = generate_hex_dump(path, options) {
             for line in dump.lines.iter().take(max_count) {
                 // Look for interesting opcode sequences
@@ -582,8 +632,11 @@ impl FileScannerMcp {
                     if (window[0] == 0xE8 || window[0] == 0xE9) || // CALL/JMP
                        (window[0] == 0xFF && (window[1] & 0xF0) == 0x10) || // Indirect calls
                        (window[0] == 0x48 && window[1] == 0x8B) || // MOV patterns
-                       (window[0] == 0x55 && window[1] == 0x48) { // Function prologue
-                        let pattern = window.iter()
+                       (window[0] == 0x55 && window[1] == 0x48)
+                    {
+                        // Function prologue
+                        let pattern = window
+                            .iter()
                             .map(|b| format!("{:02X}", b))
                             .collect::<Vec<_>>()
                             .join(" ");
@@ -594,70 +647,81 @@ impl FileScannerMcp {
                 }
             }
         }
-        
+
         Ok(opcodes.into_iter().take(max_count).collect())
     }
-    
-    fn generate_yara_rule_suggestion(&self, analysis: &LlmFileAnalysisResult, file_name: &str) -> String {
-        let rule_name = file_name.replace("/", "_").replace(".", "_").replace("-", "_");
+
+    fn generate_yara_rule_suggestion(
+        &self,
+        analysis: &LlmFileAnalysisResult,
+        file_name: &str,
+    ) -> String {
+        let rule_name = file_name
+            .replace("/", "_")
+            .replace(".", "_")
+            .replace("-", "_");
         let mut conditions = Vec::new();
-        
+
         // Add file size condition
         conditions.push(format!("filesize == {}", analysis.file_size));
-        
+
         // Add entropy condition if packed
         if let Some(entropy) = analysis.entropy {
             if entropy > 7.0 {
                 conditions.push(format!("math.entropy(0, filesize) > {:.1}", entropy - 0.5));
             }
         }
-        
+
         // Build string conditions
         let string_count = analysis.key_strings.len().min(5);
         if string_count > 0 {
-            conditions.push(format!("{} of ($s*)", (string_count + 1) / 2));
+            conditions.push(format!("{} of ($s*)", string_count.div_ceil(2)));
         }
-        
+
         // Add hex pattern conditions
         if !analysis.hex_patterns.is_empty() {
             conditions.push("$header at 0".to_string());
         }
-        
+
         // Build the rule
         let mut rule = format!("rule {} {{\n", rule_name);
         rule.push_str("    meta:\n");
         rule.push_str(&format!("        md5 = \"{}\"\n", analysis.md5));
         rule.push_str(&format!("        filesize = {}\n", analysis.file_size));
-        
+
         rule.push_str("    strings:\n");
-        
+
         // Add hex patterns
         if let Some(header) = analysis.hex_patterns.first() {
             rule.push_str(&format!("        $header = {{ {} }}\n", header));
         }
-        
+
         // Add key strings
         for (i, s) in analysis.key_strings.iter().take(10).enumerate() {
             let escaped = s.replace("\\", "\\\\").replace("\"", "\\\"");
             rule.push_str(&format!("        $s{} = \"{}\"\n", i + 1, escaped));
         }
-        
+
         // Add condition
         rule.push_str("    condition:\n");
         rule.push_str(&format!("        {}\n", conditions.join(" and ")));
         rule.push_str("}\n");
-        
+
         rule
     }
-    
-    fn trim_results_to_token_limit(&self, mut result: LlmFileAnalysisResult, token_limit: usize) -> LlmFileAnalysisResult {
+
+    fn trim_results_to_token_limit(
+        &self,
+        mut result: LlmFileAnalysisResult,
+        token_limit: usize,
+    ) -> LlmFileAnalysisResult {
         // Progressively trim results until we fit within token limit
         loop {
             let serialized = serde_json::to_string(&result).unwrap_or_default();
             if serialized.len() <= token_limit {
                 break;
             }
-            
+
             // Trim strategies in order of preference
             if result.key_strings.len() > 20 {
                 result.key_strings.truncate(result.key_strings.len() - 5);
@@ -673,7 +737,7 @@ impl FileScannerMcp {
                 break;
             }
         }
-        
+
         result
     }
 }

@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::time::{Duration, Instant};
-use yara_x;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreatAnalysis {
@@ -33,8 +32,8 @@ pub enum ThreatClassification {
     Adware,
     Spyware,
     Ransomware,
-    APT,
-    PUA, // Potentially Unwanted Application
+    Apt,
+    Pua, // Potentially Unwanted Application
     Banker,
     Downloader,
     Backdoor,
@@ -107,7 +106,7 @@ pub fn analyze_threats(path: &Path) -> Result<ThreatAnalysis> {
 
     // Process the scan results based on compiled rules
     let rules_text = get_builtin_rules();
-    for (_idx, rule_text) in rules_text.iter().enumerate() {
+    for rule_text in rules_text.iter() {
         // Extract rule name from the rule text
         if let Some(rule_name) = extract_rule_name(rule_text) {
             // Check if this rule matched (simplified approach)
@@ -437,8 +436,8 @@ fn tag_to_classification(tag: &str) -> Option<ThreatClassification> {
         "adware" => Some(ThreatClassification::Adware),
         "spyware" => Some(ThreatClassification::Spyware),
         "ransomware" => Some(ThreatClassification::Ransomware),
-        "apt" => Some(ThreatClassification::APT),
-        "pua" => Some(ThreatClassification::PUA),
+        "apt" => Some(ThreatClassification::Apt),
+        "pua" => Some(ThreatClassification::Pua),
         "banker" => Some(ThreatClassification::Banker),
         "downloader" => Some(ThreatClassification::Downloader),
         "backdoor" => Some(ThreatClassification::Backdoor),

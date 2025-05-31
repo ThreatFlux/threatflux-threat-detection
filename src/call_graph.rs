@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::disassembly::{DisassemblyResult, FlowControl};
 use crate::function_analysis::SymbolTable;
 use anyhow::Result;
@@ -76,6 +77,7 @@ pub struct CallGraphStatistics {
 }
 
 /// Generates a complete call graph from disassembly and symbol information
+#[allow(dead_code)]
 pub fn generate_call_graph(
     _path: &Path,
     disassembly: &DisassemblyResult,
@@ -284,10 +286,11 @@ impl CallGraph {
 
         // Also consider functions with no callers as potential entry points
         for node in &self.nodes {
-            if node.in_degree == 0 && node.node_type == NodeType::Internal {
-                if !self.entry_points.contains(&node.function_address) {
-                    self.entry_points.push(node.function_address);
-                }
+            if node.in_degree == 0
+                && node.node_type == NodeType::Internal
+                && !self.entry_points.contains(&node.function_address)
+            {
+                self.entry_points.push(node.function_address);
             }
         }
     }
@@ -537,6 +540,7 @@ impl CallGraph {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]

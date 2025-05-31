@@ -60,6 +60,7 @@ struct Args {
 }
 
 #[derive(Subcommand, Debug)]
+#[allow(clippy::enum_variant_names)]
 enum Commands {
     /// Run as MCP server with stdio transport
     McpStdio,

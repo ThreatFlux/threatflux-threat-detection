@@ -78,7 +78,13 @@ pub fn generate_hex_dump(path: &Path, options: HexDumpOptions) -> Result<HexDump
 
         let ascii_repr = chunk
             .iter()
-            .map(|&b| if b >= 32 && b <= 126 { b as char } else { '.' })
+            .map(|&b| {
+                if (32..=126).contains(&b) {
+                    b as char
+                } else {
+                    '.'
+                }
+            })
             .collect();
 
         lines.push(HexLine {
@@ -137,11 +143,7 @@ pub fn extract_footer_hex(path: &Path, footer_size: usize) -> Result<HexDump> {
     let file = File::open(path)?;
     let file_size = file.metadata()?.len();
 
-    let offset = if file_size > footer_size as u64 {
-        file_size - footer_size as u64
-    } else {
-        0
-    };
+    let offset = file_size.saturating_sub(footer_size as u64);
 
     let options = HexDumpOptions {
         offset,

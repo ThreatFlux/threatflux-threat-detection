@@ -100,6 +100,7 @@ pub struct FileOperation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[allow(clippy::enum_variant_names)]
 pub enum FileOpType {
     FileCreation,
     FileDeletion,
@@ -227,7 +228,7 @@ fn detect_anti_analysis(
 
     // Check strings
     if let Some(strings) = strings {
-        for (indicator, desc) in &debug_indicators {
+        for (indicator, _desc) in &debug_indicators {
             if strings.ascii_strings.iter().any(|s| s.contains(indicator))
                 || strings
                     .unicode_strings
@@ -242,10 +243,10 @@ fn detect_anti_analysis(
     // Check symbols
     if let Some(symbols) = symbols {
         for (indicator, _) in &debug_indicators {
-            if symbols.functions.iter().any(|f| f.name.contains(indicator)) {
-                if !found_indicators.contains(&indicator.to_string()) {
-                    found_indicators.push(indicator.to_string());
-                }
+            if symbols.functions.iter().any(|f| f.name.contains(indicator))
+                && !found_indicators.contains(&indicator.to_string())
+            {
+                found_indicators.push(indicator.to_string());
             }
         }
     }
@@ -888,7 +889,7 @@ fn detect_registry_operations(strings: Option<&ExtractedStrings>) -> Vec<Registr
 }
 
 fn detect_process_operations(
-    strings: Option<&ExtractedStrings>,
+    _strings: Option<&ExtractedStrings>,
     symbols: Option<&SymbolTable>,
 ) -> Vec<ProcessOperation> {
     let mut operations = Vec::new();
@@ -1039,7 +1040,7 @@ fn detect_process_operations(
 }
 
 fn identify_suspicious_behaviors(
-    anti_analysis: &[AntiAnalysisTechnique],
+    _anti_analysis: &[AntiAnalysisTechnique],
     persistence: &[PersistenceMechanism],
     network: &[NetworkPattern],
     file_ops: &[FileOperation],

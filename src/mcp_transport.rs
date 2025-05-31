@@ -86,7 +86,7 @@ impl McpTransportServer {
         let cache_dir = std::env::temp_dir().join("file-scanner-cache");
         let cache = Arc::new(AnalysisCache::new(cache_dir).expect("Failed to create cache"));
         let string_tracker = Arc::new(StringTracker::new());
-        
+
         Self {
             handler: FileScannerMcp,
             cache,
@@ -456,50 +456,67 @@ impl McpTransportServer {
     }
 
     async fn handle_tool_call(&self, params: ToolCallParams) -> Value {
-        use crate::mcp_server::{FileAnalysisRequest, FileAnalysisResult};
+        use crate::mcp_server::FileAnalysisRequest;
         use rmcp::handler::server::wrapper::Json;
-        
+
         let start_time = Instant::now();
-        
+
         match params.name.as_str() {
             "analyze_file" => {
                 // Convert the arguments to FileAnalysisRequest
-                match serde_json::from_value::<FileAnalysisRequest>(serde_json::json!(params.arguments)) {
+                match serde_json::from_value::<FileAnalysisRequest>(serde_json::json!(
+                    params.arguments
+                )) {
                     Ok(request) => {
                         // Call the unified analyze_file method
                         match self.handler.analyze_file(request).await {
                             Ok(Json(result)) => {
                                 // Track strings if extracted
-                                if let (Some(strings), Some(file_path)) = (&result.strings, params.arguments.get("file_path").and_then(|v| v.as_str())) {
-                                    if let Ok(hashes) = crate::hash::calculate_all_hashes(&std::path::PathBuf::from(file_path)).await {
+                                if let (Some(strings), Some(file_path)) = (
+                                    &result.strings,
+                                    params.arguments.get("file_path").and_then(|v| v.as_str()),
+                                ) {
+                                    if let Ok(hashes) = crate::hash::calculate_all_hashes(
+                                        &std::path::PathBuf::from(file_path),
+                                    )
+                                    .await
+                                    {
                                         let _ = self.string_tracker.track_strings_from_results(
                                             strings,
                                             file_path,
                                             &hashes.sha256,
-                                            "analyze_file"
+                                            "analyze_file",
                                         );
                                     }
                                 }
-                                
+
                                 // Cache the result
-                                if let Some(file_path) = params.arguments.get("file_path").and_then(|v| v.as_str()) {
+                                if let Some(file_path) =
+                                    params.arguments.get("file_path").and_then(|v| v.as_str())
+                                {
                                     if let Ok(metadata) = std::fs::metadata(file_path) {
-                                        if let Ok(hashes) = crate::hash::calculate_all_hashes(&std::path::PathBuf::from(file_path)).await {
+                                        if let Ok(hashes) = crate::hash::calculate_all_hashes(
+                                            &std::path::PathBuf::from(file_path),
+                                        )
+                                        .await
+                                        {
                                             let entry = CacheEntry {
                                                 file_path: file_path.to_string(),
                                                 file_hash: hashes.sha256,
                                                 tool_name: "analyze_file".to_string(),
                                                 tool_args: params.arguments.clone(),
-                                                result: serde_json::to_value(&result).unwrap_or_default(),
+                                                result: serde_json::to_value(&result)
+                                                    .unwrap_or_default(),
                                                 timestamp: Utc::now(),
                                                 file_size: metadata.len(),
-                                                execution_time_ms: start_time.elapsed().as_millis() as u64,
+                                                execution_time_ms: start_time.elapsed().as_millis()
+                                                    as u64,
                                             };
                                             let _ = self.cache.add_entry(entry);
                                         }
                                     }
                                 }
-                                
+
                                 json!({
                                     "content": [{
                                         "type": "text",
@@ -529,7 +546,9 @@ impl McpTransportServer {
             }
             "llm_analyze_file" => {
                 // Convert the arguments to LlmFileAnalysisRequest
-                match serde_json::from_value::<crate::mcp_server::LlmFileAnalysisRequest>(serde_json::json!(params.arguments)) {
+                match serde_json::from_value::<crate::mcp_server::LlmFileAnalysisRequest>(
+                    serde_json::json!(params.arguments),
+                ) {
                     Ok(request) => {
                         // Call the llm_analyze_file method
                         match self.handler.llm_analyze_file(request).await {
@@ -771,7 +790,7 @@ async fn handle_cache_clear(
         Err(e) => Ok(AxumJson(json!({
             "status": "error",
             "message": format!("Failed to clear cache: {}", e)
-        })))
+        }))),
     }
 }
 
@@ -787,13 +806,9 @@ async fn handle_strings_search(
     State(state): State<McpServerState>,
     AxumJson(params): AxumJson<HashMap<String, Value>>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    let query = params.get("query")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let limit = params.get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(100) as usize;
-    
+    let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
+    let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
+
     let results = state.string_tracker.search_strings(query, limit);
     Ok(AxumJson(json!({
         "results": results,
@@ -805,15 +820,13 @@ async fn handle_string_details(
     State(state): State<McpServerState>,
     AxumJson(params): AxumJson<HashMap<String, Value>>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    let value = params.get("value")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    
+    let value = params.get("value").and_then(|v| v.as_str()).unwrap_or("");
+
     match state.string_tracker.get_string_details(value) {
         Some(details) => Ok(AxumJson(json!(details))),
         None => Ok(AxumJson(json!({
             "error": "String not found"
-        })))
+        }))),
     }
 }
 
@@ -821,13 +834,9 @@ async fn handle_strings_related(
     State(state): State<McpServerState>,
     AxumJson(params): AxumJson<HashMap<String, Value>>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    let value = params.get("value")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let limit = params.get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(20) as usize;
-    
+    let value = params.get("value").and_then(|v| v.as_str()).unwrap_or("");
+    let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+
     let related = state.string_tracker.get_related_strings(value, limit);
     Ok(AxumJson(json!({
         "related": related,

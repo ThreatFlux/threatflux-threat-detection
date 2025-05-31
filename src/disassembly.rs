@@ -959,8 +959,8 @@ mod tests {
             ("aesenc", InstructionType::Crypto),
         ];
 
-        for (mnemonic, expected) in test_cases {
-            let insn = Instruction {
+        for (mnemonic, _expected) in test_cases {
+            let _insn = Instruction {
                 address: 0,
                 bytes: vec![],
                 mnemonic: mnemonic.to_string(),

@@ -412,7 +412,7 @@ fn detect_encryption(buffer: &[u8], sections: &[SectionEntropy]) -> EncryptionIn
     // Calculate percentage of random-looking data
     let random_bytes = buffer
         .iter()
-        .filter(|&&b| b >= 32 && b <= 126) // Printable ASCII
+        .filter(|&&b| (32..=126).contains(&b)) // Printable ASCII
         .count();
     let random_data_percentage = 1.0 - (random_bytes as f64 / buffer.len() as f64);
 
@@ -561,7 +561,7 @@ mod tests {
         assert_eq!(calculate_entropy(&data1), 0.0);
 
         // Random data - high entropy
-        let data2: Vec<u8> = (0..256).cycle().take(1024).collect();
+        let data2: Vec<u8> = (0..=255).cycle().take(1024).collect();
         let entropy2 = calculate_entropy(&data2);
         assert!(entropy2 > 7.9 && entropy2 <= 8.0);
 

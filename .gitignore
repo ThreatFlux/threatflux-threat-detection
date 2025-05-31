@@ -107,3 +107,6 @@ zig.tar.xz
 # YAML test reports
 report_test.yaml
 *.test.yaml
+
+# MCP configuration (may contain secrets)
+.mcp.json

@@ -481,7 +481,7 @@ impl DependencyAnalyzer {
 
     fn is_common_file(&self, name: &str) -> bool {
         // Filter out common non-library files
-        let common_files = vec!["config", "data", "cache", "tmp", "log", "pid"];
+        let common_files = ["config", "data", "cache", "tmp", "log", "pid"];
         common_files.iter().any(|&file| name.contains(file))
     }
 

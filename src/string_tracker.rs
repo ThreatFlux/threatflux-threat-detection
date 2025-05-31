@@ -83,18 +83,14 @@ impl StringTracker {
             regex::Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").unwrap(),
             regex::Regex::new(r"(?i)(cmd\.exe|powershell|bash|sh)").unwrap(),
             regex::Regex::new(r"(?i)(eval|exec|system|shell)").unwrap(),
-            
             // Crypto/encoding
             regex::Regex::new(r"(?i)(base64|rot13|xor|aes|des|rsa)").unwrap(),
             regex::Regex::new(r"^[A-Za-z0-9+/]{20,}={0,2}$").unwrap(), // Base64
-            
             // Suspicious paths
             regex::Regex::new(r"(?i)(\\temp\\|\/tmp\/|\\windows\\system32)").unwrap(),
             regex::Regex::new(r"(?i)(passwords?|credential|secret|token|api[_-]?key)").unwrap(),
-            
             // Registry keys
             regex::Regex::new(r"(?i)(HKEY_|SOFTWARE\\Microsoft\\Windows)").unwrap(),
-            
             // Common malware strings
             regex::Regex::new(r"(?i)(dropper|payload|inject|hook|rootkit)").unwrap(),
             regex::Regex::new(r"(?i)(keylog|screenshot|webcam|microphone)").unwrap(),
@@ -115,7 +111,7 @@ impl StringTracker {
         context: StringContext,
     ) -> Result<()> {
         let mut entries = self.entries.lock().unwrap();
-        
+
         let occurrence = StringOccurrence {
             file_path: file_path.to_string(),
             file_hash: file_hash.to_string(),
@@ -141,7 +137,7 @@ impl StringTracker {
         let entry = entries.entry(value.to_string()).or_insert_with(|| {
             let entropy = self.calculate_entropy(value);
             let is_suspicious = self.is_suspicious(value);
-            
+
             StringEntry {
                 value: value.to_string(),
                 first_seen: Utc::now(),
@@ -192,19 +188,19 @@ impl StringTracker {
         }
 
         // Path detection
-        if s.contains('/') || s.contains('\\') {
-            if s.starts_with("/") || s.starts_with("\\") || s.contains(":\\") {
-                let path_type = if s.contains("\\Windows") || s.contains("/usr") {
-                    "system"
-                } else if s.contains("\\Temp") || s.contains("/tmp") {
-                    "temp"
-                } else {
-                    "general"
-                };
-                return StringContext::Path {
-                    path_type: path_type.to_string(),
-                };
-            }
+        if (s.contains('/') || s.contains('\\'))
+            && (s.starts_with("/") || s.starts_with("\\") || s.contains(":\\"))
+        {
+            let path_type = if s.contains("\\Windows") || s.contains("/usr") {
+                "system"
+            } else if s.contains("\\Temp") || s.contains("/tmp") {
+                "temp"
+            } else {
+                "general"
+            };
+            return StringContext::Path {
+                path_type: path_type.to_string(),
+            };
         }
 
         // Registry key detection
@@ -267,7 +263,9 @@ impl StringTracker {
         }
 
         // Check for non-printable characters
-        if s.chars().any(|c| c.is_control() && c != '\n' && c != '\r' && c != '\t') {
+        if s.chars()
+            .any(|c| c.is_control() && c != '\n' && c != '\r' && c != '\t')
+        {
             return true;
         }
 
@@ -276,17 +274,14 @@ impl StringTracker {
 
     pub fn get_statistics(&self, filter: Option<&StringFilter>) -> StringStatistics {
         let entries = self.entries.lock().unwrap();
-        
+
         let filtered_entries: Vec<_> = entries
             .values()
             .filter(|entry| self.matches_filter(entry, filter))
             .collect();
 
         let total_unique_strings = filtered_entries.len();
-        let total_occurrences: usize = filtered_entries
-            .iter()
-            .map(|e| e.total_occurrences)
-            .sum();
+        let total_occurrences: usize = filtered_entries.iter().map(|e| e.total_occurrences).sum();
 
         let total_files_analyzed: HashSet<_> = filtered_entries
             .iter()
@@ -337,7 +332,9 @@ impl StringTracker {
                 101..=200 => "101-200",
                 _ => "200+",
             };
-            *length_distribution.entry(len_bucket.to_string()).or_insert(0) += 1;
+            *length_distribution
+                .entry(len_bucket.to_string())
+                .or_insert(0) += 1;
         }
 
         StringStatistics {
@@ -430,13 +427,13 @@ impl StringTracker {
     pub fn search_strings(&self, query: &str, limit: usize) -> Vec<StringEntry> {
         let entries = self.entries.lock().unwrap();
         let query_lower = query.to_lowercase();
-        
+
         let mut results: Vec<_> = entries
             .values()
             .filter(|e| e.value.to_lowercase().contains(&query_lower))
             .cloned()
             .collect();
-        
+
         results.sort_by(|a, b| b.total_occurrences.cmp(&a.total_occurrences));
         results.truncate(limit);
         results
@@ -444,7 +441,7 @@ impl StringTracker {
 
     pub fn get_related_strings(&self, value: &str, limit: usize) -> Vec<(String, f64)> {
         let entries = self.entries.lock().unwrap();
-        
+
         let Some(target_entry) = entries.get(value) else {
             return vec![];
         };
@@ -471,14 +468,16 @@ impl StringTracker {
         // Shared files
         let shared_files: HashSet<_> = a.unique_files.intersection(&b.unique_files).collect();
         if !shared_files.is_empty() {
-            score += shared_files.len() as f64 / a.unique_files.len().min(b.unique_files.len()) as f64;
+            score +=
+                shared_files.len() as f64 / a.unique_files.len().min(b.unique_files.len()) as f64;
             factors += 1.0;
         }
 
         // Shared categories
         let shared_categories: HashSet<_> = a.categories.intersection(&b.categories).collect();
         if !shared_categories.is_empty() {
-            score += shared_categories.len() as f64 / a.categories.len().min(b.categories.len()) as f64;
+            score +=
+                shared_categories.len() as f64 / a.categories.len().min(b.categories.len()) as f64;
             factors += 1.0;
         }
 
@@ -503,6 +502,7 @@ impl StringTracker {
         }
     }
 
+    #[allow(dead_code)]
     pub fn clear(&self) {
         let mut entries = self.entries.lock().unwrap();
         entries.clear();
