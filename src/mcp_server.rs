@@ -25,7 +25,7 @@ use crate::{
     vulnerability_detection::{analyze_vulnerabilities, VulnerabilityDetectionResult},
 };
 
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
     pub file_path: String,
@@ -104,7 +104,7 @@ pub struct FileAnalysisResult {
     pub yara_indicators: Option<YaraIndicators>,
 }
 
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct YaraIndicators {
     pub sha256: String,
     pub md5: String,
@@ -117,7 +117,7 @@ pub struct YaraIndicators {
     pub is_packed: bool,
 }
 
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct LlmFileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
     pub file_path: String,
@@ -144,7 +144,7 @@ pub struct LlmFileAnalysisRequest {
     pub suggest_yara_rule: Option<bool>,
 }
 
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct LlmFileAnalysisResult {
     pub md5: String,
     pub file_size: u64,
@@ -754,5 +754,583 @@ impl ServerHandler for FileScannerMcp {
             instructions: Some("A comprehensive file scanner with a single analyze_file tool that supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators.".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+    use std::fs;
+    use std::io::Write;
+
+    fn create_test_file(content: &[u8]) -> Result<(TempDir, std::path::PathBuf), std::io::Error> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test_file.bin");
+        let mut file = fs::File::create(&file_path)?;
+        file.write_all(content)?;
+        Ok((temp_dir, file_path))
+    }
+
+    fn create_test_elf_file() -> Result<(TempDir, std::path::PathBuf), std::io::Error> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test_elf");
+        let mut elf_data = vec![
+            0x7f, 0x45, 0x4c, 0x46, // ELF magic
+            0x02, 0x01, 0x01, 0x00, // 64-bit, little-endian, version 1
+        ];
+        // Add some padding to make it a minimal valid ELF-like file
+        elf_data.extend(vec![0u8; 56]); // Pad to 64 bytes
+        
+        let mut file = fs::File::create(&file_path)?;
+        file.write_all(&elf_data)?;
+        Ok((temp_dir, file_path))
+    }
+
+    #[test]
+    fn test_file_analysis_request_serialization() {
+        let request = FileAnalysisRequest {
+            file_path: "/test/file.bin".to_string(),
+            metadata: Some(true),
+            hashes: Some(true),
+            strings: Some(true),
+            min_string_length: Some(8),
+            hex_dump: Some(true),
+            hex_dump_size: Some(512),
+            hex_dump_offset: Some(0),
+            binary_info: Some(true),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(true),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(true),
+        };
+
+        // Test JSON serialization
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.file_path, request.file_path);
+        assert_eq!(deserialized.metadata, request.metadata);
+        assert_eq!(deserialized.hashes, request.hashes);
+        assert_eq!(deserialized.min_string_length, request.min_string_length);
+    }
+
+    #[test]
+    fn test_llm_file_analysis_request_serialization() {
+        let request = LlmFileAnalysisRequest {
+            file_path: "/test/file.bin".to_string(),
+            token_limit: Some(20000),
+            min_string_length: Some(6),
+            max_strings: Some(40),
+            max_imports: Some(25),
+            max_opcodes: Some(8),
+            hex_pattern_size: Some(24),
+            suggest_yara_rule: Some(true),
+        };
+
+        // Test JSON serialization
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: LlmFileAnalysisRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.file_path, request.file_path);
+        assert_eq!(deserialized.token_limit, request.token_limit);
+        assert_eq!(deserialized.max_strings, request.max_strings);
+    }
+
+    #[test]
+    fn test_yara_indicators_serialization() {
+        let indicators = YaraIndicators {
+            sha256: "abc123".to_string(),
+            md5: "def456".to_string(),
+            file_size: 1024,
+            magic_bytes: "4D 5A".to_string(),
+            entropy: 6.5,
+            unique_strings: vec!["test".to_string(), "example".to_string()],
+            imports: vec!["kernel32.dll".to_string()],
+            sections: vec![".text".to_string(), ".data".to_string()],
+            is_packed: false,
+        };
+
+        // Test JSON serialization
+        let json = serde_json::to_string(&indicators).unwrap();
+        let deserialized: YaraIndicators = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.sha256, indicators.sha256);
+        assert_eq!(deserialized.file_size, indicators.file_size);
+        assert_eq!(deserialized.unique_strings, indicators.unique_strings);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_nonexistent() {
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: "/nonexistent/file.bin".to_string(),
+            metadata: Some(true),
+            hashes: None,
+            strings: None,
+            min_string_length: None,
+            hex_dump: None,
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_err());
+        match result {
+            Err(error_msg) => assert!(error_msg.contains("does not exist")),
+            Ok(_) => panic!("Expected error but got success"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_basic_metadata() {
+        let test_content = b"Hello, World! This is test content for analysis.";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            metadata: Some(true),
+            hashes: None,
+            strings: None,
+            min_string_length: None,
+            hex_dump: None,
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap().0;
+        assert!(analysis.metadata.is_some());
+        assert!(analysis.hashes.is_none());
+        assert!(analysis.strings.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_hashes() {
+        let test_content = b"Test content for hash calculation";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            metadata: None,
+            hashes: Some(true),
+            strings: None,
+            min_string_length: None,
+            hex_dump: None,
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap().0;
+        assert!(analysis.hashes.is_some());
+        let hashes = analysis.hashes.unwrap();
+        assert!(!hashes.md5.is_empty());
+        assert!(!hashes.sha256.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_strings() {
+        let test_content = b"Hello World! This is a test string for extraction. Another string here.";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            metadata: None,
+            hashes: None,
+            strings: Some(true),
+            min_string_length: Some(4),
+            hex_dump: None,
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap().0;
+        assert!(analysis.strings.is_some());
+        let strings = analysis.strings.unwrap();
+        assert!(!strings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_hex_dump() {
+        let test_content = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            metadata: None,
+            hashes: None,
+            strings: None,
+            min_string_length: None,
+            hex_dump: Some(true),
+            hex_dump_size: Some(64),
+            hex_dump_offset: Some(0),
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap().0;
+        assert!(analysis.hex_dump.is_some());
+        let hex_dump = analysis.hex_dump.unwrap();
+        assert!(hex_dump.contains("41 42 43")); // ABC in hex
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_combined_analysis() {
+        let test_content = b"Combined analysis test with various features enabled.";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            metadata: Some(true),
+            hashes: Some(true),
+            strings: Some(true),
+            min_string_length: Some(6),
+            hex_dump: Some(true),
+            hex_dump_size: Some(32),
+            hex_dump_offset: Some(0),
+            binary_info: Some(true), // Will fail but shouldn't error
+            signatures: Some(true),   // Will show no signature
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: Some(true),
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap().0;
+        assert!(analysis.metadata.is_some());
+        assert!(analysis.hashes.is_some());
+        assert!(analysis.strings.is_some());
+        assert!(analysis.hex_dump.is_some());
+        assert!(analysis.signatures.is_some());
+        assert!(analysis.entropy.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_llm_analyze_file_nonexistent() {
+        let mcp = FileScannerMcp;
+        let request = LlmFileAnalysisRequest {
+            file_path: "/nonexistent/file.bin".to_string(),
+            token_limit: None,
+            min_string_length: None,
+            max_strings: None,
+            max_imports: None,
+            max_opcodes: None,
+            hex_pattern_size: None,
+            suggest_yara_rule: None,
+        };
+
+        let result = mcp.llm_analyze_file(request).await;
+        assert!(result.is_err());
+        match result {
+            Err(error_msg) => assert!(error_msg.contains("does not exist")),
+            Ok(_) => panic!("Expected error but got success"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_llm_analyze_file_basic() {
+        let test_content = b"LLM analysis test content with interesting patterns and strings.";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = LlmFileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            token_limit: Some(10000),
+            min_string_length: Some(6),
+            max_strings: Some(20),
+            max_imports: Some(10),
+            max_opcodes: Some(5),
+            hex_pattern_size: Some(16),
+            suggest_yara_rule: Some(true),
+        };
+
+        let result = mcp.llm_analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap().0;
+        assert!(!analysis.md5.is_empty());
+        assert!(analysis.file_size > 0);
+        assert!(analysis.yara_rule_suggestion.is_some());
+        let yara_rule = analysis.yara_rule_suggestion.unwrap();
+        assert!(yara_rule.contains("rule"));
+        assert!(yara_rule.contains("filesize"));
+    }
+
+    #[test]
+    fn test_extract_key_strings() {
+        let mcp = FileScannerMcp;
+        
+        // Create mock extracted strings
+        let extracted_strings = crate::strings::ExtractedStrings {
+            total_count: 10,
+            unique_count: 8,
+            ascii_strings: vec![
+                "short".to_string(),
+                "this is a longer string for testing".to_string(),
+                "medium length string".to_string(),
+                "another test string here".to_string(),
+            ],
+            unicode_strings: vec![],
+            interesting_strings: vec![
+                crate::strings::InterestingString {
+                    category: "URL".to_string(),
+                    value: "https://example.com/malware".to_string(),
+                    offset: 100,
+                },
+                crate::strings::InterestingString {
+                    category: "File Path".to_string(),
+                    value: "/usr/bin/suspicious".to_string(),
+                    offset: 200,
+                },
+            ],
+        };
+
+        let key_strings = mcp.extract_key_strings(&extracted_strings, 5);
+        
+        assert!(!key_strings.is_empty());
+        assert!(key_strings.len() <= 5);
+        
+        // Should prioritize interesting strings
+        assert!(key_strings.contains(&"https://example.com/malware".to_string()));
+        assert!(key_strings.contains(&"/usr/bin/suspicious".to_string()));
+    }
+
+    #[test]
+    fn test_extract_hex_patterns() {
+        let test_content = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let result = mcp.extract_hex_patterns(&file_path, 16);
+        
+        assert!(result.is_ok());
+        let patterns = result.unwrap();
+        assert!(!patterns.is_empty());
+        
+        // Should contain header pattern
+        let header_pattern = &patterns[0];
+        assert!(header_pattern.contains("41 42 43")); // ABC in hex
+    }
+
+    #[test]
+    fn test_extract_key_opcodes() {
+        let test_content = vec![
+            0xE8, 0x00, 0x00, 0x00, 0x00, // CALL instruction
+            0x48, 0x8B, 0x05, 0x00,       // MOV instruction
+            0x55, 0x48, 0x89, 0xE5,       // Function prologue
+            0xFF, 0x15, 0x00, 0x00,       // Indirect call
+        ];
+        let (_temp_dir, file_path) = create_test_file(&test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let result = mcp.extract_key_opcodes(&file_path, 5);
+        
+        // This test might not find opcodes since it looks at offset 0x1000
+        // But it should not error
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_generate_yara_rule_suggestion() {
+        let mcp = FileScannerMcp;
+        
+        let analysis = LlmFileAnalysisResult {
+            md5: "abc123def456".to_string(),
+            file_size: 1024,
+            key_strings: vec![
+                "suspicious_function".to_string(),
+                "malware_string".to_string(),
+                "http://evil.com".to_string(),
+            ],
+            hex_patterns: vec!["4D 5A 90 00".to_string()],
+            imports: vec!["kernel32.dll".to_string()],
+            opcodes: vec!["E8 00 00 00".to_string()],
+            entropy: Some(7.2),
+            yara_rule_suggestion: None,
+        };
+
+        let yara_rule = mcp.generate_yara_rule_suggestion(&analysis, "test_malware.exe");
+        
+        assert!(yara_rule.contains("rule test_malware_exe"));
+        assert!(yara_rule.contains("md5 = \"abc123def456\""));
+        assert!(yara_rule.contains("filesize = 1024"));
+        assert!(yara_rule.contains("$header = { 4D 5A 90 00 }"));
+        assert!(yara_rule.contains("$s1 = \"suspicious_function\""));
+        assert!(yara_rule.contains("filesize == 1024"));
+        assert!(yara_rule.contains("math.entropy"));
+    }
+
+    #[test]
+    fn test_trim_results_to_token_limit() {
+        let mcp = FileScannerMcp;
+        
+        let mut result = LlmFileAnalysisResult {
+            md5: "abc123".to_string(),
+            file_size: 1024,
+            key_strings: (0..50).map(|i| format!("string_{}", i)).collect(),
+            hex_patterns: vec!["4D 5A".to_string()],
+            imports: (0..40).map(|i| format!("import_{}.dll", i)).collect(),
+            opcodes: (0..20).map(|i| format!("opcode_{:02X}", i)).collect(),
+            entropy: Some(6.5),
+            yara_rule_suggestion: Some("very long yara rule here".to_string()),
+        };
+
+        let trimmed = mcp.trim_results_to_token_limit(result, 500);
+        
+        // Should have fewer strings/imports/opcodes
+        assert!(trimmed.key_strings.len() < 50);
+        assert!(trimmed.imports.len() < 40);
+        assert!(trimmed.opcodes.len() < 20);
+    }
+
+    #[test]
+    fn test_server_handler_get_info() {
+        let mcp = FileScannerMcp;
+        let info = mcp.get_info();
+        
+        assert_eq!(info.server_info.name, "file-scanner");
+        assert_eq!(info.server_info.version, "0.1.0");
+        assert!(info.instructions.is_some());
+        assert!(info.capabilities.tools.is_some());
+    }
+
+    #[test]
+    fn test_file_analysis_result_defaults() {
+        let result = FileAnalysisResult {
+            file_path: "test.bin".to_string(),
+            metadata: None,
+            hashes: None,
+            strings: None,
+            hex_dump: None,
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        assert_eq!(result.file_path, "test.bin");
+        assert!(result.metadata.is_none());
+        assert!(result.hashes.is_none());
+        assert!(result.yara_indicators.is_none());
+    }
+
+    #[test]
+    fn test_llm_file_analysis_result_serialization() {
+        let result = LlmFileAnalysisResult {
+            md5: "abc123".to_string(),
+            file_size: 2048,
+            key_strings: vec!["test".to_string()],
+            hex_patterns: vec!["4D 5A".to_string()],
+            imports: vec!["kernel32.dll".to_string()],
+            opcodes: vec!["E8 00".to_string()],
+            entropy: Some(6.8),
+            yara_rule_suggestion: Some("rule test {}".to_string()),
+        };
+
+        // Test JSON serialization
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: LlmFileAnalysisResult = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.md5, result.md5);
+        assert_eq!(deserialized.file_size, result.file_size);
+        assert_eq!(deserialized.entropy, result.entropy);
     }
 }
