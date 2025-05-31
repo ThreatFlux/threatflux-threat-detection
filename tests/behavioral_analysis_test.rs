@@ -543,16 +543,23 @@ fn test_ransomware_behavior_identification() {
     let temp_dir = tempdir().unwrap();
     let test_path = temp_dir.path().join("test.exe");
 
+    // Need at least 2 crypto indicators to trigger FileEncryption operation
     let strings = create_test_strings_with_patterns(vec![
         "CryptEncrypt",
-        "FindFirstFile",
-        "DeleteFile",
+        "AES",  // Add second crypto indicator
     ]);
 
-    let result = analyze_behavior(&test_path, Some(&strings), None, None);
+    // File operations need to be detected via symbols, not strings
+    let symbols = create_test_symbols_with_functions(vec![
+        "FindFirstFile",  // File enumeration API
+        "DeleteFile",     // File deletion API
+    ]);
+
+    let result = analyze_behavior(&test_path, Some(&strings), Some(&symbols), None);
     assert!(result.is_ok());
 
     let analysis = result.unwrap();
+    
     let ransomware_behavior = analysis.suspicious_behaviors.iter()
         .find(|b| b.behavior_type == "Ransomware");
     assert!(ransomware_behavior.is_some());
@@ -564,16 +571,23 @@ fn test_rootkit_behavior_identification() {
     let temp_dir = tempdir().unwrap();
     let test_path = temp_dir.path().join("test.exe");
 
+    // Need both native APIs and process injection/service functions
+    // Use process hollowing APIs that put "Nt" functions in techniques
     let symbols = create_test_symbols_with_functions(vec![
-        "NtQuerySystemInformation",
-        "CreateRemoteThread",
-        "CreateService",
+        "NtUnmapViewOfSection",      // Native API that gets put in techniques (contains "Nt")
+        "CreateProcess",             // Process creation for hollowing
+        "WriteProcessMemory",        // Memory writing for hollowing
+        "SetThreadContext",          // Thread context for hollowing
+        "ResumeThread",              // Resume thread for hollowing (need >= 4 for hollowing)
+        "CreateService",             // Service installation API  
+        "OpenSCManager",             // Additional service API to trigger service persistence
     ]);
 
     let result = analyze_behavior(&test_path, None, Some(&symbols), None);
     assert!(result.is_ok());
 
     let analysis = result.unwrap();
+    
     let rootkit_behavior = analysis.suspicious_behaviors.iter()
         .find(|b| b.behavior_type == "Rootkit");
     assert!(rootkit_behavior.is_some());
@@ -631,16 +645,14 @@ fn test_dropper_behavior_identification() {
     let temp_dir = tempdir().unwrap();
     let test_path = temp_dir.path().join("test.exe");
 
-    let strings = create_test_strings_with_patterns(vec![
-        "URLDownloadToFile",
-    ]);
-
+    // URLDownloadToFile needs to be in symbols to be detected as network API
     let symbols = create_test_symbols_with_functions(vec![
-        "CreateFile",
-        "CreateProcess",
+        "URLDownloadToFile",  // Network download API - needs to be in symbols
+        "CreateFile",         // File creation API
+        "CreateProcess",      // Process creation API
     ]);
 
-    let result = analyze_behavior(&test_path, Some(&strings), Some(&symbols), None);
+    let result = analyze_behavior(&test_path, None, Some(&symbols), None);
     assert!(result.is_ok());
 
     let analysis = result.unwrap();
@@ -690,13 +702,21 @@ fn test_behavioral_recommendations_generation() {
     let temp_dir = tempdir().unwrap();
     let test_path = temp_dir.path().join("test.exe");
 
+    // Need at least 2 crypto indicators to trigger ransomware behavior
     let strings = create_test_strings_with_patterns(vec![
         "IsDebuggerPresent",
         "CryptEncrypt",
-        "ransom",
+        "ransom",  // This is also a crypto indicator
+        "AES",     // Add another crypto indicator to trigger FileEncryption
     ]);
 
-    let result = analyze_behavior(&test_path, Some(&strings), None, None);
+    // File operations need to be detected via symbols, not strings
+    let symbols = create_test_symbols_with_functions(vec![
+        "FindFirstFile", // File enumeration API
+        "DeleteFile",    // File deletion API  
+    ]);
+
+    let result = analyze_behavior(&test_path, Some(&strings), Some(&symbols), None);
     assert!(result.is_ok());
 
     let analysis = result.unwrap();

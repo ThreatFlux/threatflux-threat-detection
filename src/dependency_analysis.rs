@@ -476,7 +476,7 @@ impl DependencyAnalyzer {
         ];
 
         let lower_name = name.to_lowercase();
-        system_libs.iter().any(|&lib| lower_name.contains(lib))
+        system_libs.iter().any(|&lib| lower_name.contains(&lib.to_lowercase()))
     }
 
     fn is_common_file(&self, name: &str) -> bool {
@@ -821,4 +821,863 @@ pub fn analyze_dependencies(
 ) -> Result<DependencyAnalysisResult> {
     let analyzer = DependencyAnalyzer::new();
     analyzer.analyze(path, symbol_table, extracted_strings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::function_analysis::{ImportInfo, FunctionInfo, FunctionType, SymbolCounts};
+
+    fn create_test_symbol_table() -> SymbolTable {
+        SymbolTable {
+            functions: vec![
+                FunctionInfo {
+                    name: "main".to_string(),
+                    address: 0x4000,
+                    size: 100,
+                    function_type: FunctionType::Local,
+                    calling_convention: None,
+                    parameters: vec![],
+                    is_entry_point: true,
+                    is_exported: false,
+                    is_imported: false,
+                },
+            ],
+            global_variables: vec![],
+            cross_references: vec![],
+            imports: vec![
+                ImportInfo {
+                    name: "printf@GLIBC_2.2.5".to_string(),
+                    address: Some(0x1000),
+                    library: Some("libc.so.6".to_string()),
+                    ordinal: None,
+                    is_delayed: false,
+                },
+                ImportInfo {
+                    name: "malloc@GLIBC_2.2.5".to_string(),
+                    address: Some(0x1004),
+                    library: Some("libc.so.6".to_string()),
+                    ordinal: None,
+                    is_delayed: false,
+                },
+                ImportInfo {
+                    name: "SSL_connect".to_string(),
+                    address: Some(0x2000),
+                    library: Some("libssl.so.1.1".to_string()),
+                    ordinal: None,
+                    is_delayed: false,
+                },
+                ImportInfo {
+                    name: "kernel32.dll".to_string(),
+                    address: Some(0x3000),
+                    library: Some("kernel32.dll".to_string()),
+                    ordinal: None,
+                    is_delayed: false,
+                },
+            ],
+            exports: vec![],
+            symbol_count: SymbolCounts {
+                total_functions: 1,
+                local_functions: 1,
+                imported_functions: 4,
+                exported_functions: 0,
+                global_variables: 0,
+                cross_references: 0,
+            },
+        }
+    }
+
+    fn create_test_extracted_strings() -> ExtractedStrings {
+        use crate::strings::InterestingString;
+        
+        ExtractedStrings {
+            total_count: 11,
+            unique_count: 11,
+            ascii_strings: vec![
+                "libssl.so.1.1".to_string(),
+                "openssl version 1.0.1f".to_string(),
+                "MIT License".to_string(),
+                "log4j version 2.14".to_string(),
+                "GNU General Public License version 3".to_string(),
+                "Apache License 2.0".to_string(),
+                "libconfig.so".to_string(),
+                "libzlib.so.1.2.11".to_string(),
+                "test.dll".to_string(),
+                "libboost.a".to_string(),
+                "sqlite3.dylib".to_string(),
+            ],
+            unicode_strings: vec![],
+            interesting_strings: vec![
+                InterestingString {
+                    category: "library".to_string(),
+                    value: "libssl.so.1.1".to_string(),
+                    offset: 100,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn test_dependency_analyzer_new() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Check that vulnerability database is populated
+        assert!(!analyzer.vulnerability_db.known_vulnerabilities.is_empty());
+        assert!(analyzer.vulnerability_db.known_vulnerabilities.contains_key("openssl"));
+        assert!(analyzer.vulnerability_db.known_vulnerabilities.contains_key("log4j"));
+        assert!(analyzer.vulnerability_db.known_vulnerabilities.contains_key("zlib"));
+    }
+
+    #[test]
+    fn test_extract_library_name() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Test GLIBC versioned imports
+        assert_eq!(analyzer.extract_library_name("printf@GLIBC_2.2.5"), "glibc");
+        assert_eq!(analyzer.extract_library_name("malloc@LIBC_2.17"), "libc");
+        
+        // Test Windows DLL imports
+        assert_eq!(analyzer.extract_library_name("kernel32.dll"), "kernel32");
+        assert_eq!(analyzer.extract_library_name("USER32.dll"), "user32");
+        
+        // Test shared library format
+        assert_eq!(analyzer.extract_library_name("libssl.so.1.1"), "ssl");
+        assert_eq!(analyzer.extract_library_name("libcrypto.so"), "crypto");
+        
+        // Test plain function names
+        assert_eq!(analyzer.extract_library_name("some_function"), "some_function");
+        assert_eq!(analyzer.extract_library_name("UPPERCASE"), "uppercase");
+    }
+
+    #[test]
+    fn test_extract_version() {
+        let analyzer = DependencyAnalyzer::new();
+        let strings = create_test_extracted_strings();
+        
+        // Test version extraction from import name
+        assert_eq!(
+            analyzer.extract_version("printf@GLIBC_2.2.5", None),
+            Some("2.2.5".to_string())
+        );
+        assert_eq!(
+            analyzer.extract_version("libssl.so.1.1.0", None),
+            Some("1.1.0".to_string())
+        );
+        
+        // Test version extraction from strings that contain "version"
+        // The function looks for any string containing "version" and extracts the first version pattern
+        let any_version = analyzer.extract_version("any_lib", Some(&strings));
+        assert!(any_version.is_some()); // Should find "1.0.1" from "openssl version 1.0.1f" (first match)
+        
+        // Test no version found
+        assert_eq!(analyzer.extract_version("unknown_lib", None), None);
+        
+        // Test with strings that don't contain "version"
+        let no_version_strings = ExtractedStrings {
+            total_count: 1,
+            unique_count: 1,
+            ascii_strings: vec!["just a regular string".to_string()],
+            unicode_strings: vec![],
+            interesting_strings: vec![],
+        };
+        assert_eq!(analyzer.extract_version("no_version", Some(&no_version_strings)), None);
+    }
+
+    #[test]
+    fn test_is_system_library() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Test Windows system libraries
+        assert!(analyzer.is_system_library("kernel32.dll"));
+        assert!(analyzer.is_system_library("KERNEL32"));
+        assert!(analyzer.is_system_library("user32"));
+        assert!(analyzer.is_system_library("ntdll"));
+        assert!(analyzer.is_system_library("msvcrt"));
+        
+        // Test Linux system libraries
+        assert!(analyzer.is_system_library("libc.so.6"));
+        assert!(analyzer.is_system_library("libm"));
+        assert!(analyzer.is_system_library("libpthread"));
+        assert!(analyzer.is_system_library("ld-linux"));
+        
+        // Test macOS system libraries
+        assert!(analyzer.is_system_library("libSystem"));
+        assert!(analyzer.is_system_library("CoreFoundation"));
+        
+        // Test non-system libraries
+        assert!(!analyzer.is_system_library("libssl"));
+        assert!(!analyzer.is_system_library("custom_lib"));
+    }
+
+    #[test]
+    fn test_is_common_file() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Test common file patterns
+        assert!(analyzer.is_common_file("config"));
+        assert!(analyzer.is_common_file("data_file"));
+        assert!(analyzer.is_common_file("cache_dir"));
+        assert!(analyzer.is_common_file("tmp_storage"));
+        assert!(analyzer.is_common_file("log_file"));
+        assert!(analyzer.is_common_file("pid_file"));
+        
+        // Test non-common files
+        assert!(!analyzer.is_common_file("libssl"));
+        assert!(!analyzer.is_common_file("important"));
+    }
+
+    #[test]
+    fn test_detect_license() {
+        let analyzer = DependencyAnalyzer::new();
+        let strings = create_test_extracted_strings();
+        
+        // Test known library licenses
+        let openssl_license = analyzer.detect_license("openssl", None);
+        assert!(openssl_license.is_some());
+        let license = openssl_license.unwrap();
+        assert_eq!(license.license_type, "Apache-2.0");
+        assert!(matches!(license.license_family, LicenseFamily::Apache));
+        assert!(license.is_oss);
+        assert!(!license.is_copyleft);
+        assert!(license.is_commercial_friendly);
+        
+        let zlib_license = analyzer.detect_license("zlib", None);
+        assert!(zlib_license.is_some());
+        let license = zlib_license.unwrap();
+        assert_eq!(license.license_type, "Zlib");
+        assert!(matches!(license.license_family, LicenseFamily::BSD));
+        
+        let sqlite_license = analyzer.detect_license("sqlite", None);
+        assert!(sqlite_license.is_some());
+        let license = sqlite_license.unwrap();
+        assert_eq!(license.license_type, "Public Domain");
+        assert!(matches!(license.license_family, LicenseFamily::PublicDomain));
+        
+        // Test license detection from strings
+        let mit_license = analyzer.detect_license("unknown", Some(&strings));
+        assert!(mit_license.is_some());
+        let license = mit_license.unwrap();
+        assert_eq!(license.license_type, "MIT");
+        assert!(matches!(license.license_family, LicenseFamily::MIT));
+        
+        // Test unknown license
+        let unknown_license = analyzer.detect_license("unknown_lib", None);
+        assert!(unknown_license.is_none());
+    }
+
+    #[test]
+    fn test_vulnerability_database() {
+        let mut db = VulnerabilityDatabase::new();
+        
+        // Test adding vulnerability
+        let vuln = KnownVulnerability {
+            cve_id: "CVE-2023-1234".to_string(),
+            severity: VulnerabilitySeverity::High,
+            description: "Test vulnerability".to_string(),
+            affected_versions: vec!["1.0.0".to_string(), "1.0.1".to_string()],
+            fixed_in: Some("1.0.2".to_string()),
+            cvss_score: Some(7.5),
+            published_date: Some("2023-01-01".to_string()),
+        };
+        
+        db.add_vulnerability("testlib", vuln.clone());
+        
+        // Test checking vulnerabilities with version
+        let vulns = db.check_vulnerabilities("testlib", Some("1.0.0"));
+        assert_eq!(vulns.len(), 1);
+        assert_eq!(vulns[0].cve_id, "CVE-2023-1234");
+        
+        // Test checking vulnerabilities without version
+        let vulns = db.check_vulnerabilities("testlib", None);
+        assert_eq!(vulns.len(), 1);
+        
+        // Test non-vulnerable version
+        let vulns = db.check_vulnerabilities("testlib", Some("1.0.2"));
+        assert_eq!(vulns.len(), 0);
+        
+        // Test unknown library
+        let vulns = db.check_vulnerabilities("unknown", Some("1.0.0"));
+        assert_eq!(vulns.len(), 0);
+    }
+
+    #[test]
+    fn test_license_detector() {
+        let detector = LicenseDetector::new();
+        let strings = create_test_extracted_strings();
+        
+        // Test license detection from strings
+        let license = detector.detect_from_strings(&strings);
+        assert!(license.is_some());
+        let license = license.unwrap();
+        assert_eq!(license.license_type, "MIT");
+        assert!(matches!(license.license_family, LicenseFamily::MIT));
+        assert!(license.is_oss);
+        assert!(!license.is_copyleft);
+        assert!(license.is_commercial_friendly);
+        assert!(license.attribution_required);
+        
+        // Test with strings containing no license information
+        let empty_strings = ExtractedStrings {
+            total_count: 1,
+            unique_count: 1,
+            ascii_strings: vec!["no license info here".to_string()],
+            unicode_strings: vec![],
+            interesting_strings: vec![],
+        };
+        
+        let license = detector.detect_from_strings(&empty_strings);
+        assert!(license.is_none());
+    }
+
+    #[test]
+    fn test_analyze_string_dependencies() {
+        let analyzer = DependencyAnalyzer::new();
+        let strings = create_test_extracted_strings();
+        let mut dependencies = Vec::new();
+        let mut dependency_names = HashSet::new();
+        
+        let result = analyzer.analyze_string_dependencies(
+            &mut dependencies,
+            &mut dependency_names,
+            &strings,
+        );
+        assert!(result.is_ok());
+        
+        // Check that dependencies were found
+        assert!(!dependencies.is_empty());
+        
+        // Check for specific libraries found in strings
+        let dep_names: Vec<&String> = dependencies.iter().map(|d| &d.name).collect();
+        assert!(dep_names.contains(&&"ssl".to_string()));
+        assert!(dep_names.contains(&&"zlib".to_string()));
+        assert!(dep_names.contains(&&"boost".to_string()));
+        
+        // Check that config was filtered out (common file)
+        assert!(!dep_names.contains(&&"config".to_string()));
+        
+        // Verify dependency properties
+        let ssl_dep = dependencies.iter().find(|d| d.name == "ssl").unwrap();
+        assert_eq!(ssl_dep.source, DependencySource::StringReference);
+        assert!(!ssl_dep.is_system_library);
+        assert!(ssl_dep.path.is_some());
+    }
+
+    #[test]
+    fn test_build_dependency_graph() {
+        let analyzer = DependencyAnalyzer::new();
+        let dependencies = vec![
+            DependencyInfo {
+                name: "glibc".to_string(),
+                version: Some("2.2.5".to_string()),
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: None,
+                source: DependencySource::Import,
+                is_system_library: true,
+                imported_functions: vec!["printf".to_string()],
+            },
+            DependencyInfo {
+                name: "ssl".to_string(),
+                version: Some("1.1".to_string()),
+                library_type: LibraryType::DynamicLibrary,
+                path: Some("libssl.so.1.1".to_string()),
+                hash: None,
+                vulnerabilities: vec![],
+                license: None,
+                source: DependencySource::StringReference,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+        ];
+        
+        let graph = analyzer.build_dependency_graph(&dependencies);
+        
+        assert_eq!(graph.direct_dependencies.len(), 1);
+        assert!(graph.direct_dependencies.contains(&"glibc".to_string()));
+        assert_eq!(graph.total_dependencies, 2);
+        assert_eq!(graph.dependency_depth, 1);
+        assert!(graph.dependency_tree.contains_key("glibc"));
+        assert!(graph.dependency_tree.contains_key("ssl"));
+    }
+
+    #[test]
+    fn test_assess_security() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Create dependencies with vulnerabilities
+        let vuln = KnownVulnerability {
+            cve_id: "CVE-2014-0160".to_string(),
+            severity: VulnerabilitySeverity::Critical,
+            description: "Heartbleed".to_string(),
+            affected_versions: vec!["1.0.1f".to_string()],
+            fixed_in: Some("1.0.1g".to_string()),
+            cvss_score: Some(7.5),
+            published_date: Some("2014-04-07".to_string()),
+        };
+        
+        let dependencies = vec![
+            DependencyInfo {
+                name: "openssl".to_string(),
+                version: Some("1.0.1f".to_string()),
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![vuln],
+                license: None,
+                source: DependencySource::Import,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+            DependencyInfo {
+                name: "safe_lib".to_string(),
+                version: Some("2.0.0".to_string()),
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: None,
+                source: DependencySource::Import,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+        ];
+        
+        let assessment = analyzer.assess_security(&dependencies);
+        
+        assert_eq!(assessment.vulnerable_dependencies.len(), 1);
+        assert_eq!(assessment.total_vulnerabilities, 1);
+        assert_eq!(assessment.critical_vulnerabilities, 1);
+        assert_eq!(assessment.high_vulnerabilities, 0);
+        assert!(matches!(assessment.risk_level, SecurityRiskLevel::Critical));
+        assert!(assessment.security_score < 100.0);
+        assert!(!assessment.recommendations.is_empty());
+        
+        let vuln_dep = &assessment.vulnerable_dependencies[0];
+        assert_eq!(vuln_dep.dependency_name, "openssl");
+        assert_eq!(vuln_dep.vulnerabilities, vec!["CVE-2014-0160"]);
+        assert!(matches!(vuln_dep.highest_severity, VulnerabilitySeverity::Critical));
+    }
+
+    #[test]
+    fn test_get_recommended_action() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        let critical_action = analyzer.get_recommended_action("testlib", &VulnerabilitySeverity::Critical);
+        assert!(critical_action.contains("Immediately update"));
+        
+        let high_action = analyzer.get_recommended_action("testlib", &VulnerabilitySeverity::High);
+        assert!(high_action.contains("as soon as possible"));
+        
+        let medium_action = analyzer.get_recommended_action("testlib", &VulnerabilitySeverity::Medium);
+        assert!(medium_action.contains("next release"));
+        
+        let low_action = analyzer.get_recommended_action("testlib", &VulnerabilitySeverity::Low);
+        assert!(low_action.contains("Monitor"));
+    }
+
+    #[test]
+    fn test_calculate_security_score() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Test with no dependencies
+        let score = analyzer.calculate_security_score(&[], 0, 0);
+        assert_eq!(score, 100.0);
+        
+        // Test with safe dependencies
+        let safe_deps = vec![
+            DependencyInfo {
+                name: "safe".to_string(),
+                version: None,
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: None,
+                source: DependencySource::Import,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+        ];
+        let score = analyzer.calculate_security_score(&safe_deps, 0, 0);
+        assert_eq!(score, 100.0);
+        
+        // Test with critical vulnerabilities
+        let score = analyzer.calculate_security_score(&safe_deps, 2, 0);
+        assert_eq!(score, 60.0); // 100 - 2*20
+        
+        // Test with high vulnerabilities
+        let score = analyzer.calculate_security_score(&safe_deps, 0, 3);
+        assert_eq!(score, 70.0); // 100 - 3*10
+        
+        // Test score doesn't go below 0
+        let score = analyzer.calculate_security_score(&safe_deps, 10, 10);
+        assert_eq!(score, 0.0);
+    }
+
+    #[test]
+    fn test_determine_risk_level() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        assert!(matches!(analyzer.determine_risk_level(95.0, 0), SecurityRiskLevel::Minimal));
+        assert!(matches!(analyzer.determine_risk_level(75.0, 0), SecurityRiskLevel::Low));
+        assert!(matches!(analyzer.determine_risk_level(55.0, 0), SecurityRiskLevel::Medium));
+        assert!(matches!(analyzer.determine_risk_level(35.0, 0), SecurityRiskLevel::High));
+        assert!(matches!(analyzer.determine_risk_level(15.0, 0), SecurityRiskLevel::Critical));
+        assert!(matches!(analyzer.determine_risk_level(95.0, 1), SecurityRiskLevel::Critical));
+    }
+
+    #[test]
+    fn test_summarize_licenses() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        let mit_license = LicenseInfo {
+            license_type: "MIT".to_string(),
+            license_family: LicenseFamily::MIT,
+            is_oss: true,
+            is_copyleft: false,
+            is_commercial_friendly: true,
+            attribution_required: true,
+        };
+        
+        let gpl_license = LicenseInfo {
+            license_type: "GPL-3.0".to_string(),
+            license_family: LicenseFamily::GPL,
+            is_oss: true,
+            is_copyleft: true,
+            is_commercial_friendly: false,
+            attribution_required: true,
+        };
+        
+        let proprietary_license = LicenseInfo {
+            license_type: "Proprietary".to_string(),
+            license_family: LicenseFamily::Proprietary,
+            is_oss: false,
+            is_copyleft: false,
+            is_commercial_friendly: false,
+            attribution_required: false,
+        };
+        
+        let dependencies = vec![
+            DependencyInfo {
+                name: "mit_lib".to_string(),
+                version: None,
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: Some(mit_license),
+                source: DependencySource::Import,
+                is_system_library: true,
+                imported_functions: vec![],
+            },
+            DependencyInfo {
+                name: "gpl_lib".to_string(),
+                version: None,
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: Some(gpl_license),
+                source: DependencySource::Import,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+            DependencyInfo {
+                name: "prop_lib".to_string(),
+                version: None,
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: Some(proprietary_license),
+                source: DependencySource::Import,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+            DependencyInfo {
+                name: "no_license".to_string(),
+                version: None,
+                library_type: LibraryType::DynamicLibrary,
+                path: None,
+                hash: None,
+                vulnerabilities: vec![],
+                license: None,
+                source: DependencySource::Import,
+                is_system_library: false,
+                imported_functions: vec![],
+            },
+        ];
+        
+        let summary = analyzer.summarize_licenses(&dependencies);
+        
+        assert_eq!(summary.licenses_found.len(), 3);
+        assert!(summary.licenses_found.contains(&"MIT".to_string()));
+        assert!(summary.licenses_found.contains(&"GPL-3.0".to_string()));
+        assert!(summary.licenses_found.contains(&"Proprietary".to_string()));
+        
+        assert_eq!(summary.copyleft_dependencies.len(), 1);
+        assert!(summary.copyleft_dependencies.contains(&"gpl_lib".to_string()));
+        
+        assert_eq!(summary.proprietary_dependencies.len(), 1);
+        assert!(summary.proprietary_dependencies.contains(&"prop_lib".to_string()));
+        
+        assert!(!summary.is_commercial_use_safe);
+        
+        // Check compliance issues
+        assert!(!summary.compliance_issues.is_empty());
+        let attribution_issue = summary.compliance_issues.iter()
+            .find(|issue| matches!(issue.issue_type, ComplianceIssueType::AttributionRequired));
+        assert!(attribution_issue.is_some());
+        
+        let missing_license_issue = summary.compliance_issues.iter()
+            .find(|issue| matches!(issue.issue_type, ComplianceIssueType::MissingLicense));
+        assert!(missing_license_issue.is_some());
+    }
+
+    #[test]
+    fn test_full_analyze() {
+        let symbol_table = create_test_symbol_table();
+        let strings = create_test_extracted_strings();
+        let path = Path::new("/test/binary");
+        
+        let analyzer = DependencyAnalyzer::new();
+        let result = analyzer.analyze(&path, &symbol_table, Some(&strings));
+        
+        assert!(result.is_ok());
+        let analysis = result.unwrap();
+        
+        // Check that analysis completed
+        assert!(!analysis.dependencies.is_empty());
+        assert!(analysis.analysis_stats.analysis_duration_ms > 0);
+        assert!(analysis.analysis_stats.total_dependencies_found > 0);
+        
+        // Check that dependencies from both imports and strings were found
+        let dep_names: Vec<&String> = analysis.dependencies.iter().map(|d| &d.name).collect();
+        assert!(dep_names.contains(&&"glibc".to_string())); // from imports
+        assert!(dep_names.contains(&&"ssl".to_string()));   // from strings
+        
+        // Check security assessment
+        assert!(analysis.security_assessment.security_score >= 0.0);
+        assert!(analysis.security_assessment.security_score <= 100.0);
+        
+        // Check license summary
+        assert!(!analysis.license_summary.licenses_found.is_empty());
+    }
+
+    #[test]
+    fn test_analyze_dependencies_function() {
+        let symbol_table = create_test_symbol_table();
+        let strings = create_test_extracted_strings();
+        let path = Path::new("/test/binary");
+        
+        let result = analyze_dependencies(&path, &symbol_table, Some(&strings));
+        assert!(result.is_ok());
+        
+        let analysis = result.unwrap();
+        assert!(!analysis.dependencies.is_empty());
+        assert!(analysis.analysis_stats.analysis_duration_ms > 0);
+    }
+
+    #[test]
+    fn test_serialization() {
+        // Test that all data structures can be serialized/deserialized
+        let vuln = KnownVulnerability {
+            cve_id: "CVE-2023-1234".to_string(),
+            severity: VulnerabilitySeverity::High,
+            description: "Test vulnerability".to_string(),
+            affected_versions: vec!["1.0.0".to_string()],
+            fixed_in: Some("1.0.1".to_string()),
+            cvss_score: Some(7.5),
+            published_date: Some("2023-01-01".to_string()),
+        };
+        
+        let license = LicenseInfo {
+            license_type: "MIT".to_string(),
+            license_family: LicenseFamily::MIT,
+            is_oss: true,
+            is_copyleft: false,
+            is_commercial_friendly: true,
+            attribution_required: true,
+        };
+        
+        let dependency = DependencyInfo {
+            name: "test_lib".to_string(),
+            version: Some("1.0.0".to_string()),
+            library_type: LibraryType::DynamicLibrary,
+            path: Some("/path/to/lib".to_string()),
+            hash: Some("abc123".to_string()),
+            vulnerabilities: vec![vuln],
+            license: Some(license),
+            source: DependencySource::Import,
+            is_system_library: false,
+            imported_functions: vec!["func1".to_string()],
+        };
+        
+        // Test JSON serialization
+        let json = serde_json::to_string(&dependency);
+        assert!(json.is_ok());
+        
+        let deserialized: Result<DependencyInfo, _> = serde_json::from_str(&json.unwrap());
+        assert!(deserialized.is_ok());
+        
+        let dep = deserialized.unwrap();
+        assert_eq!(dep.name, "test_lib");
+        assert_eq!(dep.version, Some("1.0.0".to_string()));
+        assert!(matches!(dep.library_type, LibraryType::DynamicLibrary));
+        assert_eq!(dep.source, DependencySource::Import);
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        let analyzer = DependencyAnalyzer::new();
+        
+        // Test with empty symbol table
+        let empty_symbol_table = SymbolTable {
+            functions: vec![],
+            global_variables: vec![],
+            cross_references: vec![],
+            imports: vec![],
+            exports: vec![],
+            symbol_count: SymbolCounts {
+                total_functions: 0,
+                local_functions: 0,
+                imported_functions: 0,
+                exported_functions: 0,
+                global_variables: 0,
+                cross_references: 0,
+            },
+        };
+        
+        let result = analyzer.analyze(
+            Path::new("/test"),
+            &empty_symbol_table,
+            None,
+        );
+        assert!(result.is_ok());
+        let analysis = result.unwrap();
+        assert!(analysis.dependencies.is_empty());
+        assert_eq!(analysis.security_assessment.total_vulnerabilities, 0);
+        assert_eq!(analysis.security_assessment.security_score, 100.0);
+        
+        // Test with malformed import names
+        let malformed_symbol_table = SymbolTable {
+            functions: vec![],
+            global_variables: vec![],
+            cross_references: vec![],
+            imports: vec![
+                ImportInfo {
+                    name: "".to_string(),
+                    address: None,
+                    library: None,
+                    ordinal: None,
+                    is_delayed: false,
+                },
+                ImportInfo {
+                    name: "@".to_string(),
+                    address: None,
+                    library: None,
+                    ordinal: None,
+                    is_delayed: false,
+                },
+                ImportInfo {
+                    name: ".dll".to_string(),
+                    address: None,
+                    library: None,
+                    ordinal: None,
+                    is_delayed: false,
+                },
+            ],
+            exports: vec![],
+            symbol_count: SymbolCounts {
+                total_functions: 0,
+                local_functions: 0,
+                imported_functions: 3,
+                exported_functions: 0,
+                global_variables: 0,
+                cross_references: 0,
+            },
+        };
+        
+        let result = analyzer.analyze(
+            Path::new("/test"),
+            &malformed_symbol_table,
+            None,
+        );
+        assert!(result.is_ok());
+        
+        // Test with empty strings
+        let empty_strings = ExtractedStrings {
+            total_count: 0,
+            unique_count: 0,
+            ascii_strings: vec![],
+            unicode_strings: vec![],
+            interesting_strings: vec![],
+        };
+        
+        let result = analyzer.analyze(
+            Path::new("/test"),
+            &empty_symbol_table,
+            Some(&empty_strings),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_vulnerability_severity_ordering() {
+        // Test that severity comparison works correctly
+        
+        let critical = VulnerabilitySeverity::Critical;
+        let _high = VulnerabilitySeverity::High;
+        let medium = VulnerabilitySeverity::Medium;
+        let low = VulnerabilitySeverity::Low;
+        let _none = VulnerabilitySeverity::None;
+        
+        // Create vulnerabilities with different severities
+        let vulnerabilities = vec![
+            KnownVulnerability {
+                cve_id: "CVE-1".to_string(),
+                severity: low.clone(),
+                description: "Low".to_string(),
+                affected_versions: vec![],
+                fixed_in: None,
+                cvss_score: None,
+                published_date: None,
+            },
+            KnownVulnerability {
+                cve_id: "CVE-2".to_string(),
+                severity: critical.clone(),
+                description: "Critical".to_string(),
+                affected_versions: vec![],
+                fixed_in: None,
+                cvss_score: None,
+                published_date: None,
+            },
+            KnownVulnerability {
+                cve_id: "CVE-3".to_string(),
+                severity: medium.clone(),
+                description: "Medium".to_string(),
+                affected_versions: vec![],
+                fixed_in: None,
+                cvss_score: None,
+                published_date: None,
+            },
+        ];
+        
+        // Find the highest severity
+        let highest = vulnerabilities
+            .iter()
+            .map(|v| &v.severity)
+            .max_by_key(|s| match s {
+                VulnerabilitySeverity::Critical => 4,
+                VulnerabilitySeverity::High => 3,
+                VulnerabilitySeverity::Medium => 2,
+                VulnerabilitySeverity::Low => 1,
+                VulnerabilitySeverity::None => 0,
+            });
+        
+        assert!(highest.is_some());
+        assert!(matches!(highest.unwrap(), VulnerabilitySeverity::Critical));
+    }
 }
