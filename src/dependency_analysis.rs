@@ -333,7 +333,7 @@ impl DependencyAnalyzer {
         let security_assessment = self.assess_security(&dependencies);
 
         // Generate license summary
-        let license_summary = self.summarize_licenses(&dependencies);
+        let license_summary = self.summarize_licenses(&dependencies, extracted_strings);
 
         let duration = start_time.elapsed().as_millis() as u64;
         let total_vulnerabilities = security_assessment.total_vulnerabilities;
@@ -676,12 +676,13 @@ impl DependencyAnalyzer {
         }
     }
 
-    fn summarize_licenses(&self, dependencies: &[DependencyInfo]) -> LicenseSummary {
+    fn summarize_licenses(&self, dependencies: &[DependencyInfo], extracted_strings: Option<&ExtractedStrings>) -> LicenseSummary {
         let mut licenses_found = HashSet::new();
         let mut copyleft_deps = Vec::new();
         let mut proprietary_deps = Vec::new();
         let mut compliance_issues = Vec::new();
 
+        // First, collect licenses from dependencies
         for dep in dependencies {
             if let Some(license) = &dep.license {
                 licenses_found.insert(license.license_type.clone());
@@ -713,6 +714,11 @@ impl DependencyAnalyzer {
             }
         }
 
+        // Also check for licenses directly in strings if provided
+        if let Some(strings) = extracted_strings {
+            self.detect_all_licenses_in_strings(strings, &mut licenses_found, &mut copyleft_deps);
+        }
+
         let is_commercial_safe = copyleft_deps.is_empty() && proprietary_deps.is_empty();
 
         LicenseSummary {
@@ -722,6 +728,36 @@ impl DependencyAnalyzer {
             proprietary_dependencies: proprietary_deps,
             compliance_issues,
             is_commercial_use_safe: is_commercial_safe,
+        }
+    }
+
+    fn detect_all_licenses_in_strings(
+        &self,
+        strings: &ExtractedStrings,
+        licenses_found: &mut HashSet<String>,
+        copyleft_deps: &mut Vec<String>,
+    ) {
+        // Check all strings against all license patterns
+        for string in &strings.ascii_strings {
+            for (license_type, pattern) in &self.license_detector.license_patterns {
+                if pattern.is_match(string) {
+                    licenses_found.insert(license_type.clone());
+                    
+                    // Check if this is a copyleft license
+                    let family = match license_type.as_str() {
+                        "GPL-3.0" => LicenseFamily::GPL,
+                        _ => continue, // Only GPL is copyleft in our current patterns
+                    };
+                    
+                    if matches!(family, LicenseFamily::GPL | LicenseFamily::LGPL) {
+                        // Add a generic "string-detected" entry for copyleft licenses found in strings
+                        let dep_name = format!("license-in-strings-{}", license_type.to_lowercase());
+                        if !copyleft_deps.contains(&dep_name) {
+                            copyleft_deps.push(dep_name);
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1410,7 +1446,7 @@ mod tests {
             },
         ];
         
-        let summary = analyzer.summarize_licenses(&dependencies);
+        let summary = analyzer.summarize_licenses(&dependencies, None);
         
         assert_eq!(summary.licenses_found.len(), 3);
         assert!(summary.licenses_found.contains(&"MIT".to_string()));

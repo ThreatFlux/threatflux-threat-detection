@@ -1346,6 +1346,144 @@ fn generate_behavioral_recommendations(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::function_analysis::{FunctionInfo, FunctionType, ImportInfo, SymbolCounts};
+    use crate::disassembly::{PatternType, SuspiciousPattern, Severity as DisassemblySeverity, InstructionAnalysis, ControlFlowSummary, OutputFormats};
+    use crate::strings::InterestingString;
+    use std::collections::HashMap;
+
+    fn create_test_strings() -> ExtractedStrings {
+        ExtractedStrings {
+            total_count: 8,
+            unique_count: 8,
+            ascii_strings: vec![
+                "IsDebuggerPresent".to_string(),
+                "CreateRemoteThread".to_string(),
+                "http://malware.com".to_string(),
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run".to_string(),
+                ".exe".to_string(),
+                "RegCreateKey".to_string(),
+            ],
+            unicode_strings: vec![
+                "VMware".to_string(),
+                "C:\\Windows\\System32".to_string(),
+            ],
+            interesting_strings: vec![
+                InterestingString {
+                    category: "API".to_string(),
+                    value: "CreateRemoteThread".to_string(),
+                    offset: 100,
+                }
+            ],
+        }
+    }
+
+    fn create_test_symbols() -> SymbolTable {
+        SymbolTable {
+            functions: vec![
+                FunctionInfo {
+                    name: "CreateRemoteThread".to_string(),
+                    address: 0x1000,
+                    size: 100,
+                    function_type: FunctionType::Imported,
+                    calling_convention: None,
+                    parameters: vec![],
+                    is_entry_point: false,
+                    is_exported: false,
+                    is_imported: true,
+                },
+                FunctionInfo {
+                    name: "WriteProcessMemory".to_string(),
+                    address: 0x2000,
+                    size: 150,
+                    function_type: FunctionType::Imported,
+                    calling_convention: None,
+                    parameters: vec![],
+                    is_entry_point: false,
+                    is_exported: false,
+                    is_imported: true,
+                },
+                FunctionInfo {
+                    name: "CreateFile".to_string(),
+                    address: 0x3000,
+                    size: 200,
+                    function_type: FunctionType::Imported,
+                    calling_convention: None,
+                    parameters: vec![],
+                    is_entry_point: false,
+                    is_exported: false,
+                    is_imported: true,
+                },
+            ],
+            global_variables: vec![],
+            cross_references: vec![],
+            imports: vec![
+                ImportInfo {
+                    name: "kernel32.dll".to_string(),
+                    library: Some("kernel32".to_string()),
+                    address: Some(0x1000),
+                    ordinal: None,
+                    is_delayed: false,
+                },
+                ImportInfo {
+                    name: "ntdll.dll".to_string(),
+                    library: Some("ntdll".to_string()),
+                    address: Some(0x2000),
+                    ordinal: None,
+                    is_delayed: false,
+                },
+            ],
+            exports: vec![],
+            symbol_count: SymbolCounts {
+                total_functions: 3,
+                local_functions: 0,
+                imported_functions: 3,
+                exported_functions: 0,
+                global_variables: 0,
+                cross_references: 0,
+            },
+        }
+    }
+
+    fn create_test_disassembly() -> DisassemblyResult {
+        DisassemblyResult {
+            architecture: "x86_64".to_string(),
+            instructions: vec![],
+            analysis: InstructionAnalysis {
+                total_instructions: 1,
+                instruction_types: HashMap::new(),
+                register_usage: HashMap::new(),
+                memory_accesses: vec![],
+                system_calls: vec![],
+                crypto_operations: vec![],
+                suspicious_patterns: vec![
+                    SuspiciousPattern {
+                        pattern_type: PatternType::NopSled,
+                        addresses: vec![0x1000],
+                        description: "NOP sled detected".to_string(),
+                        severity: DisassemblySeverity::Medium,
+                    }
+                ],
+                control_flow_summary: ControlFlowSummary {
+                    total_jumps: 0,
+                    conditional_jumps: 0,
+                    unconditional_jumps: 0,
+                    function_calls: 0,
+                    indirect_calls: 0,
+                    returns: 0,
+                    interrupts: 0,
+                },
+            },
+            functions: vec![],
+            output_formats: OutputFormats {
+                assembly: "test".to_string(),
+                json_structured: serde_json::json!({}),
+                graph_data: crate::disassembly::GraphVisualizationData {
+                    nodes: vec![],
+                    edges: vec![],
+                },
+            },
+        }
+    }
 
     #[test]
     fn test_evasion_score_calculation() {
@@ -1360,5 +1498,1010 @@ mod tests {
 
         let score = calculate_evasion_score(&anti_analysis, &behaviors);
         assert!(score > 0.0 && score <= 100.0);
+    }
+
+    #[test]
+    fn test_evasion_score_with_critical_behaviors() {
+        let anti_analysis = vec![
+            AntiAnalysisTechnique {
+                technique_type: AntiAnalysisType::ProcessHollowing,
+                indicators: vec!["NtUnmapViewOfSection".to_string()],
+                confidence: 1.0,
+                description: "Process hollowing".to_string(),
+            },
+            AntiAnalysisTechnique {
+                technique_type: AntiAnalysisType::Obfuscation,
+                indicators: vec!["Self-modifying code".to_string()],
+                confidence: 0.8,
+                description: "Code obfuscation".to_string(),
+            },
+        ];
+
+        let behaviors = vec![
+            SuspiciousBehavior {
+                behavior_type: "Ransomware".to_string(),
+                description: "File encryption detected".to_string(),
+                severity: Severity::Critical,
+                evidence: vec!["File encryption".to_string()],
+            },
+            SuspiciousBehavior {
+                behavior_type: "Backdoor".to_string(),
+                description: "C&C communication".to_string(),
+                severity: Severity::Critical,
+                evidence: vec!["Network communication".to_string()],
+            },
+        ];
+
+        let score = calculate_evasion_score(&anti_analysis, &behaviors);
+        assert!(score > 40.0);
+        assert!(score <= 100.0);
+    }
+
+    #[test]
+    fn test_evasion_score_caps_at_100() {
+        let anti_analysis = vec![
+            AntiAnalysisTechnique {
+                technique_type: AntiAnalysisType::ProcessHollowing,
+                indicators: vec!["test".to_string()],
+                confidence: 1.0,
+                description: "test".to_string(),
+            };
+            10 // Large number to force high score
+        ];
+
+        let behaviors = vec![
+            SuspiciousBehavior {
+                behavior_type: "Critical".to_string(),
+                description: "test".to_string(),
+                severity: Severity::Critical,
+                evidence: vec!["test".to_string()],
+            };
+            20 // Large number to force high score
+        ];
+
+        let score = calculate_evasion_score(&anti_analysis, &behaviors);
+        assert_eq!(score, 100.0);
+    }
+
+    #[test]
+    fn test_detect_anti_analysis_debug_techniques() {
+        let strings = create_test_strings();
+        let symbols = create_test_symbols();
+        let disassembly = create_test_disassembly();
+
+        let techniques = detect_anti_analysis(Some(&strings), Some(&symbols), Some(&disassembly));
+
+        let anti_debug = techniques.iter().find(|t| matches!(t.technique_type, AntiAnalysisType::AntiDebug));
+        assert!(anti_debug.is_some());
+        
+        let anti_debug = anti_debug.unwrap();
+        assert!(!anti_debug.indicators.is_empty());
+        assert!(anti_debug.confidence > 0.0);
+        assert!(anti_debug.description.contains("Debugger"));
+    }
+
+    #[test]
+    fn test_detect_anti_analysis_vm_techniques() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.push("VirtualBox".to_string());
+        strings.ascii_strings.push("CPUID".to_string());
+
+        let techniques = detect_anti_analysis(Some(&strings), None, None);
+
+        let anti_vm = techniques.iter().find(|t| matches!(t.technique_type, AntiAnalysisType::AntiVM));
+        assert!(anti_vm.is_some());
+        
+        let anti_vm = anti_vm.unwrap();
+        assert!(!anti_vm.indicators.is_empty());
+        assert!(anti_vm.confidence > 0.0);
+        assert!(anti_vm.indicators.contains(&"VirtualBox".to_string()));
+    }
+
+    #[test]
+    fn test_detect_anti_analysis_sandbox_techniques() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            "SbieDll".to_string(),
+            "sample".to_string(),
+            "sandbox".to_string(),
+            "GetCursorPos".to_string(),
+        ]);
+
+        let techniques = detect_anti_analysis(Some(&strings), None, None);
+
+        let anti_sandbox = techniques.iter().find(|t| matches!(t.technique_type, AntiAnalysisType::AntiSandbox));
+        assert!(anti_sandbox.is_some());
+        
+        let anti_sandbox = anti_sandbox.unwrap();
+        assert!(anti_sandbox.indicators.len() >= 3);
+        assert!(anti_sandbox.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_detect_anti_analysis_obfuscation() {
+        let disassembly = create_test_disassembly();
+
+        let techniques = detect_anti_analysis(None, None, Some(&disassembly));
+
+        let obfuscation = techniques.iter().find(|t| matches!(t.technique_type, AntiAnalysisType::Obfuscation));
+        assert!(obfuscation.is_some());
+        
+        let obfuscation = obfuscation.unwrap();
+        assert!(!obfuscation.indicators.is_empty());
+        assert!(obfuscation.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_detect_persistence_registry_keys() {
+        let strings = create_test_strings();
+
+        let mechanisms = detect_persistence_mechanisms(Some(&strings), None);
+
+        let registry_persistence = mechanisms.iter().find(|m| matches!(m.mechanism_type, PersistenceType::RegistryKeys));
+        assert!(registry_persistence.is_some());
+        
+        let registry_persistence = registry_persistence.unwrap();
+        assert!(!registry_persistence.target_locations.is_empty());
+        assert!(matches!(registry_persistence.severity, Severity::High));
+    }
+
+    #[test]
+    fn test_detect_persistence_service_installation() {
+        let mut symbols = create_test_symbols();
+        symbols.functions.push(FunctionInfo {
+            name: "CreateService".to_string(),
+            address: 0x3000,
+            size: 200,
+            function_type: FunctionType::Imported,
+            calling_convention: None,
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: true,
+        });
+        symbols.functions.push(FunctionInfo {
+            name: "OpenSCManager".to_string(),
+            address: 0x4000,
+            size: 150,
+            function_type: FunctionType::Imported,
+            calling_convention: None,
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: true,
+        });
+
+        let mechanisms = detect_persistence_mechanisms(None, Some(&symbols));
+
+        let service_persistence = mechanisms.iter().find(|m| matches!(m.mechanism_type, PersistenceType::ServiceInstallation));
+        assert!(service_persistence.is_some());
+        
+        let service_persistence = service_persistence.unwrap();
+        assert!(service_persistence.target_locations.len() >= 2);
+        assert!(matches!(service_persistence.severity, Severity::High));
+    }
+
+    #[test]
+    fn test_detect_persistence_scheduled_tasks() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            "schtasks".to_string(),
+            "Task Scheduler".to_string(),
+        ]);
+
+        let mechanisms = detect_persistence_mechanisms(Some(&strings), None);
+
+        let task_persistence = mechanisms.iter().find(|m| matches!(m.mechanism_type, PersistenceType::ScheduledTasks));
+        assert!(task_persistence.is_some());
+        
+        let task_persistence = task_persistence.unwrap();
+        assert!(!task_persistence.target_locations.is_empty());
+        assert!(matches!(task_persistence.severity, Severity::Medium));
+    }
+
+    #[test]
+    fn test_detect_persistence_dll_hijacking() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            "LoadLibrary".to_string(),
+            "SetDllDirectory".to_string(),
+            ".dll".to_string(),
+            "System32".to_string(),
+        ]);
+
+        let mechanisms = detect_persistence_mechanisms(Some(&strings), None);
+
+        let dll_persistence = mechanisms.iter().find(|m| matches!(m.mechanism_type, PersistenceType::DLLHijacking));
+        assert!(dll_persistence.is_some());
+        
+        let dll_persistence = dll_persistence.unwrap();
+        assert!(dll_persistence.target_locations.len() >= 3);
+        assert!(matches!(dll_persistence.severity, Severity::High));
+    }
+
+    #[test]
+    fn test_detect_network_patterns_command_control() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            "https://malicious.com".to_string(),
+            "POST".to_string(),
+            "user-agent".to_string(),
+            "192.168.1.100".to_string(),
+        ]);
+
+        let patterns = detect_network_patterns(Some(&strings), None);
+
+        let cc_pattern = patterns.iter().find(|p| matches!(p.pattern_type, NetworkPatternType::CommandAndControl));
+        assert!(cc_pattern.is_some());
+        
+        let cc_pattern = cc_pattern.unwrap();
+        assert!(!cc_pattern.indicators.is_empty());
+        assert!(!cc_pattern.protocols.is_empty());
+        assert!(matches!(cc_pattern.suspicious_level, SuspicionLevel::High | SuspicionLevel::Medium));
+    }
+
+    #[test]
+    fn test_detect_network_patterns_data_exfiltration() {
+        let mut symbols = create_test_symbols();
+        symbols.functions.extend([
+            FunctionInfo {
+                name: "socket".to_string(),
+                address: 0x5000,
+                size: 100,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "send".to_string(),
+                address: 0x6000,
+                size: 80,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "recv".to_string(),
+                address: 0x7000,
+                size: 80,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "connect".to_string(),
+                address: 0x8000,
+                size: 120,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+        ]);
+
+        let patterns = detect_network_patterns(None, Some(&symbols));
+
+        let exfil_pattern = patterns.iter().find(|p| matches!(p.pattern_type, NetworkPatternType::DataExfiltration));
+        assert!(exfil_pattern.is_some());
+        
+        let exfil_pattern = exfil_pattern.unwrap();
+        assert!(exfil_pattern.indicators.len() >= 4);
+        assert!(matches!(exfil_pattern.suspicious_level, SuspicionLevel::High));
+    }
+
+    #[test]
+    fn test_detect_network_patterns_tor_usage() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            ".onion".to_string(),
+            "9050".to_string(),
+            "Tor Browser".to_string(),
+        ]);
+
+        let patterns = detect_network_patterns(Some(&strings), None);
+
+        let tor_pattern = patterns.iter().find(|p| matches!(p.pattern_type, NetworkPatternType::TorUsage));
+        assert!(tor_pattern.is_some());
+        
+        let tor_pattern = tor_pattern.unwrap();
+        assert!(!tor_pattern.indicators.is_empty());
+        assert!(tor_pattern.ports.contains(&9050));
+        assert!(matches!(tor_pattern.suspicious_level, SuspicionLevel::High));
+    }
+
+    #[test]
+    fn test_detect_file_operations() {
+        let strings = create_test_strings();
+        let mut symbols = create_test_symbols();
+        symbols.functions.extend([
+            FunctionInfo {
+                name: "CreateFile".to_string(),
+                address: 0x9000,
+                size: 200,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "DeleteFile".to_string(),
+                address: 0xA000,
+                size: 150,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+        ]);
+
+        let operations = detect_file_operations(Some(&strings), Some(&symbols));
+
+        assert!(!operations.is_empty());
+        
+        let creation_op = operations.iter().find(|op| matches!(op.operation_type, FileOpType::FileCreation));
+        assert!(creation_op.is_some());
+        
+        let deletion_op = operations.iter().find(|op| matches!(op.operation_type, FileOpType::FileDeletion));
+        assert!(deletion_op.is_some());
+        assert!(deletion_op.unwrap().suspicious);
+    }
+
+    #[test]
+    fn test_detect_file_operations_encryption() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            "CryptEncrypt".to_string(),
+            "AES".to_string(),
+            ".encrypted".to_string(),
+        ]);
+
+        let operations = detect_file_operations(Some(&strings), None);
+
+        let encryption_op = operations.iter().find(|op| matches!(op.operation_type, FileOpType::FileEncryption));
+        assert!(encryption_op.is_some());
+        
+        let encryption_op = encryption_op.unwrap();
+        assert!(encryption_op.suspicious);
+        assert!(encryption_op.targets.len() >= 2);
+    }
+
+    #[test]
+    fn test_detect_registry_operations() {
+        let strings = create_test_strings();
+
+        let operations = detect_registry_operations(Some(&strings));
+
+        assert!(!operations.is_empty());
+        
+        let creation_op = operations.iter().find(|op| matches!(op.operation_type, RegistryOpType::KeyCreation));
+        assert!(creation_op.is_some());
+        
+        let modification_op = operations.iter().find(|op| matches!(op.operation_type, RegistryOpType::ValueModification));
+        assert!(modification_op.is_some());
+    }
+
+    #[test]
+    fn test_detect_registry_operations_comprehensive() {
+        let mut strings = create_test_strings();
+        strings.ascii_strings.extend([
+            "RegSetValue".to_string(),
+            "RegDeleteKey".to_string(),
+            "HKEY_LOCAL_MACHINE".to_string(),
+            "SYSTEM\\CurrentControlSet".to_string(),
+        ]);
+
+        let operations = detect_registry_operations(Some(&strings));
+
+        assert!(operations.len() >= 4);
+        
+        let deletion_op = operations.iter().find(|op| matches!(op.operation_type, RegistryOpType::KeyDeletion));
+        assert!(deletion_op.is_some());
+    }
+
+    #[test]
+    fn test_detect_process_operations() {
+        let symbols = create_test_symbols();
+
+        let operations = detect_process_operations(None, Some(&symbols));
+
+        assert!(!operations.is_empty());
+        
+        let injection_op = operations.iter().find(|op| matches!(op.operation_type, ProcessOpType::ProcessInjection));
+        assert!(injection_op.is_some());
+        
+        let injection_op = injection_op.unwrap();
+        assert!(!injection_op.techniques.is_empty());
+    }
+
+    #[test]
+    fn test_detect_process_operations_hollowing() {
+        let mut symbols = create_test_symbols();
+        symbols.functions.extend([
+            FunctionInfo {
+                name: "NtUnmapViewOfSection".to_string(),
+                address: 0xB000,
+                size: 100,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "CreateProcess".to_string(),
+                address: 0xC000,
+                size: 300,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "SetThreadContext".to_string(),
+                address: 0xD000,
+                size: 150,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "ResumeThread".to_string(),
+                address: 0xE000,
+                size: 80,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+        ]);
+
+        let operations = detect_process_operations(None, Some(&symbols));
+
+        let hollowing_op = operations.iter().find(|op| matches!(op.operation_type, ProcessOpType::ProcessHollowing));
+        assert!(hollowing_op.is_some());
+        
+        let hollowing_op = hollowing_op.unwrap();
+        assert!(!hollowing_op.techniques.is_empty());
+        assert!(hollowing_op.techniques.contains(&"NtUnmapViewOfSection".to_string()));
+    }
+
+    #[test]
+    fn test_detect_process_operations_privilege_escalation() {
+        let mut symbols = create_test_symbols();
+        symbols.functions.extend([
+            FunctionInfo {
+                name: "AdjustTokenPrivileges".to_string(),
+                address: 0xF000,
+                size: 200,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+            FunctionInfo {
+                name: "OpenProcessToken".to_string(),
+                address: 0x10000,
+                size: 150,
+                function_type: FunctionType::Imported,
+                calling_convention: None,
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+        ]);
+
+        let operations = detect_process_operations(None, Some(&symbols));
+
+        let priv_esc_op = operations.iter().find(|op| matches!(op.operation_type, ProcessOpType::PrivilegeEscalation));
+        assert!(priv_esc_op.is_some());
+        
+        let priv_esc_op = priv_esc_op.unwrap();
+        assert!(priv_esc_op.techniques.len() >= 2);
+    }
+
+    #[test]
+    fn test_identify_suspicious_behaviors_ransomware() {
+        let anti_analysis = vec![];
+        let persistence = vec![];
+        let network = vec![];
+        let file_ops = vec![
+            FileOperation {
+                operation_type: FileOpType::FileEncryption,
+                targets: vec!["CryptEncrypt".to_string()],
+                suspicious: true,
+            },
+            FileOperation {
+                operation_type: FileOpType::FileDeletion,
+                targets: vec!["DeleteFile".to_string()],
+                suspicious: true,
+            },
+        ];
+        let process_ops = vec![];
+
+        let behaviors = identify_suspicious_behaviors(&anti_analysis, &persistence, &network, &file_ops, &process_ops);
+
+        let ransomware = behaviors.iter().find(|b| b.behavior_type == "Ransomware");
+        assert!(ransomware.is_some());
+        
+        let ransomware = ransomware.unwrap();
+        assert!(matches!(ransomware.severity, Severity::Critical));
+        assert!(!ransomware.evidence.is_empty());
+    }
+
+    #[test]
+    fn test_identify_suspicious_behaviors_rootkit() {
+        let anti_analysis = vec![];
+        let persistence = vec![
+            PersistenceMechanism {
+                mechanism_type: PersistenceType::ServiceInstallation,
+                target_locations: vec!["CreateService".to_string()],
+                severity: Severity::High,
+                description: "Service installation".to_string(),
+            }
+        ];
+        let network = vec![];
+        let file_ops = vec![];
+        let process_ops = vec![
+            ProcessOperation {
+                operation_type: ProcessOpType::ProcessInjection,
+                targets: vec!["target_process".to_string()],
+                techniques: vec!["NtCreateThreadEx".to_string()],
+            }
+        ];
+
+        let behaviors = identify_suspicious_behaviors(&anti_analysis, &persistence, &network, &file_ops, &process_ops);
+
+        let rootkit = behaviors.iter().find(|b| b.behavior_type == "Rootkit");
+        assert!(rootkit.is_some());
+        
+        let rootkit = rootkit.unwrap();
+        assert!(matches!(rootkit.severity, Severity::Critical));
+    }
+
+    #[test]
+    fn test_identify_suspicious_behaviors_backdoor() {
+        let anti_analysis = vec![];
+        let persistence = vec![
+            PersistenceMechanism {
+                mechanism_type: PersistenceType::RegistryKeys,
+                target_locations: vec!["Run key".to_string()],
+                severity: Severity::High,
+                description: "Registry persistence".to_string(),
+            }
+        ];
+        let network = vec![
+            NetworkPattern {
+                pattern_type: NetworkPatternType::CommandAndControl,
+                indicators: vec!["http://evil.com".to_string()],
+                protocols: vec!["HTTP".to_string()],
+                ports: vec![80],
+                suspicious_level: SuspicionLevel::High,
+            }
+        ];
+        let file_ops = vec![];
+        let process_ops = vec![
+            ProcessOperation {
+                operation_type: ProcessOpType::ProcessCreation,
+                targets: vec!["cmd.exe".to_string()],
+                techniques: vec!["CreateProcess".to_string()],
+            }
+        ];
+
+        let behaviors = identify_suspicious_behaviors(&anti_analysis, &persistence, &network, &file_ops, &process_ops);
+
+        let backdoor = behaviors.iter().find(|b| b.behavior_type == "Backdoor");
+        assert!(backdoor.is_some());
+        
+        let backdoor = backdoor.unwrap();
+        assert!(matches!(backdoor.severity, Severity::Critical));
+        assert!(backdoor.evidence.len() >= 3);
+    }
+
+    #[test]
+    fn test_identify_suspicious_behaviors_data_theft() {
+        let anti_analysis = vec![];
+        let persistence = vec![];
+        let network = vec![
+            NetworkPattern {
+                pattern_type: NetworkPatternType::DataExfiltration,
+                indicators: vec!["send".to_string()],
+                protocols: vec!["TCP".to_string()],
+                ports: vec![443],
+                suspicious_level: SuspicionLevel::High,
+            }
+        ];
+        let file_ops = vec![
+            FileOperation {
+                operation_type: FileOpType::FileCopying,
+                targets: vec!["CopyFile".to_string()],
+                suspicious: false,
+            }
+        ];
+        let process_ops = vec![];
+
+        let behaviors = identify_suspicious_behaviors(&anti_analysis, &persistence, &network, &file_ops, &process_ops);
+
+        let data_theft = behaviors.iter().find(|b| b.behavior_type == "DataTheft");
+        assert!(data_theft.is_some());
+        
+        let data_theft = data_theft.unwrap();
+        assert!(matches!(data_theft.severity, Severity::High));
+    }
+
+    #[test]
+    fn test_identify_suspicious_behaviors_dropper() {
+        let anti_analysis = vec![];
+        let persistence = vec![];
+        let network = vec![
+            NetworkPattern {
+                pattern_type: NetworkPatternType::DataExfiltration,
+                indicators: vec!["URLDownloadToFile".to_string()],
+                protocols: vec!["HTTP".to_string()],
+                ports: vec![80],
+                suspicious_level: SuspicionLevel::Medium,
+            }
+        ];
+        let file_ops = vec![
+            FileOperation {
+                operation_type: FileOpType::FileCreation,
+                targets: vec!["CreateFile".to_string()],
+                suspicious: false,
+            }
+        ];
+        let process_ops = vec![
+            ProcessOperation {
+                operation_type: ProcessOpType::ProcessCreation,
+                targets: vec!["downloaded.exe".to_string()],
+                techniques: vec!["CreateProcess".to_string()],
+            }
+        ];
+
+        let behaviors = identify_suspicious_behaviors(&anti_analysis, &persistence, &network, &file_ops, &process_ops);
+
+        let dropper = behaviors.iter().find(|b| b.behavior_type == "Dropper");
+        assert!(dropper.is_some());
+        
+        let dropper = dropper.unwrap();
+        assert!(matches!(dropper.severity, Severity::High));
+        assert!(dropper.evidence.len() >= 3);
+    }
+
+    #[test]
+    fn test_generate_behavioral_recommendations_high_evasion() {
+        let anti_analysis = vec![
+            AntiAnalysisTechnique {
+                technique_type: AntiAnalysisType::ProcessHollowing,
+                indicators: vec!["hollowing".to_string()],
+                confidence: 1.0,
+                description: "Process hollowing".to_string(),
+            }
+        ];
+        let persistence = vec![];
+        let network = vec![];
+        let behaviors = vec![
+            SuspiciousBehavior {
+                behavior_type: "Ransomware".to_string(),
+                description: "File encryption".to_string(),
+                severity: Severity::Critical,
+                evidence: vec!["encryption".to_string()],
+            }
+        ];
+
+        let recommendations = generate_behavioral_recommendations(&anti_analysis, &persistence, &network, &behaviors, 80.0);
+
+        assert!(!recommendations.is_empty());
+        assert!(recommendations.iter().any(|r| r.contains("CRITICAL")));
+        assert!(recommendations.iter().any(|r| r.contains("RANSOMWARE")));
+        assert!(recommendations.iter().any(|r| r.contains("Process hollowing")));
+    }
+
+    #[test]
+    fn test_generate_behavioral_recommendations_medium_evasion() {
+        let anti_analysis = vec![
+            AntiAnalysisTechnique {
+                technique_type: AntiAnalysisType::AntiDebug,
+                indicators: vec!["debug".to_string()],
+                confidence: 0.8,
+                description: "Anti-debugging".to_string(),
+            }
+        ];
+        let persistence = vec![];
+        let network = vec![];
+        let behaviors = vec![];
+
+        let recommendations = generate_behavioral_recommendations(&anti_analysis, &persistence, &network, &behaviors, 50.0);
+
+        assert!(!recommendations.is_empty());
+        assert!(recommendations.iter().any(|r| r.contains("Extended sandbox")));
+        assert!(recommendations.iter().any(|r| r.contains("kernel-mode debugger")));
+    }
+
+    #[test]
+    fn test_generate_behavioral_recommendations_persistence() {
+        let anti_analysis = vec![];
+        let persistence = vec![
+            PersistenceMechanism {
+                mechanism_type: PersistenceType::RegistryKeys,
+                target_locations: vec!["Run".to_string()],
+                severity: Severity::High,
+                description: "Registry persistence".to_string(),
+            },
+            PersistenceMechanism {
+                mechanism_type: PersistenceType::ServiceInstallation,
+                target_locations: vec!["Service".to_string()],
+                severity: Severity::High,
+                description: "Service persistence".to_string(),
+            },
+        ];
+        let network = vec![];
+        let behaviors = vec![];
+
+        let recommendations = generate_behavioral_recommendations(&anti_analysis, &persistence, &network, &behaviors, 10.0);
+
+        assert!(!recommendations.is_empty());
+        assert!(recommendations.iter().any(|r| r.contains("reboot")));
+        assert!(recommendations.iter().any(|r| r.contains("registry")));
+        assert!(recommendations.iter().any(|r| r.contains("services")));
+    }
+
+    #[test]
+    fn test_generate_behavioral_recommendations_network() {
+        let anti_analysis = vec![];
+        let persistence = vec![];
+        let network = vec![
+            NetworkPattern {
+                pattern_type: NetworkPatternType::CommandAndControl,
+                indicators: vec!["c2.evil.com".to_string()],
+                protocols: vec!["HTTPS".to_string()],
+                ports: vec![443],
+                suspicious_level: SuspicionLevel::High,
+            },
+            NetworkPattern {
+                pattern_type: NetworkPatternType::TorUsage,
+                indicators: vec![".onion".to_string()],
+                protocols: vec!["Tor".to_string()],
+                ports: vec![9050],
+                suspicious_level: SuspicionLevel::High,
+            },
+        ];
+        let behaviors = vec![];
+
+        let recommendations = generate_behavioral_recommendations(&anti_analysis, &persistence, &network, &behaviors, 10.0);
+
+        assert!(!recommendations.is_empty());
+        assert!(recommendations.iter().any(|r| r.contains("C&C")));
+        assert!(recommendations.iter().any(|r| r.contains("firewall")));
+        assert!(recommendations.iter().any(|r| r.contains("Tor")));
+    }
+
+    #[test]
+    fn test_generate_behavioral_recommendations_no_threats() {
+        let anti_analysis = vec![];
+        let persistence = vec![];
+        let network = vec![];
+        let behaviors = vec![];
+
+        let recommendations = generate_behavioral_recommendations(&anti_analysis, &persistence, &network, &behaviors, 5.0);
+
+        assert!(!recommendations.is_empty());
+        assert!(recommendations.iter().any(|r| r.contains("No significant behavioral anomalies")));
+        assert!(recommendations.iter().any(|r| r.contains("Standard security monitoring")));
+    }
+
+    #[test]
+    fn test_analyze_behavior_integration() {
+        use std::path::Path;
+        
+        let path = Path::new("/test/file");
+        let strings = create_test_strings();
+        let symbols = create_test_symbols();
+        let disassembly = create_test_disassembly();
+
+        let result = analyze_behavior(&path, Some(&strings), Some(&symbols), Some(&disassembly));
+        assert!(result.is_ok());
+
+        let analysis = result.unwrap();
+        assert!(!analysis.anti_analysis.is_empty());
+        assert!(!analysis.persistence.is_empty());
+        assert!(!analysis.network_behavior.is_empty());
+        assert!(!analysis.file_operations.is_empty());
+        assert!(!analysis.registry_operations.is_empty());
+        assert!(!analysis.process_operations.is_empty());
+        assert!(analysis.evasion_score >= 0.0);
+        assert!(analysis.evasion_score <= 100.0);
+        assert!(!analysis.recommendations.is_empty());
+    }
+
+    #[test]
+    fn test_data_structure_serialization() {
+        let analysis = BehavioralAnalysis {
+            anti_analysis: vec![
+                AntiAnalysisTechnique {
+                    technique_type: AntiAnalysisType::AntiDebug,
+                    indicators: vec!["test".to_string()],
+                    confidence: 0.8,
+                    description: "Test technique".to_string(),
+                }
+            ],
+            persistence: vec![
+                PersistenceMechanism {
+                    mechanism_type: PersistenceType::RegistryKeys,
+                    target_locations: vec!["test_key".to_string()],
+                    severity: Severity::High,
+                    description: "Test persistence".to_string(),
+                }
+            ],
+            network_behavior: vec![
+                NetworkPattern {
+                    pattern_type: NetworkPatternType::CommandAndControl,
+                    indicators: vec!["test_indicator".to_string()],
+                    protocols: vec!["HTTP".to_string()],
+                    ports: vec![80],
+                    suspicious_level: SuspicionLevel::High,
+                }
+            ],
+            file_operations: vec![
+                FileOperation {
+                    operation_type: FileOpType::FileCreation,
+                    targets: vec!["test_file".to_string()],
+                    suspicious: false,
+                }
+            ],
+            registry_operations: vec![
+                RegistryOperation {
+                    operation_type: RegistryOpType::KeyCreation,
+                    keys: vec!["test_key".to_string()],
+                    purpose: "Test purpose".to_string(),
+                }
+            ],
+            process_operations: vec![
+                ProcessOperation {
+                    operation_type: ProcessOpType::ProcessCreation,
+                    targets: vec!["test_process".to_string()],
+                    techniques: vec!["test_technique".to_string()],
+                }
+            ],
+            evasion_score: 42.5,
+            suspicious_behaviors: vec![
+                SuspiciousBehavior {
+                    behavior_type: "TestBehavior".to_string(),
+                    description: "Test behavior description".to_string(),
+                    severity: Severity::Medium,
+                    evidence: vec!["test_evidence".to_string()],
+                }
+            ],
+            recommendations: vec!["Test recommendation".to_string()],
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&analysis);
+        assert!(json_result.is_ok());
+
+        let deserialized_result: Result<BehavioralAnalysis, _> = serde_json::from_str(&json_result.unwrap());
+        assert!(deserialized_result.is_ok());
+
+        let deserialized = deserialized_result.unwrap();
+        assert_eq!(deserialized.evasion_score, 42.5);
+        assert_eq!(deserialized.anti_analysis.len(), 1);
+        assert_eq!(deserialized.persistence.len(), 1);
+        assert_eq!(deserialized.suspicious_behaviors.len(), 1);
+    }
+
+    #[test]
+    fn test_enum_variations() {
+        // Test all AntiAnalysisType variants
+        let anti_types = vec![
+            AntiAnalysisType::AntiDebug,
+            AntiAnalysisType::AntiVM,
+            AntiAnalysisType::AntiSandbox,
+            AntiAnalysisType::AntiDisassembly,
+            AntiAnalysisType::Obfuscation,
+            AntiAnalysisType::TimeDelays,
+            AntiAnalysisType::EnvironmentChecks,
+            AntiAnalysisType::ProcessHollowing,
+            AntiAnalysisType::CodeInjection,
+        ];
+
+        for anti_type in anti_types {
+            let technique = AntiAnalysisTechnique {
+                technique_type: anti_type,
+                indicators: vec!["test".to_string()],
+                confidence: 0.8,
+                description: "test".to_string(),
+            };
+            assert!(serde_json::to_string(&technique).is_ok());
+        }
+
+        // Test all PersistenceType variants
+        let persistence_types = vec![
+            PersistenceType::RegistryKeys,
+            PersistenceType::ServiceInstallation,
+            PersistenceType::ScheduledTasks,
+            PersistenceType::StartupFolders,
+            PersistenceType::DLLHijacking,
+            PersistenceType::ProcessInjection,
+            PersistenceType::BootkitRootkit,
+            PersistenceType::WMIEventSubscription,
+            PersistenceType::BrowserExtension,
+            PersistenceType::OfficeAddins,
+        ];
+
+        for pers_type in persistence_types {
+            let mechanism = PersistenceMechanism {
+                mechanism_type: pers_type,
+                target_locations: vec!["test".to_string()],
+                severity: Severity::Medium,
+                description: "test".to_string(),
+            };
+            assert!(serde_json::to_string(&mechanism).is_ok());
+        }
+
+        // Test all NetworkPatternType variants
+        let network_types = vec![
+            NetworkPatternType::CommandAndControl,
+            NetworkPatternType::DataExfiltration,
+            NetworkPatternType::DomainGeneration,
+            NetworkPatternType::TorUsage,
+            NetworkPatternType::P2PCommunication,
+            NetworkPatternType::HTTPSBypass,
+            NetworkPatternType::DNSTunneling,
+            NetworkPatternType::IRCCommunication,
+        ];
+
+        for net_type in network_types {
+            let pattern = NetworkPattern {
+                pattern_type: net_type,
+                indicators: vec!["test".to_string()],
+                protocols: vec!["TCP".to_string()],
+                ports: vec![80],
+                suspicious_level: SuspicionLevel::Medium,
+            };
+            assert!(serde_json::to_string(&pattern).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_hash_and_eq_implementations() {
+        use std::collections::HashSet;
+
+        // Test FileOpType hash and equality
+        let mut file_ops = HashSet::new();
+        file_ops.insert(FileOpType::FileCreation);
+        file_ops.insert(FileOpType::FileDeletion);
+        file_ops.insert(FileOpType::FileCreation); // Duplicate
+        assert_eq!(file_ops.len(), 2);
+
+        // Test ProcessOpType hash and equality
+        let mut process_ops = HashSet::new();
+        process_ops.insert(ProcessOpType::ProcessCreation);
+        process_ops.insert(ProcessOpType::ProcessInjection);
+        process_ops.insert(ProcessOpType::ProcessCreation); // Duplicate
+        assert_eq!(process_ops.len(), 2);
     }
 }
