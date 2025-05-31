@@ -249,7 +249,7 @@ impl McpTransportServer {
         Ok(())
     }
 
-    async fn handle_jsonrpc_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+    pub async fn handle_jsonrpc_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
         use rmcp::ServerHandler;
 
         match request.method.as_str() {

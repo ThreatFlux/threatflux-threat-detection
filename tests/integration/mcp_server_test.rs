@@ -1,4 +1,4 @@
-use file_scanner::mcp_server::{FileScannerMcpServer, AnalyzeFileParams, LlmAnalyzeFileParams};
+use file_scanner::mcp_server::{FileScannerMcp, FileAnalysisRequest, LlmFileAnalysisRequest};
 use rmcp::{Tool, Router, Response};
 use serde_json::{json, Value};
 use std::fs;
@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 use tokio;
 
-async fn create_test_server() -> FileScannerMcpServer {
-    FileScannerMcpServer
+async fn create_test_server() -> FileScannerMcp {
+    FileScannerMcp
 }
 
 fn create_test_file(dir: &TempDir, name: &str, content: &[u8]) -> PathBuf {
@@ -22,7 +22,7 @@ async fn test_analyze_file_metadata_only() {
     let temp_dir = TempDir::new().unwrap();
     let test_file = create_test_file(&temp_dir, "test.txt", b"Hello, World!");
     
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: None,
@@ -60,7 +60,7 @@ async fn test_analyze_file_with_hashes() {
     let temp_dir = TempDir::new().unwrap();
     let test_file = create_test_file(&temp_dir, "test.bin", b"Test content");
     
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -101,7 +101,7 @@ async fn test_analyze_file_with_strings() {
     let content = b"Hello World\x00\x01\x02This is a test string\x00More text";
     let test_file = create_test_file(&temp_dir, "strings.bin", content);
     
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: None,
         hashes: None,
@@ -139,7 +139,7 @@ async fn test_analyze_file_with_hex_dump() {
     let temp_dir = TempDir::new().unwrap();
     let test_file = create_test_file(&temp_dir, "hex.bin", b"ABCDEFGHIJKLMNOP");
     
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: None,
         hashes: None,
@@ -175,7 +175,7 @@ async fn test_analyze_file_with_hex_dump() {
 async fn test_analyze_file_nonexistent() {
     let server = create_test_server().await;
     
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: "/nonexistent/file/path".to_string(),
         metadata: Some(true),
         hashes: None,
@@ -219,7 +219,7 @@ async fn test_llm_analyze_file() {
     
     let test_file = create_test_file(&temp_dir, "malware_test.exe", &content);
     
-    let params = LlmAnalyzeFileParams {
+    let params = LlmFileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         token_limit: Some(10000),
         min_string_length: Some(4),
@@ -261,7 +261,7 @@ async fn test_llm_analyze_file_token_limit() {
     
     let test_file = create_test_file(&temp_dir, "large_file.bin", &content);
     
-    let params = LlmAnalyzeFileParams {
+    let params = LlmFileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         token_limit: Some(1000), // Very small limit
         min_string_length: Some(4),
@@ -326,7 +326,7 @@ async fn test_analyze_file_all_options() {
     
     let test_file = create_test_file(&temp_dir, "test.elf", &content);
     
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -372,7 +372,7 @@ async fn test_analyze_file_all_options() {
 
 #[test]
 fn test_analyze_file_params_defaults() {
-    let params = AnalyzeFileParams {
+    let params = FileAnalysisRequest {
         file_path: "/test/path".to_string(),
         metadata: None,
         hashes: None,
@@ -403,7 +403,7 @@ fn test_analyze_file_params_defaults() {
 
 #[test]
 fn test_llm_analyze_file_params_defaults() {
-    let params = LlmAnalyzeFileParams {
+    let params = LlmFileAnalysisRequest {
         file_path: "/test/path".to_string(),
         token_limit: None,
         min_string_length: None,
