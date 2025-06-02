@@ -209,12 +209,12 @@ jobs:
       
       - name: Test MCP tools list
         run: |
-          timeout 5s npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list || true
+          timeout 10s npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
       
       - name: Test MCP with test file
         run: |
           echo "Test content" > /tmp/test.txt
-          timeout 5s npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_file --tool-arg file_path=/tmp/test.txt --tool-arg metadata=true || true
+          timeout 10s npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name analyze_file --tool-arg file_path=/tmp/test.txt --tool-arg metadata=true
 
   docker-build:
     name: Docker Build
