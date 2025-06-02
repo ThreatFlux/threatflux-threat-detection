@@ -30,7 +30,7 @@ serde_yaml = "0.9"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Async runtime (optional, for parallel processing)
 tokio = { version = "1.40", features = ["full"] }
