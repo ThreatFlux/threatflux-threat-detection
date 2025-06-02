@@ -19,18 +19,15 @@ WORKDIR /usr/src/file-scanner
 # Copy manifests first for better caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create a dummy main.rs to build dependencies
+# Create a dummy main.rs to build dependencies only
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 # Build dependencies (this layer will be cached)
-RUN cargo build --release && rm -rf src
+RUN cargo build --release && rm -rf src target/release/deps/file_scanner*
 
 # Copy source code
 COPY src ./src
 COPY benches ./benches
-
-# Touch main.rs to ensure it's rebuilt
-RUN touch src/main.rs
 
 # Build for release with version info
 ENV CARGO_PKG_VERSION=${VERSION}
