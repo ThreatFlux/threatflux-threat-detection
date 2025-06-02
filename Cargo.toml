@@ -43,7 +43,7 @@ rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "mai
 schemars = "0.9"
 
 # HTTP server for MCP
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.8", features = ["ws"] }
 tower = "0.5"
 hyper = "1.5"
 tokio-stream = "0.1"
