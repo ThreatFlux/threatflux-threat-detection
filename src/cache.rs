@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::{RwLock, Semaphore};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::{RwLock, Semaphore};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheEntry {
@@ -99,7 +99,7 @@ impl AnalysisCache {
         // Find the oldest entry across all files
         let mut oldest_hash: Option<String> = None;
         let mut oldest_timestamp = chrono::Utc::now();
-        
+
         for (hash, file_entries) in entries.iter() {
             if let Some(entry) = file_entries.first() {
                 if entry.timestamp < oldest_timestamp {
@@ -108,7 +108,7 @@ impl AnalysisCache {
                 }
             }
         }
-        
+
         // Remove the oldest file's entries
         if let Some(hash) = oldest_hash {
             entries.remove(&hash);
@@ -122,7 +122,11 @@ impl AnalysisCache {
     }
 
     #[allow(dead_code)]
-    pub async fn get_latest_analysis(&self, file_hash: &str, tool_name: &str) -> Option<CacheEntry> {
+    pub async fn get_latest_analysis(
+        &self,
+        file_hash: &str,
+        tool_name: &str,
+    ) -> Option<CacheEntry> {
         let entries = self.entries.read().await;
         entries
             .get(file_hash)?
@@ -333,15 +337,18 @@ pub struct CacheStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use chrono::{Duration, Utc};
+    use tempfile::TempDir;
 
     fn create_test_entry(file_hash: &str, tool_name: &str, file_path: &str) -> CacheEntry {
         CacheEntry {
             file_path: file_path.to_string(),
             file_hash: file_hash.to_string(),
             tool_name: tool_name.to_string(),
-            tool_args: [("test_arg".to_string(), serde_json::json!("value"))].iter().cloned().collect(),
+            tool_args: [("test_arg".to_string(), serde_json::json!("value"))]
+                .iter()
+                .cloned()
+                .collect(),
             result: serde_json::json!({"result": "test"}),
             timestamp: Utc::now(),
             file_size: 1024,
@@ -410,7 +417,10 @@ mod tests {
         cache.add_entry(entry1).await.unwrap();
         cache.add_entry(entry2).await.unwrap();
 
-        let latest = cache.get_latest_analysis("hash123", "test_tool").await.unwrap();
+        let latest = cache
+            .get_latest_analysis("hash123", "test_tool")
+            .await
+            .unwrap();
         assert_eq!(latest.timestamp, now);
     }
 
@@ -631,7 +641,9 @@ mod tests {
 
         let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2);
-        assert!(results.iter().all(|e| e.tool_name == "hash_tool" && e.file_path.contains("bin")));
+        assert!(results
+            .iter()
+            .all(|e| e.tool_name == "hash_tool" && e.file_path.contains("bin")));
     }
 
     #[tokio::test]
@@ -687,7 +699,10 @@ mod tests {
             file_path: "/test/file.bin".to_string(),
             file_hash: "abc123".to_string(),
             tool_name: "test_tool".to_string(),
-            tool_args: [("arg1".to_string(), serde_json::json!("value1"))].iter().cloned().collect(),
+            tool_args: [("arg1".to_string(), serde_json::json!("value1"))]
+                .iter()
+                .cloned()
+                .collect(),
             result: serde_json::json!({"result": "success"}),
             timestamp: Utc::now(),
             file_size: 2048,
@@ -747,8 +762,14 @@ mod tests {
     #[tokio::test]
     async fn test_cache_statistics_serialization() {
         let stats = CacheStatistics {
-            tool_counts: [("tool1".to_string(), 5), ("tool2".to_string(), 3)].iter().cloned().collect(),
-            file_type_counts: [("exe".to_string(), 2), ("dll".to_string(), 1)].iter().cloned().collect(),
+            tool_counts: [("tool1".to_string(), 5), ("tool2".to_string(), 3)]
+                .iter()
+                .cloned()
+                .collect(),
+            file_type_counts: [("exe".to_string(), 2), ("dll".to_string(), 1)]
+                .iter()
+                .cloned()
+                .collect(),
             total_analyses: 8,
             unique_files: 6,
             avg_execution_time_ms: 150,
@@ -760,7 +781,10 @@ mod tests {
 
         assert_eq!(deserialized.total_analyses, stats.total_analyses);
         assert_eq!(deserialized.unique_files, stats.unique_files);
-        assert_eq!(deserialized.avg_execution_time_ms, stats.avg_execution_time_ms);
+        assert_eq!(
+            deserialized.avg_execution_time_ms,
+            stats.avg_execution_time_ms
+        );
         assert_eq!(deserialized.tool_counts, stats.tool_counts);
         assert_eq!(deserialized.file_type_counts, stats.file_type_counts);
     }
@@ -772,7 +796,10 @@ mod tests {
 
         // Test operations on empty cache
         assert!(cache.get_entries("nonexistent").await.is_none());
-        assert!(cache.get_latest_analysis("nonexistent", "tool").await.is_none());
+        assert!(cache
+            .get_latest_analysis("nonexistent", "tool")
+            .await
+            .is_none());
 
         let all_entries = cache.get_all_entries().await;
         assert!(all_entries.is_empty());
@@ -798,12 +825,12 @@ mod tests {
     #[tokio::test]
     async fn test_cache_persistence() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         {
             let cache = AnalysisCache::new(temp_dir.path()).unwrap();
             let entry = create_test_entry("persistent_hash", "test_tool", "/test/file.bin");
             cache.add_entry(entry).await.unwrap();
-            
+
             // Wait a bit for async save to complete
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
@@ -811,7 +838,7 @@ mod tests {
         // Create new cache instance to test loading
         let cache2 = AnalysisCache::new(temp_dir.path()).unwrap();
         let entries = cache2.get_entries("persistent_hash").await;
-        
+
         // May or may not find entries depending on timing of async save
         // This test mainly ensures no errors occur during persistence operations
         assert!(entries.is_some() || entries.is_none());

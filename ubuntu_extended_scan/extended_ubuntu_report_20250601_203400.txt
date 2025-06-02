@@ -1,0 +1,23 @@
+Extended Ubuntu System Analysis Report
+=====================================
+Generated: Sun Jun  1 08:34:03 PM EDT 2025
+Duration: 2 seconds
+Total files analyzed: 109
+
+Files by Category:
+- System Logs: 21
+- Third-party Apps (/opt): 6
+- Snap Packages: 0
+- Firmware Files: 19
+- Boot Files: 10
+- Python Files: 23
+- Shell Scripts: 20
+- Database Files: 5
+- Process Info: 5
+
+Performance Metrics:
+- Scan rate: 54.50 files/sec
+- Concurrent jobs: 12
+
+File Size Distribution:
+<1KB: 5 files

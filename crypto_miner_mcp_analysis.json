@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: File does not exist: /home/vtriple/file-scanner/test_programs/crypto_miner_binary"
+      }
+    ]
+  }
+}

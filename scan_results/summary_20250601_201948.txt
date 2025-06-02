@@ -1,0 +1,59 @@
+Scan Summary - Sun Jun  1 08:19:48 PM EDT 2025
+========================
+Total files: 1680
+Successful: 50
+Failed: 1630
+Duration: 0 seconds
+Rate: N/A (too fast to measure)
+
+Files scanned:
+addpart
+alsamixer
+apt-sortpkgs
+bin2obj-3.2.2
+comm
+cvt
+dh_installcron
+dh_installgsettings
+dh_installlogrotate
+file
+foo2zjs
+fpc-depends-3.2.2
+gnome-terminal
+grops
+gunzip
+hardlink
+hexdump
+hostid
+htop
+icuinfo
+kerneloops-submit
+loadunimap
+lwp-download
+lwp-request
+m4
+makeskel-3.2.2
+mksquashfs
+mokutil
+mt-gnu
+nc.openbsd
+netaddr
+numastat
+ppdmerge
+prove
+ps2pdf13
+ps2pdfwr
+pw-link
+qmi-firmware-update
+rendercheck
+rstartd
+runcon
+sbkeysync
+shuf
+sss_ssh_authorizedkeys
+suricatasc
+tapestat
+touch
+xrdb
+Xwayland
+xzdiff

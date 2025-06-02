@@ -1,7 +1,7 @@
+use file_scanner::mcp_server::FileScannerMcp;
 use file_scanner::mcp_transport::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, McpServerState, McpTransportServer, SseEvent,
 };
-use file_scanner::mcp_server::FileScannerMcp;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -67,10 +67,7 @@ mod tests {
         assert_eq!(tools.len(), 2);
 
         // Check tool names
-        let tool_names: Vec<&str> = tools
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
+        let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(tool_names.contains(&"analyze_file"));
         assert!(tool_names.contains(&"llm_analyze_file"));
     }
@@ -264,20 +261,23 @@ mod tests {
         // For caching tests, we mainly care that the major content is the same
         let result1 = response1.result.unwrap();
         let result2 = response2.result.unwrap();
-        
+
         // Compare the response structure rather than exact timestamps
         assert_eq!(result1["content"][0]["type"], result2["content"][0]["type"]);
-        
+
         // Parse and compare the main content fields
         let text1 = result1["content"][0]["text"].as_str().unwrap();
         let text2 = result2["content"][0]["text"].as_str().unwrap();
         let analysis1: serde_json::Value = serde_json::from_str(text1).unwrap();
         let analysis2: serde_json::Value = serde_json::from_str(text2).unwrap();
-        
+
         // Compare everything except timestamps which may vary slightly
         assert_eq!(analysis1["file_path"], analysis2["file_path"]);
         assert_eq!(analysis1["hashes"], analysis2["hashes"]);
-        assert_eq!(analysis1["metadata"]["file_size"], analysis2["metadata"]["file_size"]);
+        assert_eq!(
+            analysis1["metadata"]["file_size"],
+            analysis2["metadata"]["file_size"]
+        );
     }
 
     #[tokio::test]
@@ -359,19 +359,12 @@ mod tests {
         );
         let string_tracker = Arc::new(file_scanner::string_tracker::StringTracker::new());
 
-        let state = McpServerState::new_for_testing(
-            handler,
-            sse_clients.clone(),
-            cache,
-            string_tracker,
-        );
+        let state =
+            McpServerState::new_for_testing(handler, sse_clients.clone(), cache, string_tracker);
 
         // Test that state can be cloned
         let _cloned_state = state.clone();
-        assert_eq!(
-            Arc::strong_count(&sse_clients),
-            3
-        ); // Original + state + cloned_state
+        assert_eq!(Arc::strong_count(&sse_clients), 3); // Original + state + cloned_state
     }
 
     #[tokio::test]
