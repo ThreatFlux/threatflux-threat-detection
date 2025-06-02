@@ -23,7 +23,7 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 # Build dependencies (this layer will be cached)
-RUN cargo build --release && rm -rf src target/release/deps/file_scanner*
+RUN cargo build --release && rm -rf src target/release/deps/*file*scanner* target/release/.fingerprint/*file*scanner*
 
 # Copy source code
 COPY src ./src
