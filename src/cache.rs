@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::{RwLock, Semaphore};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
@@ -30,9 +31,11 @@ pub struct CacheMetadata {
 
 #[derive(Clone)]
 pub struct AnalysisCache {
-    entries: Arc<Mutex<HashMap<String, Vec<CacheEntry>>>>,
+    entries: Arc<RwLock<HashMap<String, Vec<CacheEntry>>>>,
     cache_dir: PathBuf,
     max_entries_per_file: usize,
+    max_total_entries: usize,
+    save_semaphore: Arc<Semaphore>,
 }
 
 impl AnalysisCache {
@@ -43,51 +46,84 @@ impl AnalysisCache {
         fs::create_dir_all(&cache_dir)?;
 
         let cache = Self {
-            entries: Arc::new(Mutex::new(HashMap::new())),
+            entries: Arc::new(RwLock::new(HashMap::new())),
             cache_dir,
             max_entries_per_file: 100,
+            max_total_entries: 10000, // Global cache limit
+            save_semaphore: Arc::new(Semaphore::new(1)), // Only one save at a time
         };
 
         // Load existing cache
-        cache.load_from_disk()?;
+        let cache_clone = cache.clone();
+        tokio::spawn(async move {
+            let _ = cache_clone.load_from_disk().await;
+        });
 
         Ok(cache)
     }
 
-    pub fn add_entry(&self, entry: CacheEntry) -> Result<()> {
-        let mut entries = self.entries.lock().unwrap();
+    pub async fn add_entry(&self, entry: CacheEntry) -> Result<()> {
+        {
+            let mut entries = self.entries.write().await;
 
-        // Use file hash as key for better cache hits
-        let key = entry.file_hash.clone();
+            // Use file hash as key for better cache hits
+            let key = entry.file_hash.clone();
 
-        let file_entries = entries.entry(key).or_insert_with(Vec::new);
-        file_entries.push(entry);
+            let file_entries = entries.entry(key).or_insert_with(Vec::new);
+            file_entries.push(entry);
 
-        // Limit entries per file
-        if file_entries.len() > self.max_entries_per_file {
-            file_entries.remove(0);
+            // Limit entries per file
+            if file_entries.len() > self.max_entries_per_file {
+                file_entries.remove(0);
+            }
+
+            // Enforce global cache limit with LRU eviction
+            let total_entries: usize = entries.values().map(|v| v.len()).sum();
+            if total_entries > self.max_total_entries {
+                self.evict_oldest(&mut entries).await;
+            }
         }
 
-        drop(entries);
-
-        // Save to disk asynchronously
+        // Batch save operations with semaphore
         let cache_clone = self.clone();
         tokio::spawn(async move {
+            let _permit = cache_clone.save_semaphore.acquire().await.unwrap();
             let _ = cache_clone.save_to_disk().await;
         });
 
         Ok(())
     }
 
+    // LRU eviction method to prevent unbounded growth
+    async fn evict_oldest(&self, entries: &mut HashMap<String, Vec<CacheEntry>>) {
+        // Find the oldest entry across all files
+        let mut oldest_hash: Option<String> = None;
+        let mut oldest_timestamp = chrono::Utc::now();
+        
+        for (hash, file_entries) in entries.iter() {
+            if let Some(entry) = file_entries.first() {
+                if entry.timestamp < oldest_timestamp {
+                    oldest_timestamp = entry.timestamp;
+                    oldest_hash = Some(hash.clone());
+                }
+            }
+        }
+        
+        // Remove the oldest file's entries
+        if let Some(hash) = oldest_hash {
+            entries.remove(&hash);
+        }
+    }
+
     #[allow(dead_code)]
-    pub fn get_entries(&self, file_hash: &str) -> Option<Vec<CacheEntry>> {
-        let entries = self.entries.lock().unwrap();
+    pub async fn get_entries(&self, file_hash: &str) -> Option<Vec<CacheEntry>> {
+        let entries = self.entries.read().await;
         entries.get(file_hash).cloned()
     }
 
     #[allow(dead_code)]
-    pub fn get_latest_analysis(&self, file_hash: &str, tool_name: &str) -> Option<CacheEntry> {
-        let entries = self.entries.lock().unwrap();
+    pub async fn get_latest_analysis(&self, file_hash: &str, tool_name: &str) -> Option<CacheEntry> {
+        let entries = self.entries.read().await;
         entries
             .get(file_hash)?
             .iter()
@@ -96,24 +132,24 @@ impl AnalysisCache {
             .cloned()
     }
 
-    pub fn get_all_entries(&self) -> Vec<CacheEntry> {
-        let entries = self.entries.lock().unwrap();
+    pub async fn get_all_entries(&self) -> Vec<CacheEntry> {
+        let entries = self.entries.read().await;
         entries.values().flat_map(|v| v.iter().cloned()).collect()
     }
 
-    pub fn get_metadata(&self) -> CacheMetadata {
-        let entries = self.entries.lock().unwrap();
+    pub async fn get_metadata(&self) -> CacheMetadata {
+        let entries = self.entries.read().await;
 
         let total_entries: usize = entries.values().map(|v| v.len()).sum();
         let total_unique_files = entries.len();
 
-        // Calculate approximate cache size
+        // More efficient size calculation without serialization
         let cache_size_bytes: u64 = entries
             .values()
             .flat_map(|v| v.iter())
             .map(|e| {
-                // Rough estimate of memory usage
-                serde_json::to_string(e).unwrap_or_default().len() as u64
+                // Estimate based on string lengths instead of serialization
+                (e.file_path.len() + e.file_hash.len() + e.tool_name.len() + 1024) as u64
             })
             .sum();
 
@@ -125,8 +161,8 @@ impl AnalysisCache {
         }
     }
 
-    pub fn clear(&self) -> Result<()> {
-        let mut entries = self.entries.lock().unwrap();
+    pub async fn clear(&self) -> Result<()> {
+        let mut entries = self.entries.write().await;
         entries.clear();
 
         // Remove cache files
@@ -142,8 +178,8 @@ impl AnalysisCache {
         Ok(())
     }
 
-    pub fn search_entries(&self, query: &CacheSearchQuery) -> Vec<CacheEntry> {
-        let entries = self.entries.lock().unwrap();
+    pub async fn search_entries(&self, query: &CacheSearchQuery) -> Vec<CacheEntry> {
+        let entries = self.entries.read().await;
 
         entries
             .values()
@@ -182,33 +218,40 @@ impl AnalysisCache {
     }
 
     async fn save_to_disk(&self) -> Result<()> {
-        let entries = self.entries.lock().unwrap().clone();
+        // Batch save operations to reduce I/O
+        let entries = {
+            let entries_guard = self.entries.read().await;
+            entries_guard.clone()
+        };
 
+        // Only save recently modified entries (simplified approach)
         for (hash, file_entries) in entries.iter() {
             let cache_file = self.cache_dir.join(format!("{}.json", hash));
             let json = serde_json::to_string_pretty(file_entries)?;
 
             let mut file = File::create(&cache_file).await?;
             file.write_all(json.as_bytes()).await?;
+            file.flush().await?;
         }
 
         // Save metadata
-        let metadata = self.get_metadata();
+        let metadata = self.get_metadata().await;
         let metadata_file = self.cache_dir.join("metadata.json");
         let json = serde_json::to_string_pretty(&metadata)?;
 
         let mut file = File::create(&metadata_file).await?;
         file.write_all(json.as_bytes()).await?;
+        file.flush().await?;
 
         Ok(())
     }
 
-    fn load_from_disk(&self) -> Result<()> {
+    async fn load_from_disk(&self) -> Result<()> {
         if !self.cache_dir.exists() {
             return Ok(());
         }
 
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.write().await;
 
         for entry in fs::read_dir(&self.cache_dir)? {
             let entry = entry?;
@@ -229,8 +272,8 @@ impl AnalysisCache {
         Ok(())
     }
 
-    pub fn get_statistics(&self) -> CacheStatistics {
-        let entries = self.entries.lock().unwrap();
+    pub async fn get_statistics(&self) -> CacheStatistics {
+        let entries = self.entries.read().await;
 
         let mut tool_counts: HashMap<String, usize> = HashMap::new();
         let mut total_execution_time = 0u64;

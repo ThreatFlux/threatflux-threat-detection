@@ -6,7 +6,16 @@ use sha2::{Sha256, Sha512};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tokio::task;
+
+// Global semaphore to limit concurrent file operations
+static HASH_SEMAPHORE: std::sync::OnceLock<Arc<Semaphore>> = std::sync::OnceLock::new();
+
+fn get_hash_semaphore() -> &'static Arc<Semaphore> {
+    HASH_SEMAPHORE.get_or_init(|| Arc::new(Semaphore::new(10))) // Max 10 concurrent hash operations
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Hashes {
@@ -18,6 +27,10 @@ pub struct Hashes {
 
 pub async fn calculate_all_hashes(path: &Path) -> Result<Hashes> {
     let path = path.to_path_buf();
+    let semaphore = get_hash_semaphore();
+    
+    // Acquire permit to limit concurrent operations
+    let _permit = semaphore.acquire().await.unwrap();
 
     let md5_task = task::spawn_blocking({
         let path = path.clone();
@@ -52,6 +65,9 @@ pub async fn calculate_all_hashes(path: &Path) -> Result<Hashes> {
 
 pub async fn calculate_md5(path: &Path) -> Result<String> {
     let path = path.to_path_buf();
+    let semaphore = get_hash_semaphore();
+    let _permit = semaphore.acquire().await.unwrap();
+    
     task::spawn_blocking(move || calculate_md5_sync(&path)).await?
 }
 

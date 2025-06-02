@@ -529,7 +529,10 @@ impl McpTransportServer {
                                                 execution_time_ms: start_time.elapsed().as_millis()
                                                     as u64,
                                             };
-                                            let _ = self.cache.add_entry(entry);
+                                            let cache_clone = self.cache.clone();
+                                            tokio::spawn(async move {
+                                                let _ = cache_clone.add_entry(entry).await;
+                                            });
                                         }
                                     }
                                 }
@@ -767,7 +770,7 @@ async fn cors_middleware(
 async fn handle_cache_list(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    let entries = state.cache.get_all_entries();
+    let entries = state.cache.get_all_entries().await;
     Ok(AxumJson(json!({
         "entries": entries,
         "count": entries.len()
@@ -778,7 +781,7 @@ async fn handle_cache_search(
     State(state): State<McpServerState>,
     AxumJson(query): AxumJson<CacheSearchQuery>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    let results = state.cache.search_entries(&query);
+    let results = state.cache.search_entries(&query).await;
     Ok(AxumJson(json!({
         "results": results,
         "count": results.len()
@@ -788,8 +791,8 @@ async fn handle_cache_search(
 async fn handle_cache_stats(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    let stats = state.cache.get_statistics();
-    let metadata = state.cache.get_metadata();
+    let stats = state.cache.get_statistics().await;
+    let metadata = state.cache.get_metadata().await;
     Ok(AxumJson(json!({
         "statistics": stats,
         "metadata": metadata
@@ -799,7 +802,7 @@ async fn handle_cache_stats(
 async fn handle_cache_clear(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
-    match state.cache.clear() {
+    match state.cache.clear().await {
         Ok(_) => Ok(AxumJson(json!({
             "status": "success",
             "message": "Cache cleared successfully"
