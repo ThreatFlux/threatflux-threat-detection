@@ -1380,14 +1380,14 @@ mod tests {
         assert!(value.is_object());
     }
 
-    #[test]
-    fn test_mcp_server_state_creation() {
+    #[tokio::test]
+    async fn test_mcp_server_state_creation() {
         let temp_dir = TempDir::new().unwrap();
         let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
         let string_tracker = Arc::new(StringTracker::new());
         let sse_clients = Arc::new(Mutex::new(HashMap::new()));
         
-        let state = McpServerState::new_for_testing(
+        let _state = McpServerState::new_for_testing(
             FileScannerMcp,
             sse_clients.clone(),
             cache.clone(),
@@ -1400,8 +1400,8 @@ mod tests {
         assert_eq!(Arc::strong_count(&sse_clients), 2); // state + local reference
     }
 
-    #[test]
-    fn test_mcp_transport_server_new() {
+    #[tokio::test]
+    async fn test_mcp_transport_server_new() {
         let _server = McpTransportServer::new();
         // Just verify it can be created without panicking
     }

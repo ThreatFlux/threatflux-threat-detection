@@ -338,6 +338,7 @@ async fn test_analyze_file_all_options() {
     
     let response = result.unwrap().0; // Access the inner value from Json wrapper
     
+    
     // Check all requested fields are present
     assert_eq!(response.file_path, test_file.to_str().unwrap());
     assert!(response.metadata.is_some());

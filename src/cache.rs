@@ -354,7 +354,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_entries, 0);
         assert_eq!(metadata.total_unique_files, 0);
     }
@@ -365,9 +365,9 @@ mod tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         let entry = create_test_entry("hash123", "test_tool", "/test/file.bin");
-        cache.add_entry(entry.clone()).unwrap();
+        cache.add_entry(entry.clone()).await.unwrap();
 
-        let entries = cache.get_entries("hash123").unwrap();
+        let entries = cache.get_entries("hash123").await.unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].tool_name, "test_tool");
         assert_eq!(entries[0].file_path, "/test/file.bin");
@@ -384,10 +384,10 @@ mod tests {
         let entry1 = create_test_entry("hash123", "tool1", "/test/file.bin");
         let entry2 = create_test_entry("hash123", "tool2", "/test/file.bin");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
 
-        let entries = cache.get_entries("hash123").unwrap();
+        let entries = cache.get_entries("hash123").await.unwrap();
         assert_eq!(entries.len(), 2);
 
         let tool_names: Vec<_> = entries.iter().map(|e| &e.tool_name).collect();
@@ -407,10 +407,10 @@ mod tests {
         let mut entry2 = create_test_entry("hash123", "test_tool", "/test/file.bin");
         entry2.timestamp = now;
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
 
-        let latest = cache.get_latest_analysis("hash123", "test_tool").unwrap();
+        let latest = cache.get_latest_analysis("hash123", "test_tool").await.unwrap();
         assert_eq!(latest.timestamp, now);
     }
 
@@ -422,12 +422,12 @@ mod tests {
         let entry1 = create_test_entry("hash123", "tool1", "/test/file.bin");
         let entry2 = create_test_entry("hash123", "tool2", "/test/file.bin");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
 
-        let latest_tool1 = cache.get_latest_analysis("hash123", "tool1");
-        let latest_tool2 = cache.get_latest_analysis("hash123", "tool2");
-        let latest_nonexistent = cache.get_latest_analysis("hash123", "tool3");
+        let latest_tool1 = cache.get_latest_analysis("hash123", "tool1").await;
+        let latest_tool2 = cache.get_latest_analysis("hash123", "tool2").await;
+        let latest_nonexistent = cache.get_latest_analysis("hash123", "tool3").await;
 
         assert!(latest_tool1.is_some());
         assert!(latest_tool2.is_some());
@@ -443,11 +443,11 @@ mod tests {
         let entry2 = create_test_entry("hash2", "tool2", "/test/file2.bin");
         let entry3 = create_test_entry("hash1", "tool2", "/test/file1.bin");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
-        let all_entries = cache.get_all_entries();
+        let all_entries = cache.get_all_entries().await;
         assert_eq!(all_entries.len(), 3);
     }
 
@@ -459,10 +459,10 @@ mod tests {
         let entry1 = create_test_entry("hash1", "tool1", "/test/file1.bin");
         let entry2 = create_test_entry("hash2", "tool2", "/test/file2.bin");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
 
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_entries, 2);
         assert_eq!(metadata.total_unique_files, 2);
         assert!(metadata.cache_size_bytes > 0);
@@ -474,14 +474,14 @@ mod tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         let entry = create_test_entry("hash123", "test_tool", "/test/file.bin");
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
 
-        let metadata_before = cache.get_metadata();
+        let metadata_before = cache.get_metadata().await;
         assert_eq!(metadata_before.total_entries, 1);
 
-        cache.clear().unwrap();
+        cache.clear().await.unwrap();
 
-        let metadata_after = cache.get_metadata();
+        let metadata_after = cache.get_metadata().await;
         assert_eq!(metadata_after.total_entries, 0);
         assert_eq!(metadata_after.total_unique_files, 0);
     }
@@ -495,9 +495,9 @@ mod tests {
         let entry2 = create_test_entry("hash2", "string_tool", "/test/file2.bin");
         let entry3 = create_test_entry("hash3", "hash_tool", "/test/file3.bin");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: Some("hash_tool".to_string()),
@@ -508,7 +508,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2);
         assert!(results.iter().all(|e| e.tool_name == "hash_tool"));
     }
@@ -522,9 +522,9 @@ mod tests {
         let entry2 = create_test_entry("hash2", "tool", "/usr/bin/cat");
         let entry3 = create_test_entry("hash3", "tool", "/home/user/file.txt");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: None,
@@ -535,7 +535,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2);
         assert!(results.iter().all(|e| e.file_path.contains("bin")));
     }
@@ -558,9 +558,9 @@ mod tests {
         let mut entry3 = create_test_entry("hash3", "tool", "/test/file3.bin");
         entry3.timestamp = now;
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: None,
@@ -571,7 +571,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2); // Should exclude the entry from 2 hours ago
     }
 
@@ -589,9 +589,9 @@ mod tests {
         let mut entry3 = create_test_entry("hash3", "tool", "/test/large.bin");
         entry3.file_size = 10000;
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: None,
@@ -602,7 +602,7 @@ mod tests {
             max_file_size: Some(5000),
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].file_size, 1000);
     }
@@ -616,9 +616,9 @@ mod tests {
         let entry2 = create_test_entry("hash2", "string_tool", "/bin/cat");
         let entry3 = create_test_entry("hash3", "hash_tool", "/usr/bin/grep");
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: Some("hash_tool".to_string()),
@@ -629,7 +629,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2);
         assert!(results.iter().all(|e| e.tool_name == "hash_tool" && e.file_path.contains("bin")));
     }
@@ -648,11 +648,11 @@ mod tests {
         let mut entry3 = create_test_entry("hash3", "hash_tool", "/test/file.txt");
         entry3.execution_time_ms = 150;
 
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
-        let stats = cache.get_statistics();
+        let stats = cache.get_statistics().await;
         assert_eq!(stats.total_analyses, 3);
         assert_eq!(stats.unique_files, 3);
         assert_eq!(stats.avg_execution_time_ms, 150); // (100 + 200 + 150) / 3
@@ -674,10 +674,10 @@ mod tests {
         // Add more entries than the limit
         for i in 0..5 {
             let entry = create_test_entry("hash123", &format!("tool{}", i), "/test/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let entries = cache.get_entries("hash123").unwrap();
+        let entries = cache.get_entries("hash123").await.unwrap();
         assert_eq!(entries.len(), 3); // Should be limited
     }
 
@@ -771,10 +771,10 @@ mod tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         // Test operations on empty cache
-        assert!(cache.get_entries("nonexistent").is_none());
-        assert!(cache.get_latest_analysis("nonexistent", "tool").is_none());
+        assert!(cache.get_entries("nonexistent").await.is_none());
+        assert!(cache.get_latest_analysis("nonexistent", "tool").await.is_none());
 
-        let all_entries = cache.get_all_entries();
+        let all_entries = cache.get_all_entries().await;
         assert!(all_entries.is_empty());
 
         let empty_query = CacheSearchQuery {
@@ -786,10 +786,10 @@ mod tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&empty_query);
+        let results = cache.search_entries(&empty_query).await;
         assert!(results.is_empty());
 
-        let stats = cache.get_statistics();
+        let stats = cache.get_statistics().await;
         assert_eq!(stats.total_analyses, 0);
         assert_eq!(stats.unique_files, 0);
         assert_eq!(stats.avg_execution_time_ms, 0);
@@ -802,7 +802,7 @@ mod tests {
         {
             let cache = AnalysisCache::new(temp_dir.path()).unwrap();
             let entry = create_test_entry("persistent_hash", "test_tool", "/test/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
             
             // Wait a bit for async save to complete
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -810,7 +810,7 @@ mod tests {
 
         // Create new cache instance to test loading
         let cache2 = AnalysisCache::new(temp_dir.path()).unwrap();
-        let entries = cache2.get_entries("persistent_hash");
+        let entries = cache2.get_entries("persistent_hash").await;
         
         // May or may not find entries depending on timing of async save
         // This test mainly ensures no errors occur during persistence operations

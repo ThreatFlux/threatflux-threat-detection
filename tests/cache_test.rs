@@ -52,7 +52,7 @@ mod cache_creation_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_entries, 0);
         assert_eq!(metadata.total_unique_files, 0);
         assert_eq!(metadata.cache_size_bytes, 0);
@@ -86,9 +86,9 @@ mod entry_operations_tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         let entry = create_test_entry("hash123", "test_tool", "/test/file.bin");
-        cache.add_entry(entry.clone()).unwrap();
+        cache.add_entry(entry.clone()).await.unwrap();
 
-        let entries = cache.get_entries("hash123").unwrap();
+        let entries = cache.get_entries("hash123").await.unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].tool_name, "test_tool");
         assert_eq!(entries[0].file_path, "/test/file.bin");
@@ -101,10 +101,10 @@ mod entry_operations_tests {
 
         for i in 0..5 {
             let entry = create_test_entry("hash123", &format!("tool_{}", i), "/test/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let entries = cache.get_entries("hash123").unwrap();
+        let entries = cache.get_entries("hash123").await.unwrap();
         assert_eq!(entries.len(), 5);
     }
 
@@ -113,7 +113,7 @@ mod entry_operations_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
-        assert!(cache.get_entries("nonexistent_hash").is_none());
+        assert!(cache.get_entries("nonexistent_hash").await.is_none());
     }
 
     #[tokio::test]
@@ -137,10 +137,10 @@ mod entry_operations_tests {
                 100,
                 *timestamp,
             );
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let latest = cache.get_latest_analysis("hash123", "test_tool").unwrap();
+        let latest = cache.get_latest_analysis("hash123", "test_tool").await.unwrap();
         assert_eq!(latest.timestamp, now);
     }
 
@@ -156,12 +156,12 @@ mod entry_operations_tests {
         let entry2 = create_custom_entry("hash123", "tool2", "/test/file.bin", 1024, 200, now);
         let entry3 = create_custom_entry("hash123", "tool1", "/test/file.bin", 1024, 150, now - Duration::minutes(30));
         
-        cache.add_entry(entry1).unwrap();
-        cache.add_entry(entry2).unwrap();
-        cache.add_entry(entry3).unwrap();
+        cache.add_entry(entry1).await.unwrap();
+        cache.add_entry(entry2).await.unwrap();
+        cache.add_entry(entry3).await.unwrap();
 
-        let latest_tool1 = cache.get_latest_analysis("hash123", "tool1").unwrap();
-        let latest_tool2 = cache.get_latest_analysis("hash123", "tool2").unwrap();
+        let latest_tool1 = cache.get_latest_analysis("hash123", "tool1").await.unwrap();
+        let latest_tool2 = cache.get_latest_analysis("hash123", "tool2").await.unwrap();
         
         assert_eq!(latest_tool1.timestamp, now - Duration::minutes(30));
         assert_eq!(latest_tool2.timestamp, now);
@@ -181,10 +181,10 @@ mod entry_operations_tests {
 
         for (hash, tool, path) in test_data {
             let entry = create_test_entry(hash, tool, path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let all_entries = cache.get_all_entries();
+        let all_entries = cache.get_all_entries().await;
         assert_eq!(all_entries.len(), 4);
     }
 
@@ -196,10 +196,10 @@ mod entry_operations_tests {
         // Add more than 100 entries (the default max_entries_per_file)
         for i in 0..150 {
             let entry = create_test_entry("hash123", &format!("tool_{}", i), "/test/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let entries = cache.get_entries("hash123").unwrap();
+        let entries = cache.get_entries("hash123").await.unwrap();
         assert_eq!(entries.len(), 100); // Should be limited to 100
         
         // Verify that the oldest entries were removed
@@ -227,7 +227,7 @@ mod search_functionality_tests {
 
         for (hash, tool, path) in test_data {
             let entry = create_test_entry(hash, tool, path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let query = CacheSearchQuery {
@@ -239,7 +239,7 @@ mod search_functionality_tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2);
         assert!(results.iter().all(|e| e.tool_name == "hash_tool"));
     }
@@ -258,7 +258,7 @@ mod search_functionality_tests {
 
         for (hash, tool, path) in test_data {
             let entry = create_test_entry(hash, tool, path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let query = CacheSearchQuery {
@@ -270,7 +270,7 @@ mod search_functionality_tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 3);
         assert!(results.iter().all(|e| e.file_path.contains("/bin/")));
     }
@@ -290,7 +290,7 @@ mod search_functionality_tests {
 
         for (hash, tool, path, timestamp) in test_data {
             let entry = create_custom_entry(hash, tool, path, 1024, 100, timestamp);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let query = CacheSearchQuery {
@@ -302,7 +302,7 @@ mod search_functionality_tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2); // Should include entries 2 and 3
     }
 
@@ -320,7 +320,7 @@ mod search_functionality_tests {
 
         for (hash, tool, path, size) in test_data {
             let entry = create_custom_entry(hash, tool, path, size, 100, Utc::now());
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let query = CacheSearchQuery {
@@ -332,7 +332,7 @@ mod search_functionality_tests {
             max_file_size: Some(20000),
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2); // medium.bin and large.bin
     }
 
@@ -351,7 +351,7 @@ mod search_functionality_tests {
 
         for (hash, tool, path, size, timestamp) in test_data {
             let entry = create_custom_entry(hash, tool, path, size, 100, timestamp);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let query = CacheSearchQuery {
@@ -363,7 +363,7 @@ mod search_functionality_tests {
             max_file_size: Some(2000),
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 2); // Should match entries 1 and 3
     }
 
@@ -373,7 +373,7 @@ mod search_functionality_tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         let entry = create_test_entry("hash1", "test_tool", "/test/file.bin");
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: Some("nonexistent_tool".to_string()),
@@ -384,7 +384,7 @@ mod search_functionality_tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert!(results.is_empty());
     }
 }
@@ -406,10 +406,10 @@ mod statistics_tests {
 
         for (hash, tool, path) in test_data {
             let entry = create_test_entry(hash, tool, path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_entries, 3);
         assert_eq!(metadata.total_unique_files, 2);
         assert!(metadata.cache_size_bytes > 0);
@@ -431,10 +431,10 @@ mod statistics_tests {
 
         for (hash, tool, path, exec_time) in test_data {
             let entry = create_custom_entry(hash, tool, path, 1024, exec_time, Utc::now());
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let stats = cache.get_statistics();
+        let stats = cache.get_statistics().await;
         
         // Check tool counts
         assert_eq!(stats.tool_counts["hash_tool"], 2);
@@ -458,7 +458,7 @@ mod statistics_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
-        let stats = cache.get_statistics();
+        let stats = cache.get_statistics().await;
         assert_eq!(stats.total_analyses, 0);
         assert_eq!(stats.unique_files, 0);
         assert_eq!(stats.avg_execution_time_ms, 0);
@@ -487,7 +487,7 @@ mod persistence_tests {
 
             for (hash, tool, path) in test_data {
                 let entry = create_test_entry(hash, tool, path);
-                cache.add_entry(entry).unwrap();
+                cache.add_entry(entry).await.unwrap();
             }
 
             // Wait for async save to complete
@@ -497,13 +497,16 @@ mod persistence_tests {
         // Create new cache instance and verify data was loaded
         let cache2 = AnalysisCache::new(temp_dir.path()).unwrap();
         
-        let all_entries = cache2.get_all_entries();
+        // Wait a bit for the async load to complete
+        sleep(tokio::time::Duration::from_millis(200)).await;
+        
+        let all_entries = cache2.get_all_entries().await;
         assert_eq!(all_entries.len(), 3);
         
         // Verify specific entries
-        assert!(cache2.get_entries("hash1").is_some());
-        assert!(cache2.get_entries("hash2").is_some());
-        assert!(cache2.get_entries("hash3").is_some());
+        assert!(cache2.get_entries("hash1").await.is_some());
+        assert!(cache2.get_entries("hash2").await.is_some());
+        assert!(cache2.get_entries("hash3").await.is_some());
     }
 
     #[tokio::test]
@@ -514,7 +517,7 @@ mod persistence_tests {
         // Add some entries
         for i in 0..3 {
             let entry = create_test_entry(&format!("hash{}", i), "tool", "/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         // Wait for save
@@ -529,7 +532,7 @@ mod persistence_tests {
         assert!(!cache_files.is_empty());
 
         // Clear cache
-        cache.clear().unwrap();
+        cache.clear().await.unwrap();
 
         // Verify files are removed
         let cache_files_after: Vec<_> = std::fs::read_dir(temp_dir.path())
@@ -540,7 +543,7 @@ mod persistence_tests {
         assert!(cache_files_after.is_empty());
 
         // Verify cache is empty
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_entries, 0);
     }
 
@@ -551,7 +554,7 @@ mod persistence_tests {
 
         // Add entry and wait for save
         let entry = create_test_entry("hash1", "tool", "/file.bin");
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
         sleep(tokio::time::Duration::from_millis(500)).await;
 
         // Check metadata file exists
@@ -587,7 +590,7 @@ mod concurrency_tests {
                         &format!("tool_{}_{}", i, j),
                         &format!("/file_{}.bin", i),
                     );
-                    cache_clone.add_entry(entry).unwrap();
+                    cache_clone.add_entry(entry).await.unwrap();
                 }
             });
             handles.push(handle);
@@ -599,7 +602,7 @@ mod concurrency_tests {
         }
 
         // Verify all entries were added
-        let all_entries = cache.get_all_entries();
+        let all_entries = cache.get_all_entries().await;
         assert_eq!(all_entries.len(), 100);
     }
 
@@ -611,7 +614,7 @@ mod concurrency_tests {
         // Add initial entries
         for i in 0..5 {
             let entry = create_test_entry(&format!("hash{}", i), "tool", "/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let mut handles = vec![];
@@ -621,9 +624,9 @@ mod concurrency_tests {
             let cache_clone = cache.clone();
             let handle = tokio::spawn(async move {
                 for _ in 0..20 {
-                    let _entries = cache_clone.get_entries(&format!("hash{}", i));
-                    let _all = cache_clone.get_all_entries();
-                    let _metadata = cache_clone.get_metadata();
+                    let _entries = cache_clone.get_entries(&format!("hash{}", i)).await;
+                    let _all = cache_clone.get_all_entries().await;
+                    let _metadata = cache_clone.get_metadata().await;
                 }
             });
             handles.push(handle);
@@ -639,7 +642,7 @@ mod concurrency_tests {
                         &format!("tool_{}", j),
                         "/file.bin",
                     );
-                    cache_clone.add_entry(entry).unwrap();
+                    cache_clone.add_entry(entry).await.unwrap();
                 }
             });
             handles.push(handle);
@@ -651,7 +654,7 @@ mod concurrency_tests {
         }
 
         // Verify final state
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_unique_files, 10);
     }
 
@@ -667,7 +670,7 @@ mod concurrency_tests {
                 if i % 2 == 0 { "tool_even" } else { "tool_odd" },
                 &format!("/path/{}/file.bin", i % 10),
             );
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
         let mut handles = vec![];
@@ -690,7 +693,7 @@ mod concurrency_tests {
                 };
 
                 for _ in 0..10 {
-                    let _results = cache_clone.search_entries(&query);
+                    let _results = cache_clone.search_entries(&query).await;
                 }
             });
             handles.push(handle);
@@ -718,10 +721,10 @@ mod memory_management_tests {
             entry.result = serde_json::json!({
                 "data": "x".repeat(1000) // Large result data
             });
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert!(metadata.cache_size_bytes > 10000); // Should be significant size
     }
 
@@ -733,18 +736,18 @@ mod memory_management_tests {
         // Add exactly 100 entries
         for i in 0..100 {
             let entry = create_test_entry("hash1", &format!("tool_{}", i), "/file.bin");
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let entries = cache.get_entries("hash1").unwrap();
+        let entries = cache.get_entries("hash1").await.unwrap();
         assert_eq!(entries.len(), 100);
 
         // Add one more entry
         let entry = create_test_entry("hash1", "tool_100", "/file.bin");
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
 
         // Should still be 100 (oldest removed)
-        let entries = cache.get_entries("hash1").unwrap();
+        let entries = cache.get_entries("hash1").await.unwrap();
         assert_eq!(entries.len(), 100);
         
         // Verify newest entry exists
@@ -764,9 +767,9 @@ mod error_handling_tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         // Test all operations on empty cache
-        assert!(cache.get_entries("any_hash").is_none());
-        assert!(cache.get_latest_analysis("any_hash", "any_tool").is_none());
-        assert_eq!(cache.get_all_entries().len(), 0);
+        assert!(cache.get_entries("any_hash").await.is_none());
+        assert!(cache.get_latest_analysis("any_hash", "any_tool").await.is_none());
+        assert_eq!(cache.get_all_entries().await.len(), 0);
         
         let empty_query = CacheSearchQuery {
             tool_name: None,
@@ -776,7 +779,7 @@ mod error_handling_tests {
             min_file_size: None,
             max_file_size: None,
         };
-        assert_eq!(cache.search_entries(&empty_query).len(), 0);
+        assert_eq!(cache.search_entries(&empty_query).await.len(), 0);
     }
 
     #[tokio::test]
@@ -788,7 +791,7 @@ mod error_handling_tests {
         
         // Should still create cache successfully (ignoring invalid files)
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
-        let metadata = cache.get_metadata();
+        let metadata = cache.get_metadata().await;
         assert_eq!(metadata.total_entries, 0);
     }
 
@@ -798,7 +801,7 @@ mod error_handling_tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         let entry = create_test_entry("hash1", "tool", "/very/long/path/to/file.bin");
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
 
         // Test partial path matching
         let query = CacheSearchQuery {
@@ -810,7 +813,7 @@ mod error_handling_tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 1);
     }
 }
@@ -951,10 +954,10 @@ mod edge_case_tests {
 
         for (i, path) in test_files.iter().enumerate() {
             let entry = create_test_entry(&format!("hash{}", i), "tool", path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let stats = cache.get_statistics();
+        let stats = cache.get_statistics().await;
         assert_eq!(stats.total_analyses, 4);
         // Files without extensions should not appear in file_type_counts
         assert!(stats.file_type_counts.is_empty() || 
@@ -968,9 +971,9 @@ mod edge_case_tests {
 
         let long_path = format!("/very/long/path/{}/file.bin", "sub/".repeat(50));
         let entry = create_test_entry("hash1", "tool", &long_path);
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
 
-        let entries = cache.get_entries("hash1").unwrap();
+        let entries = cache.get_entries("hash1").await.unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].file_path, long_path);
     }
@@ -988,10 +991,10 @@ mod edge_case_tests {
 
         for (hash, tool, path) in test_data {
             let entry = create_test_entry(hash, tool, path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let all_entries = cache.get_all_entries();
+        let all_entries = cache.get_all_entries().await;
         assert_eq!(all_entries.len(), 3);
 
         // Test search with unicode
@@ -1004,7 +1007,7 @@ mod edge_case_tests {
             max_file_size: None,
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 1);
     }
 
@@ -1015,7 +1018,7 @@ mod edge_case_tests {
 
         let mut entry = create_test_entry("hash1", "tool", "/empty/file.txt");
         entry.file_size = 0;
-        cache.add_entry(entry).unwrap();
+        cache.add_entry(entry).await.unwrap();
 
         let query = CacheSearchQuery {
             tool_name: None,
@@ -1026,7 +1029,7 @@ mod edge_case_tests {
             max_file_size: Some(0),
         };
 
-        let results = cache.search_entries(&query);
+        let results = cache.search_entries(&query).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].file_size, 0);
     }
@@ -1044,10 +1047,10 @@ mod edge_case_tests {
 
         for (hash, tool, exec_time) in test_data {
             let entry = create_custom_entry(hash, tool, "/file.bin", 1024, exec_time, Utc::now());
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let stats = cache.get_statistics();
+        let stats = cache.get_statistics().await;
         assert_eq!(stats.avg_execution_time_ms, 1200033); // Average of all three
     }
 
@@ -1066,10 +1069,10 @@ mod edge_case_tests {
 
         for path in paths {
             let entry = create_test_entry(identical_hash, "hash_tool", path);
-            cache.add_entry(entry).unwrap();
+            cache.add_entry(entry).await.unwrap();
         }
 
-        let entries = cache.get_entries(identical_hash).unwrap();
+        let entries = cache.get_entries(identical_hash).await.unwrap();
         assert_eq!(entries.len(), 3);
         
         // All entries should have the same hash but different paths

@@ -357,8 +357,9 @@ pub fn extract_tags_from_rule(rule_text: &str) -> Vec<String> {
     // Extract tags between rule name and {
     if let Some(colon_pos) = rule_text.find(" : ") {
         if let Some(brace_pos) = rule_text.find(" {") {
-            if colon_pos < brace_pos {
-                let tags_str = &rule_text[colon_pos + 3..brace_pos];
+            let tags_start = colon_pos + 3;
+            if tags_start < brace_pos && tags_start < rule_text.len() {
+                let tags_str = &rule_text[tags_start..brace_pos];
                 tags = tags_str.split_whitespace().map(|s| s.to_string()).collect();
             }
         }

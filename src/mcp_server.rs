@@ -361,10 +361,16 @@ impl FileScannerMcp {
 
             // Get hashes if not already calculated
             let hashes = match &result.hashes {
-                Some(_) => result.hashes.take().unwrap(),
-                None => calculate_all_hashes(&path)
-                    .await
-                    .map_err(|e| e.to_string())?,
+                Some(h) => h.clone(),
+                None => {
+                    let h = calculate_all_hashes(&path)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    if result.hashes.is_none() {
+                        result.hashes = Some(h.clone());
+                    }
+                    h
+                }
             };
 
             // Get magic bytes
