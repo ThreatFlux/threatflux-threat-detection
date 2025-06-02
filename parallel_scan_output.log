@@ -1,7 +1,0 @@
-[0;34mParallel Windows Program Files Scanner[0m
-Concurrent jobs: 50
-Log file: parallel_scan_20250601_213209.log
-Results directory: parallel_program_files_scan
-========================================
-[0;32mProcessing 113690 files with 50 parallel jobs[0m
-xargs: warning: options --max-args and --replace/-I/-i are mutually exclusive, ignoring previous --max-args value

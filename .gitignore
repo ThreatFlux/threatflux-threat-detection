@@ -110,3 +110,41 @@ report_test.yaml
 
 # MCP configuration (may contain secrets)
 .mcp.json
+
+# Test scan results and logs
+*_analysis.json
+*_analysis_*.json
+*_mcp_*.json
+*_scan_*.log
+full_scan_*.log
+parallel_scan_*.log
+scan_*.log
+
+# Test shell scripts
+scan-*.sh
+test_*.sh
+yara_*.sh
+
+# Test C source files (keep test_programs directory)
+evasion_test.c
+malware_test.c
+malware_test_simple.c
+openssl_test.c
+test_call_graph.c
+test_program.c
+upx_test.c
+vulnerable_test.c
+
+# Test Rust files in root
+debug_test.rs
+
+# YARA rule files (generated)
+yara_rules_*.yar
+
+# Scan output directories
+complete_program_files_scan/
+scan_results/
+scan_output/
+
+# Package lock file (use Cargo.lock instead)
+package-lock.json
