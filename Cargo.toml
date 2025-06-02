@@ -62,7 +62,7 @@ yara-x = "0.9"
 [dev-dependencies]
 tempfile = "3.8"
 # Testing utilities
-mockall = "0.12"
+mockall = "0.13"
 proptest = "1.4"
 rstest = "0.18"
 criterion = { version = "0.5", features = ["html_reports"] }
