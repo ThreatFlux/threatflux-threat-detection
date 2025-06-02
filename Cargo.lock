@@ -3091,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "rmcp"
 version = "0.1.5"
-source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#9fc6af091d9b36a98e38f8584123328cd5640257"
+source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#a66f66ae345a0fafde1e2ee496ec137d77aef82a"
 dependencies = [
  "base64",
  "chrono",
@@ -3111,7 +3111,7 @@ dependencies = [
 [[package]]
 name = "rmcp-macros"
 version = "0.1.5"
-source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#9fc6af091d9b36a98e38f8584123328cd5640257"
+source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#a66f66ae345a0fafde1e2ee496ec137d77aef82a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4638,7 +4638,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
