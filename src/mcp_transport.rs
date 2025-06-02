@@ -878,7 +878,6 @@ mod tests {
     use crate::cache::{AnalysisCache, CacheSearchQuery};
     use crate::mcp_server::FileScannerMcp;
     use crate::string_tracker::{StringFilter, StringTracker};
-    use chrono::Utc;
     use serde_json::{json, Value};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
