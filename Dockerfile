@@ -1,6 +1,11 @@
 # Build stage
 FROM rust:1.87.0-slim AS builder
 
+# Build arguments
+ARG VERSION=unknown
+ARG BUILD_DATE
+ARG VCS_REF
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -11,14 +16,24 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /usr/src/file-scanner
 
-# Copy manifests
+# Copy manifests first for better caching
 COPY Cargo.toml Cargo.lock ./
+
+# Create a dummy main.rs to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies (this layer will be cached)
+RUN cargo build --release && rm -rf src
 
 # Copy source code
 COPY src ./src
 COPY benches ./benches
 
-# Build for release
+# Touch main.rs to ensure it's rebuilt
+RUN touch src/main.rs
+
+# Build for release with version info
+ENV CARGO_PKG_VERSION=${VERSION}
 RUN cargo build --release
 
 # Runtime stage
@@ -55,9 +70,14 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Expose common MCP server ports
 EXPOSE 3000
 
-# Labels
+# Labels with build info
 LABEL org.opencontainers.image.title="File Scanner"
 LABEL org.opencontainers.image.description="Comprehensive native file scanner with MCP server support"
 LABEL org.opencontainers.image.authors="Wyatt Roersma <wyattroersma@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/ThreatFlux/file-scanner"
 LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL org.opencontainers.image.revision="${VCS_REF}"
+LABEL org.opencontainers.image.vendor="ThreatFlux"
+LABEL org.opencontainers.image.documentation="https://github.com/ThreatFlux/file-scanner/blob/main/README.md"
