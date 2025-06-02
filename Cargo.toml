@@ -15,7 +15,7 @@ filetime = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Binary parsing
-goblin = "0.8"  # For PE/ELF parsing
+goblin = "0.10"  # For PE/ELF parsing
 object = "0.36" # For object file parsing
 
 # String extraction
