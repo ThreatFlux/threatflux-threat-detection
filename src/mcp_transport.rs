@@ -98,6 +98,12 @@ pub struct McpTransportServer {
     string_tracker: Arc<StringTracker>,
 }
 
+impl Default for McpTransportServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl McpTransportServer {
     pub fn new() -> Self {
         let cache_dir = std::env::temp_dir().join("file-scanner-cache");

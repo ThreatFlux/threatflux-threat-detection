@@ -320,8 +320,8 @@ impl ControlFlowAnalyzer {
         let mut result = Vec::new();
 
         for insn in instructions.as_ref() {
-            let instruction_type = self.classify_instruction(&insn);
-            let flow_control = self.analyze_flow_control(&insn);
+            let instruction_type = self.classify_instruction(insn);
+            let flow_control = self.analyze_flow_control(insn);
 
             result.push(Instruction {
                 address: insn.address(),

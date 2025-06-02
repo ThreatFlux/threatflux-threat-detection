@@ -965,7 +965,7 @@ fn detect_process_operations(
             if symbols.functions.iter().any(|f| f.name.contains(api)) {
                 found_by_type
                     .entry(op_type.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .extend(techniques.iter().map(|s| s.to_string()));
             }
         }

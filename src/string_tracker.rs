@@ -75,6 +75,12 @@ pub struct StringTracker {
     suspicious_patterns: Vec<regex::Regex>,
 }
 
+impl Default for StringTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StringTracker {
     pub fn new() -> Self {
         let suspicious_patterns = vec![

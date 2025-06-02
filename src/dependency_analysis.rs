@@ -80,11 +80,11 @@ pub struct LicenseInfo {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum LicenseFamily {
-    MIT,
+    Mit,
     Apache,
-    GPL,
-    LGPL,
-    BSD,
+    Gpl,
+    Lgpl,
+    Bsd,
     Proprietary,
     PublicDomain,
     Unknown,
@@ -201,6 +201,12 @@ struct VulnerabilityDatabase {
 
 struct LicenseDetector {
     license_patterns: HashMap<String, Regex>,
+}
+
+impl Default for DependencyAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DependencyAnalyzer {
@@ -366,8 +372,8 @@ impl DependencyAnalyzer {
         }
 
         // Handle Windows-style imports (e.g., "kernel32.dll")
-        if import_name.ends_with(".dll") {
-            return import_name[..import_name.len() - 4].to_lowercase();
+        if let Some(stripped) = import_name.strip_suffix(".dll") {
+            return stripped.to_lowercase();
         }
 
         // Handle lib prefix (e.g., "libssl.so.1.1" -> "ssl")
@@ -495,9 +501,9 @@ impl DependencyAnalyzer {
         // Simple license detection based on library name and strings
         let license = match lib_name {
             "openssl" => Some(("Apache-2.0", LicenseFamily::Apache)),
-            "zlib" => Some(("Zlib", LicenseFamily::BSD)),
+            "zlib" => Some(("Zlib", LicenseFamily::Bsd)),
             "sqlite" => Some(("Public Domain", LicenseFamily::PublicDomain)),
-            "boost" => Some(("BSL-1.0", LicenseFamily::BSD)),
+            "boost" => Some(("BSL-1.0", LicenseFamily::Bsd)),
             _ => None,
         };
 
@@ -506,11 +512,11 @@ impl DependencyAnalyzer {
                 license_type: license_type.to_string(),
                 license_family: family.clone(),
                 is_oss: true,
-                is_copyleft: matches!(family, LicenseFamily::GPL | LicenseFamily::LGPL),
-                is_commercial_friendly: !matches!(family, LicenseFamily::GPL),
+                is_copyleft: matches!(family, LicenseFamily::Gpl | LicenseFamily::Lgpl),
+                is_commercial_friendly: !matches!(family, LicenseFamily::Gpl),
                 attribution_required: matches!(
                     family,
-                    LicenseFamily::MIT | LicenseFamily::BSD | LicenseFamily::Apache
+                    LicenseFamily::Mit | LicenseFamily::Bsd | LicenseFamily::Apache
                 ),
             });
         }
@@ -751,11 +757,11 @@ impl DependencyAnalyzer {
 
                     // Check if this is a copyleft license
                     let family = match license_type.as_str() {
-                        "GPL-3.0" => LicenseFamily::GPL,
+                        "GPL-3.0" => LicenseFamily::Gpl,
                         _ => continue, // Only GPL is copyleft in our current patterns
                     };
 
-                    if matches!(family, LicenseFamily::GPL | LicenseFamily::LGPL) {
+                    if matches!(family, LicenseFamily::Gpl | LicenseFamily::Lgpl) {
                         // Add a generic "string-detected" entry for copyleft licenses found in strings
                         let dep_name =
                             format!("license-in-strings-{}", license_type.to_lowercase());
@@ -779,7 +785,7 @@ impl VulnerabilityDatabase {
     fn add_vulnerability(&mut self, library: &str, vulnerability: KnownVulnerability) {
         self.known_vulnerabilities
             .entry(library.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(vulnerability);
     }
 
@@ -834,10 +840,10 @@ impl LicenseDetector {
             for (license_type, pattern) in &self.license_patterns {
                 if pattern.is_match(string) {
                     let family = match license_type.as_str() {
-                        "MIT" => LicenseFamily::MIT,
+                        "MIT" => LicenseFamily::Mit,
                         "Apache-2.0" => LicenseFamily::Apache,
-                        "GPL-3.0" => LicenseFamily::GPL,
-                        "BSD-3-Clause" => LicenseFamily::BSD,
+                        "GPL-3.0" => LicenseFamily::Gpl,
+                        "BSD-3-Clause" => LicenseFamily::Bsd,
                         _ => LicenseFamily::Unknown,
                     };
 
@@ -845,8 +851,8 @@ impl LicenseDetector {
                         license_type: license_type.clone(),
                         license_family: family.clone(),
                         is_oss: true,
-                        is_copyleft: matches!(family, LicenseFamily::GPL | LicenseFamily::LGPL),
-                        is_commercial_friendly: !matches!(family, LicenseFamily::GPL),
+                        is_copyleft: matches!(family, LicenseFamily::Gpl | LicenseFamily::Lgpl),
+                        is_commercial_friendly: !matches!(family, LicenseFamily::Gpl),
                         attribution_required: true,
                     });
                 }
@@ -1099,7 +1105,7 @@ mod tests {
         assert!(zlib_license.is_some());
         let license = zlib_license.unwrap();
         assert_eq!(license.license_type, "Zlib");
-        assert!(matches!(license.license_family, LicenseFamily::BSD));
+        assert!(matches!(license.license_family, LicenseFamily::Bsd));
 
         let sqlite_license = analyzer.detect_license("sqlite", None);
         assert!(sqlite_license.is_some());
@@ -1115,7 +1121,7 @@ mod tests {
         assert!(mit_license.is_some());
         let license = mit_license.unwrap();
         assert_eq!(license.license_type, "MIT");
-        assert!(matches!(license.license_family, LicenseFamily::MIT));
+        assert!(matches!(license.license_family, LicenseFamily::Mit));
 
         // Test unknown license
         let unknown_license = analyzer.detect_license("unknown_lib", None);
@@ -1167,7 +1173,7 @@ mod tests {
         assert!(license.is_some());
         let license = license.unwrap();
         assert_eq!(license.license_type, "MIT");
-        assert!(matches!(license.license_family, LicenseFamily::MIT));
+        assert!(matches!(license.license_family, LicenseFamily::Mit));
         assert!(license.is_oss);
         assert!(!license.is_copyleft);
         assert!(license.is_commercial_friendly);
@@ -1412,7 +1418,7 @@ mod tests {
 
         let mit_license = LicenseInfo {
             license_type: "MIT".to_string(),
-            license_family: LicenseFamily::MIT,
+            license_family: LicenseFamily::Mit,
             is_oss: true,
             is_copyleft: false,
             is_commercial_friendly: true,
@@ -1421,7 +1427,7 @@ mod tests {
 
         let gpl_license = LicenseInfo {
             license_type: "GPL-3.0".to_string(),
-            license_family: LicenseFamily::GPL,
+            license_family: LicenseFamily::Gpl,
             is_oss: true,
             is_copyleft: true,
             is_commercial_friendly: false,
@@ -1581,7 +1587,7 @@ mod tests {
 
         let license = LicenseInfo {
             license_type: "MIT".to_string(),
-            license_family: LicenseFamily::MIT,
+            license_family: LicenseFamily::Mit,
             is_oss: true,
             is_copyleft: false,
             is_commercial_friendly: true,

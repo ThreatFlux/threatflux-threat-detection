@@ -305,7 +305,7 @@ fn detect_architecture_and_code(buffer: &[u8]) -> Result<(Arch, Mode, CodeSectio
                     let end = start + section.size_of_raw_data as usize;
                     let code_section = CodeSection {
                         data: buffer[start..end].to_vec(),
-                        address: pe.image_base as u64 + section.virtual_address as u64,
+                        address: pe.image_base + section.virtual_address as u64,
                     };
                     return Ok((arch.0, arch.1, code_section));
                 }
@@ -357,8 +357,8 @@ fn disassemble_code(cs: &Capstone, code: &[u8], base_address: u64) -> Result<Vec
         .map_err(|e| anyhow::anyhow!("Disassembly failed: {:?}", e))?;
 
     for insn in insns.iter() {
-        let flow_control = detect_flow_control(&insn);
-        let instruction_type = classify_instruction(&insn);
+        let flow_control = detect_flow_control(insn);
+        let instruction_type = classify_instruction(insn);
 
         instructions.push(Instruction {
             address: insn.address(),
@@ -386,7 +386,7 @@ fn detect_flow_control(insn: &capstone::Insn) -> Option<FlowControl> {
         })
     } else if mnemonic == "call" {
         let target = None; // Would need detail access
-        let is_indirect = insn.op_str().map_or(false, |ops| ops.contains('['));
+        let is_indirect = insn.op_str().is_some_and(|ops| ops.contains('['));
         Some(FlowControl::Call {
             target,
             is_indirect,
@@ -547,7 +547,7 @@ fn track_register_usage(insn: &Instruction, register_usage: &mut HashMap<String,
         if operands.contains(reg) {
             register_usage
                 .entry(reg.to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(insn.address);
         }
     }
@@ -725,18 +725,8 @@ fn identify_basic_blocks(instructions: &[Instruction]) -> Vec<BasicBlock> {
     // Identify block starts
     block_starts.insert(instructions[0].address);
     for insn in instructions {
-        if let Some(flow) = &insn.flow_control {
-            match flow {
-                FlowControl::Jump {
-                    target: Some(t), ..
-                }
-                | FlowControl::Call {
-                    target: Some(t), ..
-                } => {
-                    block_starts.insert(*t);
-                }
-                _ => {}
-            }
+        if let Some(FlowControl::Jump { target: Some(t), .. } | FlowControl::Call { target: Some(t), .. }) = &insn.flow_control {
+            block_starts.insert(*t);
         }
     }
 

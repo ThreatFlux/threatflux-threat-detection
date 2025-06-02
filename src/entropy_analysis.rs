@@ -253,7 +253,7 @@ fn analyze_mach_sections(mach: &Mach, buffer: &[u8]) -> Result<Vec<SectionEntrop
 fn determine_suspicious_entropy(name: &str, entropy: f64, characteristics: &[String]) -> bool {
     // Text sections should have moderate entropy (4-6)
     if name == ".text" || name == "__text" {
-        return entropy > 6.5 || entropy < 4.0;
+        return !(4.0..=6.5).contains(&entropy);
     }
 
     // Data sections usually have lower entropy
@@ -287,7 +287,7 @@ fn detect_packing(
 
     // Check section characteristics
     for section in sections {
-        if section.name.len() == 0 || section.name.chars().all(|c| !c.is_alphanumeric()) {
+        if section.name.is_empty() || section.name.chars().all(|c| !c.is_alphanumeric()) {
             section_anomalies.push(format!("Suspicious section name: '{}'", section.name));
         }
 
@@ -323,8 +323,8 @@ fn detect_packing(
             let name = String::from_utf8_lossy(&section.name);
             let name = name.trim_end_matches('\0');
             if name == ".text" || name == "CODE" {
-                let start = section.virtual_address as usize;
-                let end = start + section.virtual_size as usize;
+                let start = section.virtual_address;
+                let end = start + section.virtual_size;
                 if entry >= start && entry < end {
                     found_in_normal_section = true;
                     break;
