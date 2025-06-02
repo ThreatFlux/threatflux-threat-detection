@@ -19,11 +19,14 @@ WORKDIR /usr/src/file-scanner
 # Copy manifests first for better caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create a dummy main.rs to build dependencies only
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# Create dummy directories and files for dependencies
+RUN mkdir -p src benches && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "fn main() {}" > benches/hash_benchmark.rs && \
+    echo "fn main() {}" > benches/parser_benchmark.rs
 
 # Build dependencies (this layer will be cached)
-RUN cargo build --release && rm -rf src target/release/deps/*file*scanner* target/release/.fingerprint/*file*scanner*
+RUN cargo build --release && rm -rf src benches target/release/deps/*file*scanner* target/release/.fingerprint/*file*scanner*
 
 # Copy source code
 COPY src ./src

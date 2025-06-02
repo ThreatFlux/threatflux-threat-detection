@@ -20,7 +20,9 @@ jobs:
       - name: Install workflow validation tools
         run: |
           pip install yamllint
-          curl -sSL https://github.com/rhymond/go-github-selfupdate/releases/latest/download/actionlint_linux_amd64.tar.gz | tar xz
+          
+          # Install actionlint
+          curl -sSL https://github.com/rhymond/actionlint/releases/download/v1.7.4/actionlint_1.7.4_linux_amd64.tar.gz | tar xz
           sudo mv actionlint /usr/local/bin/
       
       - name: Validate YAML syntax
