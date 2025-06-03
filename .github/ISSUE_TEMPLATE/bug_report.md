@@ -23,9 +23,9 @@ A clear and concise description of what you expected to happen.
 **Actual behavior**
 What actually happened instead.
 
-**Error output**
+## Error output
 
-```
+```text
 Paste any error messages or logs here
 ```
 

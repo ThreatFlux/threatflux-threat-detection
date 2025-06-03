@@ -16,7 +16,7 @@ updates:
       - "dependencies"
       - "rust"
     open-pull-requests-limit: 10
-    
+
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -33,7 +33,7 @@ updates:
       - "ci/cd"
       - "github-actions"
     open-pull-requests-limit: 5
-    
+
   # Enable version updates for Docker
   - package-ecosystem: "docker"
     directory: "/"

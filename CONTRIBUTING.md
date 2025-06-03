@@ -1,6 +1,7 @@
 # Contributing to File Scanner
 
-Thank you for your interest in contributing to File Scanner! We welcome contributions from the community and are grateful for any help you can provide.
+Thank you for your interest in contributing to File Scanner! We welcome contributions from the community
+and are grateful for any help you can provide.
 
 ## Table of Contents
 
@@ -224,7 +225,7 @@ pub fn calculate_sha256(path: &Path) -> Result<String> {
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 feat: add support for BLAKE3 hashing
 fix: correct string extraction for UTF-16
 docs: update installation guide for Windows
@@ -374,11 +375,8 @@ Brief description of the bug
 **Actual:** What actually happens
 
 **Logs:**
-```
-
+```text
 Error output here
-
-```
 ```
 
 ### Feature Requests

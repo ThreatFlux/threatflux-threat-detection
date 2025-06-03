@@ -32,7 +32,7 @@ Performance on common file types (Intel i7-9700K, 32GB RAM, NVMe SSD):
 
 Time spent in each component for a typical 10MB executable:
 
-```
+```text
 Total: 350ms
 ├── File I/O: 25ms (7%)
 ├── Metadata: 5ms (1%)
@@ -63,7 +63,7 @@ Parallel file processing scaling:
 
 Memory consumption patterns:
 
-```
+```text
 Base overhead: ~5MB
 Per-file overhead: ~2MB
 String extraction: ~1MB per 1000 strings
@@ -86,7 +86,7 @@ CPU utilization by operation:
 
 File access patterns:
 
-```
+```text
 Metadata: 1 stat() call
 Hashing: Sequential read, full file
 Strings: Sequential read, full file

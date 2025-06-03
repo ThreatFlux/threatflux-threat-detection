@@ -63,14 +63,14 @@ public:
         return ptrace(PTRACE_TRACEME, 0, 1, 0) == -1;
 #endif
     }
-    
+
     static bool checkBreakpoints() {
         volatile int x = 0;
         __asm__ volatile("int3");
         x = 1;
         return x == 1;
     }
-    
+
     static bool timingCheck() {
         auto start = std::chrono::high_resolution_clock::now();
         volatile int sum = 0;
@@ -95,7 +95,7 @@ class NetworkPayload : public Payload {
     int port;
 public:
     NetworkPayload(const std::string& s, int p) : server(s), port(p) {}
-    
+
     void execute() override {
         std::cout << "Connecting to " << server << ":" << port << std::endl;
         // Simulate beacon
@@ -107,7 +107,7 @@ class FilePayload : public Payload {
     std::string target;
 public:
     FilePayload(const std::string& t) : target(t) {}
-    
+
     void execute() override {
         std::cout << "Encrypting file: " << target << std::endl;
         // Simulate file encryption
@@ -119,7 +119,7 @@ public:
 // Resource exhaustion
 class ResourceHog {
     std::vector<std::unique_ptr<std::vector<char>>> memory_bombs;
-    
+
 public:
     void consumeMemory() {
         try {
@@ -132,7 +132,7 @@ public:
             std::cout << "Memory exhausted" << std::endl;
         }
     }
-    
+
     void consumeCPU() {
         std::vector<std::thread> threads;
         for(unsigned i = 0; i < std::thread::hardware_concurrency(); i++) {
@@ -164,7 +164,7 @@ class SelfModifier {
         volatile unsigned char temp = code[0];
         (void)temp; // Avoid unused warning
     }
-    
+
 public:
     static void execute() {
         modifyCode();
@@ -209,18 +209,18 @@ public:
 // Main function with high cyclomatic complexity
 int main(int argc, char* argv[]) {
     std::cout << "C++ Test Binary for Analysis" << std::endl;
-    
+
     // Anti-analysis checks
     if(AntiDebug::isDebuggerPresent()) {
         std::cout << "Debugger detected!" << std::endl;
         return 1;
     }
-    
+
     if(AntiDebug::timingCheck()) {
         std::cout << "Timing anomaly detected!" << std::endl;
         return 2;
     }
-    
+
     // Command line argument processing (complex branching)
     if(argc > 1) {
         std::string arg(argv[1]);
@@ -246,14 +246,14 @@ int main(int argc, char* argv[]) {
             hog.consumeCPU();
         }
     }
-    
+
     // Obfuscated string decryption
     std::string hidden = ObfuscatedString::decrypt();
     std::cout << "Decrypted: " << hidden << std::endl;
-    
+
     // Self-modification attempt
     SelfModifier::execute();
-    
+
     // Environment fingerprinting
     std::map<std::string, std::string> env_vars = {
         {"USER", ""},
@@ -261,7 +261,7 @@ int main(int argc, char* argv[]) {
         {"PATH", ""},
         {"TEMP", ""}
     };
-    
+
     for(auto& [key, value] : env_vars) {
         const char* val = std::getenv(key.c_str());
         if(val) {
@@ -275,7 +275,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
     // Create some threads for complexity
     std::vector<std::thread> workers;
     for(int i = 0; i < 3; i++) {
@@ -284,11 +284,11 @@ int main(int argc, char* argv[]) {
             std::cout << "Worker " << i << " completed" << std::endl;
         });
     }
-    
+
     for(auto& w : workers) {
         w.join();
     }
-    
+
     std::cout << "Program completed successfully" << std::endl;
     return 0;
 }

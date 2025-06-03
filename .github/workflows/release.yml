@@ -27,7 +27,7 @@ jobs:
       tag_name: ${{ steps.get_tag.outputs.tag_name }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      
+
       - name: Get tag name
         id: get_tag
         run: |
@@ -36,7 +36,7 @@ jobs:
           else
             echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e  # v1.1.4
@@ -49,7 +49,7 @@ jobs:
           prerelease: false
           body: |
             ## File Scanner ${{ steps.get_tag.outputs.tag_name }}
-            
+
             ### Features
             - 🔍 Comprehensive file metadata extraction
             - 🔐 Cryptographic hashing (MD5, SHA256, SHA512, BLAKE3)
@@ -60,10 +60,10 @@ jobs:
             - 🌐 MCP server support with multiple transports
             - 💾 Analysis caching and string tracking
             - 🚀 Multi-threaded async processing
-            
+
             ### Downloads
             Choose the binary for your platform:
-            
+
             | Platform | Architecture | Download |
             |----------|-------------|----------|
             | Linux | x86_64 | `file-scanner-linux-amd64` |
@@ -72,29 +72,29 @@ jobs:
             | macOS | Apple Silicon | `file-scanner-macos-arm64` |
             | Windows | x86_64 | `file-scanner-windows-amd64.exe` |
             | Docker | Multi-arch | `ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.tag_name }}` |
-            
+
             ### Quick Start
             ```bash
             # Basic file analysis
             ./file-scanner /path/to/file
-            
+
             # Full analysis with all features
             ./file-scanner /path/to/file --strings --hex-dump --verify-signatures --format yaml
-            
+
             # MCP Server Mode
             ./file-scanner mcp-stdio
             ./file-scanner mcp-http --port 3000
             ```
-            
+
             ### Docker Usage
             ```bash
             # Pull the image
             docker pull ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.tag_name }}
-            
+
             # Analyze a file
             docker run --rm -v /path/to/files:/data ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.tag_name }} /data/file.bin
             ```
-            
+
             For complete documentation, see the [README.md](https://github.com/${{ github.repository }}/blob/main/README.md).
 
   build-and-upload:
@@ -122,12 +122,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      
+
       - name: Install cross-compilation tools (Linux ARM64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
@@ -135,20 +135,20 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu pkg-config libssl-dev
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-      
+
       - name: Install build dependencies (Linux)
         if: runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev build-essential
-      
+
       - name: Install build dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install pkg-config openssl
           echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig" >> $GITHUB_ENV
           echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl)" >> $GITHUB_ENV
-      
+
       - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
@@ -158,7 +158,7 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-cargo-
-      
+
       - name: Cache target directory
         uses: actions/cache@v4
         with:
@@ -166,29 +166,29 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-target-
-      
+
       - name: Build binary
         run: cargo build --release --target ${{ matrix.target }}
         env:
           RUST_BACKTRACE: 1
-      
+
       - name: Prepare binary (Unix)
         if: runner.os != 'Windows'
         run: |
           cp target/${{ matrix.target }}/release/file-scanner ${{ matrix.asset_name }}
           chmod +x ${{ matrix.asset_name }}
-          
+
           # Verify the binary works
           ./${{ matrix.asset_name }} --version
-      
+
       - name: Prepare binary (Windows)
         if: runner.os == 'Windows'
         run: |
           copy target\${{ matrix.target }}\release\file-scanner.exe ${{ matrix.asset_name }}
-          
+
           # Verify the binary works
           .\${{ matrix.asset_name }} --version
-      
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5  # v1.0.2
         env:
@@ -205,20 +205,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf  # v3.2.0
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2  # v3.10.0
-      
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804  # v5.7.0
@@ -236,7 +236,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.version=${{ needs.create-release.outputs.tag_name }}
-      
+
       - name: Build and push Docker image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
         with:
@@ -258,7 +258,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      
+
       - name: Download Linux AMD64 binary
         run: |
           curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -266,14 +266,14 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/releases/assets/$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ needs.create-release.outputs.tag_name }} | jq -r '.assets[] | select(.name=="file-scanner-linux-amd64") | .id')" \
             -o file-scanner-linux-amd64
           chmod +x file-scanner-linux-amd64
-      
+
       - name: Test binary functionality
         run: |
           ./file-scanner-linux-amd64 --version
           ./file-scanner-linux-amd64 --help
           echo "Test content" > test-file.txt
           ./file-scanner-linux-amd64 test-file.txt --format json | jq '.metadata.size'
-      
+
       - name: Test Docker image
         run: |
           docker pull ghcr.io/${{ github.repository }}:${{ needs.create-release.outputs.tag_name }}
@@ -292,7 +292,7 @@ jobs:
           image-ref: 'ghcr.io/${{ github.repository }}:${{ needs.create-release.outputs.tag_name }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
-      
+
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@f779452ac5af1c261dce0346a8b332380c2dcb9a  # v3.28.0
         if: always()

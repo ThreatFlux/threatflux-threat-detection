@@ -61,7 +61,7 @@ File Scanner can analyze any file type, with specialized support for:
 
 ### Rust version error
 
-**Q: I get "error: package requires rustc 1.87.0"**
+#### Q: I get "error: package requires rustc 1.87.0"
 
 A: Update Rust to the latest version:
 
@@ -72,7 +72,7 @@ rustup default stable
 
 ### Missing dependencies
 
-**Q: Build fails with "pkg-config not found"**
+#### Q: Build fails with "pkg-config not found"
 
 A: Install system dependencies:
 
@@ -89,7 +89,7 @@ sudo dnf install pkg-config openssl-devel
 
 ### Compilation errors
 
-**Q: "error: linker cc not found"**
+#### Q: "error: linker cc not found"
 
 A: Install build tools:
 
@@ -202,7 +202,7 @@ file-scanner huge.iso --stream-mode
 
 ### MCP server won't start
 
-**Q: "Address already in use" error**
+#### Q: "Address already in use" error
 
 A: Another process is using the port:
 
@@ -218,7 +218,7 @@ file-scanner mcp-http --port 3001
 
 ### Claude Code can't find file-scanner
 
-**Q: "Command not found" in Claude Code**
+#### Q: "Command not found" in Claude Code
 
 A: Use absolute path in configuration:
 

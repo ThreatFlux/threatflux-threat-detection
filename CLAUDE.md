@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-A comprehensive native file scanner written in Rust that provides detailed metadata, hash calculations, string extraction, binary analysis, hex dumping, and digital signature verification. Built using Rust 1.87.0 with modern async capabilities and multiple output formats.
+A comprehensive native file scanner written in Rust that provides detailed metadata, hash calculations,
+string extraction, binary analysis, hex dumping, and digital signature verification. Built using Rust 1.87.0
+with modern async capabilities and multiple output formats.
 
 ## Key Features
 
@@ -16,7 +18,8 @@ A comprehensive native file scanner written in Rust that provides detailed metad
 - **Performance Optimized**: Concurrent hash calculation and efficient memory usage
 - **MCP Server Support**: Model Context Protocol server with STDIO, HTTP, and SSE transports
 - **Analysis Caching**: Automatic caching of analysis results with persistence for improved performance
-- **String Tracking & Statistics**: Advanced string analysis with usage statistics, categorization, and filtering
+- **String Tracking & Statistics**: Advanced string analysis with usage statistics, categorization,
+  and filtering
 
 ## Build and Test Commands
 
@@ -28,7 +31,8 @@ cargo build --release
 ./target/release/file-scanner /path/to/file
 
 # Full analysis with all features
-./target/release/file-scanner /path/to/file --strings --hex-dump --verify-signatures --format yaml
+./target/release/file-scanner /path/to/file --strings --hex-dump \
+  --verify-signatures --format yaml
 
 # Test with different output formats
 ./target/release/file-scanner /bin/ls --format json
@@ -52,13 +56,16 @@ npx @modelcontextprotocol/inspector http://localhost:3000/mcp
 npx @modelcontextprotocol/inspector http://localhost:3000/sse
 
 # CLI testing mode for individual tools
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name get_file_metadata --tool-arg file_path=/bin/ls
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/list
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name get_file_metadata \
+  --tool-arg file_path=/bin/ls
 ```
 
 ## Project Structure
 
-```
+```text
 src/
 ├── main.rs              # CLI interface and main application logic
 ├── metadata.rs          # File metadata extraction and core data structures
@@ -94,7 +101,8 @@ The scanner has been tested on various file types:
 
 ### Test Program Suite
 
-The project includes comprehensive test programs in 9 compiled languages to validate detection capabilities:
+The project includes comprehensive test programs in 9 compiled languages to validate detection
+capabilities:
 
 - **C** (`c_advanced_binary`): Buffer overflows, format strings, anti-debugging
 - **C++** (`cpp_test_binary`): Polymorphism, templates, anti-analysis
@@ -160,7 +168,9 @@ All test binaries simulate malicious behaviors including:
 
 ## MCP Server Integration
 
-The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for AI assistants. **The MCP server is now fully functional and tested with comprehensive OpenAPI 3.0 documentation!**
+The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for
+AI assistants. **The MCP server is now fully functional and tested with comprehensive OpenAPI 3.0
+documentation!**
 
 ### Available MCP Tools
 
@@ -209,7 +219,8 @@ A unified tool that allows you to specify exactly which analyses to perform usin
 
 #### 2. `llm_analyze_file` - LLM-Optimized Analysis Tool
 
-A focused analysis tool designed specifically for LLM consumption and YARA rule generation. Returns only the most relevant information within a controlled token limit.
+A focused analysis tool designed specifically for LLM consumption and YARA rule generation. Returns only
+the most relevant information within a controlled token limit.
 
 **Tool Name:** `llm_analyze_file`
 
@@ -271,7 +282,7 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
     "FF 15 00 00"
   ],
   "entropy": 7.8,
-  "yara_rule_suggestion": "rule suspicious_malware_exe {\n    meta:\n        md5 = \"d41d8cd98f00b204e9800998ecf8427e\"\n        filesize = 45056\n    strings:\n        $header = { 4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00 }\n        $s1 = \"CreateRemoteThread\"\n        $s2 = \"VirtualAllocEx\"\n        $s3 = \"WriteProcessMemory\"\n    condition:\n        filesize == 45056 and math.entropy(0, filesize) > 7.3 and 2 of ($s*) and $header at 0\n}\n"
+  "yara_rule_suggestion": "rule suspicious_malware_exe { /* YARA rule content */ }"
 }
 ```
 
@@ -329,10 +340,13 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 
 ```bash
 # List all available tools
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/list
 
 # Test file metadata extraction
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name get_file_metadata --tool-arg file_path=/bin/ls
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name get_file_metadata \
+  --tool-arg file_path=/bin/ls
 
 # Interactive UI testing
 npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio
@@ -372,7 +386,8 @@ curl -X POST http://localhost:3000/cache/clear
 
 ### String Tracking & Analysis
 
-The file scanner includes an advanced string tracking system that analyzes and categorizes all strings found during file analysis:
+The file scanner includes an advanced string tracking system that analyzes and categorizes all strings
+found during file analysis:
 
 ```bash
 # String statistics
@@ -430,7 +445,8 @@ See `MCP_TESTING.md` for comprehensive testing instructions.
 
 ### OpenAPI 3.0 Documentation
 
-The HTTP transport now includes comprehensive OpenAPI 3.0 specification support for easy API exploration and integration:
+The HTTP transport now includes comprehensive OpenAPI 3.0 specification support for easy API exploration
+and integration:
 
 **API Documentation Endpoints:**
 
@@ -476,7 +492,8 @@ The OpenAPI specification includes schemas for:
 - `SseEvent` / `SseQuery` - Server-Sent Events types
 - Additional analysis and tool-specific data structures
 
-This enables seamless integration with API development tools, client SDK generation, and automated testing frameworks.
+This enables seamless integration with API development tools, client SDK generation, and automated
+testing frameworks.
 
 ## Future Enhancement Ideas
 

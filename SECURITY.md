@@ -2,7 +2,8 @@
 
 ## Supported Versions
 
-We release patches for security vulnerabilities. Which versions are eligible for receiving such patches depends on the CVSS v3.0 Rating:
+We release patches for security vulnerabilities. Which versions are eligible for receiving such patches
+depends on the CVSS v3.0 Rating:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -11,7 +12,8 @@ We release patches for security vulnerabilities. Which versions are eligible for
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities by creating a [security advisory](https://github.com/ThreatFlux/file-scanner/security/advisories/new) in this repository.
+Please report security vulnerabilities by creating a
+[security advisory](https://github.com/ThreatFlux/file-scanner/security/advisories/new) in this repository.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
@@ -66,4 +68,5 @@ cargo audit
 
 ## Acknowledgments
 
-We appreciate responsible disclosure of security vulnerabilities. Contributors who report valid security issues will be acknowledged in our releases (unless they prefer to remain anonymous).
+We appreciate responsible disclosure of security vulnerabilities. Contributors who report valid security
+issues will be acknowledged in our releases (unless they prefer to remain anonymous).

@@ -25,7 +25,7 @@ File Scanner follows a modular, async-first architecture designed for:
 
 ## System Architecture
 
-```
+```text
 ┌────────────────────────────────────────────────────────────┐
 │                      CLI Interface                          │
 │                    (main.rs, clap)                         │
@@ -249,7 +249,7 @@ pub struct StringInfo {
 
 ### Analysis Pipeline
 
-```
+```text
 Input File
     │
     ├─► Metadata Extraction
@@ -279,7 +279,7 @@ Input File
 
 ### MCP Request Flow
 
-```
+```text
 MCP Client Request
     │
     ├─► JSON-RPC Parse

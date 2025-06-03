@@ -1,6 +1,7 @@
 # Test Programs Documentation
 
-This directory contains malicious behavior simulation programs in multiple compiled languages for testing the file scanner's detection capabilities.
+This directory contains malicious behavior simulation programs in multiple compiled languages for testing
+the file scanner's detection capabilities.
 
 ## ⚠️ WARNING
 
