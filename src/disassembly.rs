@@ -725,7 +725,15 @@ fn identify_basic_blocks(instructions: &[Instruction]) -> Vec<BasicBlock> {
     // Identify block starts
     block_starts.insert(instructions[0].address);
     for insn in instructions {
-        if let Some(FlowControl::Jump { target: Some(t), .. } | FlowControl::Call { target: Some(t), .. }) = &insn.flow_control {
+        if let Some(
+            FlowControl::Jump {
+                target: Some(t), ..
+            }
+            | FlowControl::Call {
+                target: Some(t), ..
+            },
+        ) = &insn.flow_control
+        {
             block_starts.insert(*t);
         }
     }
