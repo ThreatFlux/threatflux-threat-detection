@@ -52,7 +52,7 @@ uuid = { version = "1.0", features = ["v4"] }
 
 # OpenAPI documentation
 utoipa = { version = "4.2", features = ["axum_extras", "chrono", "uuid"] }
-utoipa-redoc = { version = "4.0", features = ["axum"] }
+utoipa-redoc = { version = "6.0", features = ["axum"] }
 utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 
 # Static analysis dependencies
