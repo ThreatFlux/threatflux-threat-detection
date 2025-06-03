@@ -8,8 +8,9 @@ use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{RwLock, Semaphore};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CacheEntry {
     pub file_path: String,
     pub file_hash: String,
@@ -315,7 +316,7 @@ impl AnalysisCache {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CacheSearchQuery {
     pub tool_name: Option<String>,
     pub file_path_pattern: Option<String>,

@@ -156,7 +156,7 @@ All test binaries simulate malicious behaviors including:
 
 ## MCP Server Integration
 
-The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for AI assistants. **The MCP server is now fully functional and tested!**
+The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for AI assistants. **The MCP server is now fully functional and tested with comprehensive OpenAPI 3.0 documentation!**
 
 ### Available MCP Tools
 
@@ -411,6 +411,52 @@ curl -X POST http://localhost:3000/strings/filter \
   - Suspicious strings
 
 See `MCP_TESTING.md` for comprehensive testing instructions.
+
+### OpenAPI 3.0 Documentation
+
+The HTTP transport now includes comprehensive OpenAPI 3.0 specification support for easy API exploration and integration:
+
+**API Documentation Endpoints:**
+```bash
+# OpenAPI 3.0 JSON specification
+curl http://localhost:3000/api-docs/openapi.json
+
+# API information and endpoint listing
+curl http://localhost:3000/api/info
+
+# Health check
+curl http://localhost:3000/health
+```
+
+**OpenAPI Features:**
+- Complete OpenAPI 3.0 specification with schema definitions
+- Automatic generation of JSON-RPC, Cache, SSE, and other data models
+- Structured endpoint documentation for all HTTP routes
+- Schema validation for request/response bodies
+- Compatible with OpenAPI tooling and code generators
+
+**Integration Examples:**
+```bash
+# Generate client SDKs using OpenAPI Generator
+npx @openapitools/openapi-generator-cli generate \
+  -i http://localhost:3000/api-docs/openapi.json \
+  -g python-client \
+  -o ./python-client
+
+# Import into Postman, Insomnia, or other API tools
+# Use the OpenAPI spec URL: http://localhost:3000/api-docs/openapi.json
+
+# Generate documentation with ReDoc
+npx redoc-cli build http://localhost:3000/api-docs/openapi.json
+```
+
+The OpenAPI specification includes schemas for:
+- `JsonRpcRequest` / `JsonRpcResponse` / `JsonRpcError` - MCP protocol types
+- `CacheEntry` / `CacheSearchQuery` - Cache management types  
+- `SseEvent` / `SseQuery` - Server-Sent Events types
+- Additional analysis and tool-specific data structures
+
+This enables seamless integration with API development tools, client SDK generation, and automated testing frameworks.
 
 ## Future Enhancement Ideas
 
