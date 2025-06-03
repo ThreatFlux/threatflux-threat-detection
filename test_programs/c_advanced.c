@@ -43,7 +43,7 @@ int detect_debugger() {
     if (ptrace(PTRACE_TRACEME, 0, 1, 0) == -1) {
         return 1;
     }
-    
+
     // Method 2: Check /proc/self/status
     FILE *fp = fopen("/proc/self/status", "r");
     if (fp) {
@@ -56,7 +56,7 @@ int detect_debugger() {
         }
         fclose(fp);
     }
-    
+
     // Method 3: Timing check
     clock_t start = clock();
     volatile int sum = 0;
@@ -90,28 +90,28 @@ int beacon_home() {
     int sockfd;
     struct sockaddr_in serv_addr;
     char buffer[MAX_BUFFER];
-    
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
         return -1;
     }
-    
+
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(C2_PORT);
-    
+
     // Simulate connection (will fail)
     inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
-    
+
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         close(sockfd);
         return -1;
     }
-    
+
     // Send beacon
     snprintf(buffer, sizeof(buffer), "GET /beacon HTTP/1.1\r\nHost: %s\r\n\r\n", C2_SERVER);
     send(sockfd, buffer, strlen(buffer), 0);
-    
+
     close(sockfd);
     return 0;
 }
@@ -196,14 +196,14 @@ void check_environment() {
         "ANALYSIS",
         NULL
     };
-    
+
     for (int i = 0; suspicious_env[i]; i++) {
         if (getenv(suspicious_env[i])) {
             printf("Suspicious environment variable detected: %s\n", suspicious_env[i]);
             exit(1);
         }
     }
-    
+
     // Check for common sandbox usernames
     char *user = getenv("USER");
     if (user && (strstr(user, "sandbox") || strstr(user, "virus"))) {
@@ -222,7 +222,7 @@ void self_modify() {
 // Complex control flow
 int complex_decision(int a, int b, int c, int d) {
     int result = 0;
-    
+
     if (a > 0) {
         if (b > 0) {
             if (c > 0) {
@@ -246,31 +246,31 @@ int complex_decision(int a, int b, int c, int d) {
         // Even more conditions...
         result = -1;
     }
-    
+
     return result;
 }
 
 // Main function
 int main(int argc, char *argv[]) {
     printf("Advanced C Test Binary\n");
-    
+
     // Install signal handler
     signal(SIGTRAP, sigtrap_handler);
-    
+
     // Anti-debugging checks
     if (detect_debugger()) {
         printf("Debugger detected!\n");
         return 1;
     }
-    
+
     // Environment checks
     check_environment();
-    
+
     // Allocate sensitive data
     sensitive_data = malloc(256);
     strcpy(sensitive_data, "Confidential Information");
     xor_crypt((unsigned char*)sensitive_data, strlen(sensitive_data));
-    
+
     // Command line argument processing
     if (argc > 1) {
         if (strcmp(argv[1], "--inject") == 0) {
@@ -296,24 +296,24 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    
+
     // Network beacon attempt
     if (beacon_home() == 0) {
         printf("Beacon successful\n");
     } else {
         printf("Beacon failed\n");
     }
-    
+
     // Complex calculation
     int result = complex_decision(10, -5, 3, 7);
     printf("Complex result: %d\n", result);
-    
+
     // Decrypt and display sensitive data
     xor_crypt((unsigned char*)sensitive_data, strlen(sensitive_data));
     printf("Data: %s\n", sensitive_data);
-    
+
     // Cleanup
     free(sensitive_data);
-    
+
     return 0;
 }

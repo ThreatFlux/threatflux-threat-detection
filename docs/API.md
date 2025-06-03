@@ -37,15 +37,15 @@ use std::path::Path;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create scanner with default options
     let scanner = Scanner::new();
-    
+
     // Analyze a file
     let result = scanner.analyze_file(Path::new("/path/to/file")).await?;
-    
+
     // Print results
     println!("File: {}", result.file_name);
     println!("Size: {} bytes", result.file_size);
     println!("MD5: {}", result.hashes.md5);
-    
+
     Ok(())
 }
 ```
@@ -65,13 +65,13 @@ pub struct Scanner {
 impl Scanner {
     /// Create a new scanner with default options
     pub fn new() -> Self;
-    
+
     /// Create a scanner with custom options
     pub fn with_options(options: ScanOptions) -> Self;
-    
+
     /// Analyze a single file
     pub async fn analyze_file(&self, path: &Path) -> Result<AnalysisResult>;
-    
+
     /// Analyze multiple files in parallel
     pub async fn analyze_files(&self, paths: &[PathBuf]) -> Result<Vec<AnalysisResult>>;
 }
@@ -85,28 +85,28 @@ Configuration for the scanner.
 pub struct ScanOptions {
     /// Enable metadata extraction
     pub metadata: bool,
-    
+
     /// Enable hash calculation
     pub hashes: bool,
-    
+
     /// Enable string extraction
     pub strings: bool,
-    
+
     /// String extraction options
     pub string_options: StringOptions,
-    
+
     /// Enable hex dump
     pub hex_dump: bool,
-    
+
     /// Hex dump options
     pub hex_dump_options: HexDumpOptions,
-    
+
     /// Enable binary analysis
     pub binary_info: bool,
-    
+
     /// Enable signature verification
     pub signatures: bool,
-    
+
     /// Enable advanced analysis
     pub advanced: AdvancedOptions,
 }
@@ -136,22 +136,22 @@ The complete result of file analysis.
 pub struct AnalysisResult {
     /// File metadata
     pub metadata: FileMetadata,
-    
+
     /// Hash results (if enabled)
     pub hashes: Option<HashResult>,
-    
+
     /// Extracted strings (if enabled)
     pub strings: Option<Vec<ExtractedString>>,
-    
+
     /// Hex dump (if enabled)
     pub hex_dump: Option<String>,
-    
+
     /// Binary information (if enabled)
     pub binary_info: Option<BinaryInfo>,
-    
+
     /// Digital signatures (if enabled)
     pub signatures: Option<SignatureInfo>,
-    
+
     /// Advanced analysis results
     pub advanced: Option<AdvancedAnalysis>,
 }
@@ -333,16 +333,16 @@ use file_scanner::Error;
 pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Parse error: {0}")]
     Parse(String),
-    
+
     #[error("Analysis error: {0}")]
     Analysis(String),
-    
+
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    
+
     #[error("Timeout")]
     Timeout,
 }
@@ -387,7 +387,7 @@ async fn analyze_directory(dir: &Path) -> Result<Vec<AnalysisResult>> {
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .collect();
-    
+
     // Process in parallel with concurrency limit
     let results = stream::iter(files)
         .map(|path| {
@@ -397,7 +397,7 @@ async fn analyze_directory(dir: &Path) -> Result<Vec<AnalysisResult>> {
         .buffer_unordered(4)  // Process 4 files concurrently
         .collect::<Vec<_>>()
         .await;
-    
+
     results.into_iter().collect()
 }
 ```
@@ -430,10 +430,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         signatures: true,
         ..Default::default()
     };
-    
+
     let scanner = Scanner::with_options(options);
     let result = scanner.analyze_file(Path::new("/path/to/file")).await?;
-    
+
     // Process results
     if let Some(strings) = &result.strings {
         println!("Found {} strings", strings.len());
@@ -441,7 +441,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Suspicious string: {}", s.value);
         }
     }
-    
+
     Ok(())
 }
 ```
@@ -462,11 +462,11 @@ impl CustomAnalyzer {
             scanner: Scanner::new(),
         }
     }
-    
+
     pub async fn analyze_malware(&self, path: &Path) -> Result<MalwareReport> {
         // Get basic analysis
         let result = self.scanner.analyze_file(path).await?;
-        
+
         // Build custom report
         let report = MalwareReport {
             file_name: result.metadata.file_name.clone(),
@@ -474,27 +474,27 @@ impl CustomAnalyzer {
             indicators: self.extract_indicators(&result),
             recommendations: self.generate_recommendations(&result),
         };
-        
+
         Ok(report)
     }
-    
+
     fn calculate_risk_score(&self, result: &AnalysisResult) -> u8 {
         let mut score = 0;
-        
+
         // Check for suspicious strings
         if let Some(strings) = &result.strings {
             score += strings.iter()
                 .filter(|s| s.category == StringCategory::Suspicious)
                 .count() as u8 * 10;
         }
-        
+
         // Check for packing
         if let Some(binary) = &result.binary_info {
             if binary.sections.iter().any(|s| s.entropy > 7.0) {
                 score += 20;
             }
         }
-        
+
         score.min(100)
     }
 }
@@ -509,20 +509,20 @@ use serde_json;
 async fn scan_and_report(path: &Path) -> Result<()> {
     let scanner = Scanner::new();
     let result = scanner.analyze_file(path).await?;
-    
+
     // Convert to JSON
     let json = serde_json::to_string_pretty(&result)?;
-    
+
     // Send to external API
     let client = reqwest::Client::new();
     client.post("https://api.example.com/scan-results")
         .json(&result)
         .send()
         .await?;
-    
+
     // Save to database
     save_to_database(&result).await?;
-    
+
     Ok(())
 }
 ```
@@ -555,14 +555,14 @@ use file_scanner::{Scanner, ScanOptions};
 let options = ScanOptions {
     // Use memory mapping for large files
     use_mmap: true,
-    
+
     // Limit resource usage
     max_file_size: 100 * 1024 * 1024,  // 100MB
     timeout: Duration::from_secs(30),
-    
+
     // Parallel processing
     thread_count: num_cpus::get(),
-    
+
     ..Default::default()
 };
 ```

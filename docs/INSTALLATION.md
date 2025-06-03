@@ -20,10 +20,11 @@ This guide covers installing File Scanner on various platforms.
 ### Required
 
 - **Rust**: Version 1.87.0 or later
+
   ```bash
   # Install Rust via rustup
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  
+
   # Verify installation
   rustc --version
   cargo --version
@@ -212,19 +213,21 @@ cargo build --release
 ### Signature Verification Tools
 
 - **osslsigncode**: For Authenticode signature verification
+
   ```bash
   # Linux
   sudo apt-get install osslsigncode
-  
+
   # macOS
   brew install osslsigncode
   ```
 
 - **GPG**: For GPG signature verification
+
   ```bash
   # Linux
   sudo apt-get install gpg
-  
+
   # macOS
   brew install gnupg
   ```
@@ -338,7 +341,7 @@ sudo swapon /swapfile
 
 - Check [GitHub Issues](https://github.com/ThreatFlux/file-scanner/issues)
 - Join our [Discord Community](https://discord.gg/threatflux)
-- Email: support@threatflux.com
+- Email: <support@threatflux.com>
 
 ## Next Steps
 

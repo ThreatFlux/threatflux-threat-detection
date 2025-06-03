@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Comprehensive CI/CD configuration with GitHub Actions
 - Docker multi-stage builds with health checks
 - Dependabot configuration for automated dependency updates
@@ -26,17 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - String tracking and statistics system
 
 ### Changed
+
 - Updated Dockerfile to use Rust 1.87.0
 - Improved error handling in MCP tests
 - Enhanced caching strategy for better performance
 
 ### Fixed
+
 - Critical concurrency bugs causing memory leaks and resource exhaustion
 - MCP server JSON-RPC protocol compliance
 - Windows build errors with cross-platform metadata handling
 - Docker build configuration for proper Rust version
 
 ### Security
+
 - Added cargo-audit to CI pipeline
 - Implemented security vulnerability reporting templates
 - Enhanced input validation for file paths
@@ -44,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-05-29
 
 ### Added
+
 - Initial release with core file scanning functionality
 - File metadata extraction
 - Cryptographic hash calculations (MD5, SHA256, SHA512, BLAKE3)
@@ -57,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Benchmark suite
 
 ### Known Issues
+
 - MCP server requires files to be accessible within Docker container mount points
 - ARM64 cross-compilation may require additional dependencies
 

@@ -18,11 +18,28 @@ use std::{
 use tokio::net::TcpListener;
 use tokio_stream::{wrappers::UnboundedReceiverStream, Stream};
 use tower::ServiceBuilder;
+use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
+// use crate::api_docs::ApiDoc;
 use crate::cache::{AnalysisCache, CacheEntry, CacheSearchQuery};
 use crate::mcp_server::FileScannerMcp;
 use crate::string_tracker::{StringFilter, StringTracker};
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(),
+    components(schemas(
+        JsonRpcRequest,
+        JsonRpcResponse,
+        JsonRpcError,
+        CacheEntry,
+        SseEvent,
+        SseQuery
+    )),
+    info(title = "File Scanner MCP API", version = "0.1.0")
+)]
+struct ApiDoc;
 
 #[derive(Clone)]
 pub struct McpServerState {
@@ -49,19 +66,19 @@ impl McpServerState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct SseEvent {
     pub id: Option<String>,
     pub event: Option<String>,
     pub data: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct SseQuery {
     pub client_id: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
 pub struct JsonRpcRequest {
     pub jsonrpc: String,
     pub id: Option<Value>,
@@ -69,7 +86,7 @@ pub struct JsonRpcRequest {
     pub params: Option<Value>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
 pub struct JsonRpcResponse {
     pub jsonrpc: String,
     pub id: Option<Value>,
@@ -79,7 +96,7 @@ pub struct JsonRpcResponse {
     pub error: Option<JsonRpcError>,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, ToSchema)]
 pub struct JsonRpcError {
     pub code: i32,
     pub message: String,
@@ -196,18 +213,20 @@ impl McpTransportServer {
         let app = Router::new()
             .route("/mcp", post(handle_mcp_http_request))
             .route("/health", get(health_check))
+            .route("/api/info", get(handle_api_info))
             .route("/initialize", post(handle_initialize))
             .route("/tools/list", post(handle_tools_list))
             .route("/tools/call", post(handle_tools_call))
-            .route("/cache/list", get(handle_cache_list))
-            .route("/cache/search", post(handle_cache_search))
-            .route("/cache/stats", get(handle_cache_stats))
-            .route("/cache/clear", post(handle_cache_clear))
-            .route("/strings/stats", get(handle_strings_stats))
-            .route("/strings/search", post(handle_strings_search))
+            .route("/cache/list", get(list_cache_entries))
+            .route("/cache/search", post(search_cache))
+            .route("/cache/stats", get(get_cache_stats))
+            .route("/cache/clear", post(clear_cache))
+            .route("/strings/stats", get(get_string_stats))
+            .route("/strings/search", post(search_strings))
             .route("/strings/details", post(handle_string_details))
             .route("/strings/related", post(handle_strings_related))
             .route("/strings/filter", post(handle_strings_filter))
+            .route("/api-docs/openapi.json", get(serve_openapi))
             .with_state(state)
             .layer(ServiceBuilder::new().layer(axum::middleware::from_fn(cors_middleware)));
 
@@ -216,6 +235,7 @@ impl McpTransportServer {
         println!("Endpoints:");
         println!("  - POST /mcp - MCP JSON-RPC endpoint");
         println!("  - GET /health - Health check");
+        println!("  - GET /api/info - API information and status");
         println!("  - POST /initialize - Initialize MCP session");
         println!("  - POST /tools/list - List available tools");
         println!("  - POST /tools/call - Call a tool");
@@ -229,11 +249,18 @@ impl McpTransportServer {
         println!("  - POST /strings/related - Find related strings");
         println!("  - POST /strings/filter - Filter strings with advanced criteria");
         println!();
+        println!("📚 API Documentation:");
+        println!("  - GET /api-docs/openapi.json - OpenAPI 3.0 specification");
+        println!("  - GET /api/info - API information and endpoints");
+        println!();
         println!("Test with MCP Inspector:");
         println!(
             "  npx @modelcontextprotocol/inspector http://localhost:{}/mcp",
             port
         );
+        println!();
+        println!("API Schema:");
+        println!("  http://localhost:{}/api-docs/openapi.json", port);
 
         axum::serve(listener, app).await?;
         Ok(())
@@ -249,7 +276,7 @@ impl McpTransportServer {
         };
 
         let app = Router::new()
-            .route("/sse", get(handle_sse_connection))
+            .route("/sse", get(handle_sse_stream))
             .route("/mcp", post(handle_mcp_sse_request))
             .route("/health", get(health_check))
             .with_state(state)
@@ -670,7 +697,7 @@ async fn handle_tools_call(
 }
 
 // SSE handlers
-async fn handle_sse_connection(
+async fn handle_sse_stream(
     Query(query): Query<SseQuery>,
     State(state): State<McpServerState>,
 ) -> Sse<impl Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>> {
@@ -772,8 +799,82 @@ async fn cors_middleware(
     response
 }
 
+// API information handlers
+async fn serve_openapi() -> Result<AxumJson<Value>, StatusCode> {
+    let openapi = ApiDoc::openapi();
+    let openapi_json =
+        serde_json::to_value(openapi).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(AxumJson(openapi_json))
+}
+
+async fn handle_api_info() -> Result<AxumJson<Value>, StatusCode> {
+    let mut endpoints = HashMap::new();
+    endpoints.insert(
+        "/mcp".to_string(),
+        "POST - Execute MCP JSON-RPC request".to_string(),
+    );
+    endpoints.insert("/health".to_string(), "GET - Health check".to_string());
+    endpoints.insert(
+        "/cache/stats".to_string(),
+        "GET - Get cache statistics".to_string(),
+    );
+    endpoints.insert(
+        "/cache/list".to_string(),
+        "GET - List all cache entries".to_string(),
+    );
+    endpoints.insert(
+        "/cache/search".to_string(),
+        "POST - Search cache with query".to_string(),
+    );
+    endpoints.insert(
+        "/cache/clear".to_string(),
+        "POST - Clear all cache entries".to_string(),
+    );
+    endpoints.insert(
+        "/strings/stats".to_string(),
+        "GET - Get string statistics".to_string(),
+    );
+    endpoints.insert(
+        "/strings/search".to_string(),
+        "POST - Search strings".to_string(),
+    );
+    endpoints.insert(
+        "/strings/details".to_string(),
+        "POST - Get string details".to_string(),
+    );
+    endpoints.insert(
+        "/strings/related".to_string(),
+        "POST - Find related strings".to_string(),
+    );
+    endpoints.insert(
+        "/strings/filter".to_string(),
+        "POST - Filter strings by criteria".to_string(),
+    );
+    endpoints.insert(
+        "/docs".to_string(),
+        "GET - Swagger UI documentation".to_string(),
+    );
+    endpoints.insert(
+        "/redoc".to_string(),
+        "GET - Redoc API documentation".to_string(),
+    );
+    endpoints.insert(
+        "/api-docs/openapi.json".to_string(),
+        "GET - OpenAPI 3.0 specification".to_string(),
+    );
+
+    Ok(AxumJson(json!({
+        "name": "File Scanner MCP API",
+        "version": "0.1.0",
+        "description": "A comprehensive file analysis API supporting the Model Context Protocol (MCP) with advanced caching, string tracking, and real-time updates via Server-Sent Events.",
+        "endpoints": endpoints,
+        "uptime": format!("{:?}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default()),
+        "status": "healthy"
+    })))
+}
+
 // Cache management handlers
-async fn handle_cache_list(
+async fn list_cache_entries(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
     let entries = state.cache.get_all_entries().await;
@@ -783,7 +884,7 @@ async fn handle_cache_list(
     })))
 }
 
-async fn handle_cache_search(
+async fn search_cache(
     State(state): State<McpServerState>,
     AxumJson(query): AxumJson<CacheSearchQuery>,
 ) -> Result<AxumJson<Value>, StatusCode> {
@@ -794,7 +895,7 @@ async fn handle_cache_search(
     })))
 }
 
-async fn handle_cache_stats(
+async fn get_cache_stats(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
     let stats = state.cache.get_statistics().await;
@@ -805,9 +906,7 @@ async fn handle_cache_stats(
     })))
 }
 
-async fn handle_cache_clear(
-    State(state): State<McpServerState>,
-) -> Result<AxumJson<Value>, StatusCode> {
+async fn clear_cache(State(state): State<McpServerState>) -> Result<AxumJson<Value>, StatusCode> {
     match state.cache.clear().await {
         Ok(_) => Ok(AxumJson(json!({
             "status": "success",
@@ -821,14 +920,14 @@ async fn handle_cache_clear(
 }
 
 // String tracker handlers
-async fn handle_strings_stats(
+async fn get_string_stats(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
     let stats = state.string_tracker.get_statistics(None);
     Ok(AxumJson(json!(stats)))
 }
 
-async fn handle_strings_search(
+async fn search_strings(
     State(state): State<McpServerState>,
     AxumJson(params): AxumJson<HashMap<String, Value>>,
 ) -> Result<AxumJson<Value>, StatusCode> {
@@ -1248,9 +1347,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_list_empty() {
+    async fn test_list_cache_entries_empty() {
         let state = create_test_state();
-        let result = handle_cache_list(State(state)).await.unwrap();
+        let result = list_cache_entries(State(state)).await.unwrap();
         let value = result.0;
 
         let entries = value.get("entries").unwrap().as_array().unwrap();
@@ -1259,7 +1358,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_search() {
+    async fn test_search_cache() {
         let state = create_test_state();
         let query = CacheSearchQuery {
             tool_name: Some("analyze_file".to_string()),
@@ -1270,9 +1369,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let result = handle_cache_search(State(state), AxumJson(query))
-            .await
-            .unwrap();
+        let result = search_cache(State(state), AxumJson(query)).await.unwrap();
         let value = result.0;
 
         let results = value.get("results").unwrap().as_array().unwrap();
@@ -1281,9 +1378,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_stats() {
+    async fn test_get_cache_stats() {
         let state = create_test_state();
-        let result = handle_cache_stats(State(state)).await.unwrap();
+        let result = get_cache_stats(State(state)).await.unwrap();
         let value = result.0;
 
         assert!(value.get("statistics").is_some());
@@ -1291,9 +1388,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_clear() {
+    async fn test_clear_cache() {
         let state = create_test_state();
-        let result = handle_cache_clear(State(state)).await.unwrap();
+        let result = clear_cache(State(state)).await.unwrap();
         let value = result.0;
 
         assert_eq!(value.get("status").unwrap().as_str().unwrap(), "success");
@@ -1306,9 +1403,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_strings_stats() {
+    async fn test_get_string_stats() {
         let state = create_test_state();
-        let result = handle_strings_stats(State(state)).await.unwrap();
+        let result = get_string_stats(State(state)).await.unwrap();
         let value = result.0;
 
         // The actual structure depends on StringTracker implementation
@@ -1317,13 +1414,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_strings_search() {
+    async fn test_search_strings() {
         let state = create_test_state();
         let mut params = HashMap::new();
         params.insert("query".to_string(), json!("test"));
         params.insert("limit".to_string(), json!(10));
 
-        let result = handle_strings_search(State(state), AxumJson(params))
+        let result = search_strings(State(state), AxumJson(params))
             .await
             .unwrap();
         let value = result.0;
@@ -1333,11 +1430,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_strings_search_defaults() {
+    async fn test_search_strings_defaults() {
         let state = create_test_state();
         let params = HashMap::new();
 
-        let result = handle_strings_search(State(state), AxumJson(params))
+        let result = search_strings(State(state), AxumJson(params))
             .await
             .unwrap();
         let value = result.0;

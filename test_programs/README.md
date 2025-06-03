@@ -1,10 +1,12 @@
 # Test Programs Documentation
 
-This directory contains malicious behavior simulation programs in multiple compiled languages for testing the file scanner's detection capabilities.
+This directory contains malicious behavior simulation programs in multiple compiled languages for testing
+the file scanner's detection capabilities.
 
 ## ⚠️ WARNING
 
 These programs simulate malicious behaviors for testing purposes only. They:
+
 - Target non-existent domains (msftupdater.com)
 - Use fake credentials and data
 - Include anti-analysis techniques that may trigger security software
@@ -39,26 +41,31 @@ These programs simulate malicious behaviors for testing purposes only. They:
 All test programs implement variations of:
 
 ### 1. Anti-Analysis Techniques
+
 - **Debugger Detection**: ptrace checks, timing analysis, TracerPid monitoring
 - **VM/Sandbox Detection**: Environment checks, CPU count, DMI info
 - **Sleep Acceleration**: Detect time manipulation
 
 ### 2. Network Operations
+
 - **C2 Communication**: Beaconing to msftupdater.com (fake domain)
 - **Data Exfiltration**: Simulated credential theft
 - **Encrypted Channels**: XOR obfuscation
 
 ### 3. Persistence Mechanisms
+
 - **Cron Jobs**: Scheduled execution
 - **Auto-start**: Boot persistence simulation
 - **Self-replication**: Copy operations
 
 ### 4. Resource Attacks
+
 - **CPU Exhaustion**: Infinite loops, complex calculations
 - **Memory Consumption**: Large allocations
 - **Parallel Threading**: Multi-core saturation
 
 ### 5. Code Obfuscation
+
 - **String Encryption**: XOR, compile-time obfuscation
 - **Polymorphic Code**: Runtime generation
 - **Self-modification**: Dynamic code changes
@@ -66,6 +73,7 @@ All test programs implement variations of:
 ## Compilation Instructions
 
 ### Prerequisites
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
@@ -73,7 +81,7 @@ sudo apt-get install -y build-essential
 
 # Language-specific compilers
 sudo apt-get install -y fpc           # Pascal
-sudo apt-get install -y gfortran      # Fortran  
+sudo apt-get install -y gfortran      # Fortran
 sudo apt-get install -y gnat          # Ada
 sudo apt-get install -y gdc-13        # D
 
@@ -89,11 +97,13 @@ sudo apt-get install -y golang-go
 ```
 
 ### Automated Compilation
+
 ```bash
 ./compile_all.sh
 ```
 
 ### Manual Compilation Examples
+
 ```bash
 # C
 gcc -O2 c_advanced.c -o c_advanced_binary -lpthread
@@ -120,16 +130,19 @@ gfortran -O2 fortran_test.f90 -o fortran_test_binary
 ## Testing with File Scanner
 
 ### Basic Scan
+
 ```bash
 ../target/release/file-scanner <binary_name>
 ```
 
 ### Full Analysis
+
 ```bash
 ../target/release/file-scanner <binary_name> --strings --hex-dump --verify-signatures
 ```
 
 ### Detection Examples
+
 ```bash
 # Find suspicious strings
 ../target/release/file-scanner nim_test_binary --strings --format json | \

@@ -1,6 +1,7 @@
 # MCP (Model Context Protocol) Integration
 
-File Scanner includes a full MCP server implementation, enabling seamless integration with AI assistants like Claude, Cursor, and other MCP-compatible tools.
+File Scanner includes a full MCP server implementation, enabling seamless integration with AI assistants
+like Claude, Cursor, and other MCP-compatible tools.
 
 ## Table of Contents
 
@@ -15,7 +16,9 @@ File Scanner includes a full MCP server implementation, enabling seamless integr
 
 ## Overview
 
-The Model Context Protocol (MCP) allows AI assistants to interact with external tools through a standardized JSON-RPC interface. File Scanner implements MCP to provide its analysis capabilities as tools that AI assistants can call.
+The Model Context Protocol (MCP) allows AI assistants to interact with external tools through a
+standardized JSON-RPC interface. File Scanner implements MCP to provide its analysis capabilities as tools
+that AI assistants can call.
 
 ### Key Benefits
 
@@ -30,6 +33,7 @@ The Model Context Protocol (MCP) allows AI assistants to interact with external 
 ### With Claude Code
 
 1. Add to your MCP configuration:
+
 ```json
 {
   "mcpServers": {
@@ -41,12 +45,13 @@ The Model Context Protocol (MCP) allows AI assistants to interact with external 
 }
 ```
 
-2. Restart Claude Code
-3. Use commands like: "Analyze /path/to/file.exe for malware"
+1. Restart Claude Code
+2. Use commands like: "Analyze /path/to/file.exe for malware"
 
 ### With Cursor
 
 1. Add to `.cursor/mcp.json`:
+
 ```json
 {
   "servers": {
@@ -58,8 +63,8 @@ The Model Context Protocol (MCP) allows AI assistants to interact with external 
 }
 ```
 
-2. Restart Cursor
-3. File Scanner tools will be available in the AI assistant
+1. Restart Cursor
+2. File Scanner tools will be available in the AI assistant
 
 ## Transport Modes
 
@@ -72,10 +77,12 @@ Best for local AI assistants like Claude Code and Cursor.
 file-scanner mcp-stdio
 
 # Test manually
-echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | file-scanner mcp-stdio
+echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
+  file-scanner mcp-stdio
 ```
 
 **Advantages:**
+
 - Simple setup
 - Low latency
 - No network configuration
@@ -101,6 +108,7 @@ file-scanner mcp-http --port 3000
 ```
 
 **Additional Endpoints:**
+
 - `/health` - Health check
 - `/cache/stats` - Cache statistics
 - `/cache/clear` - Clear cache
@@ -136,11 +144,12 @@ Comprehensive file analysis with configurable options.
 **Description:** Performs comprehensive file analysis with selectable features
 
 **Parameters:**
+
 ```typescript
 {
   // Required
   file_path: string;           // Path to file to analyze
-  
+
   // Optional analysis flags (all default to false)
   metadata?: boolean;          // File metadata
   hashes?: boolean;           // Cryptographic hashes
@@ -158,10 +167,10 @@ Comprehensive file analysis with configurable options.
   threats?: boolean;          // Threat detection
   behavioral?: boolean;       // Behavioral analysis
   yara_indicators?: boolean;  // YARA indicators
-  
+
   // String extraction options
   min_string_length?: number;  // Min string length (default: 4)
-  
+
   // Hex dump options
   hex_dump_size?: number;      // Bytes to dump (default: 256)
   hex_dump_offset?: number;    // Offset to start dump
@@ -169,6 +178,7 @@ Comprehensive file analysis with configurable options.
 ```
 
 **Example Usage:**
+
 ```json
 {
   "tool": "analyze_file",
@@ -184,6 +194,7 @@ Comprehensive file analysis with configurable options.
 ```
 
 **Example Response:**
+
 ```json
 {
   "file_path": "/path/to/malware.exe",
@@ -227,11 +238,12 @@ Optimized analysis for LLM consumption with token limits.
 **Description:** Analyzes files with LLM-optimized output and YARA rule generation
 
 **Parameters:**
+
 ```typescript
 {
   // Required
   file_path: string;              // Path to file to analyze
-  
+
   // Optional
   token_limit?: number;           // Max response size (default: 25000)
   min_string_length?: number;     // Min string length (default: 6)
@@ -244,6 +256,7 @@ Optimized analysis for LLM consumption with token limits.
 ```
 
 **Example Usage:**
+
 ```json
 {
   "tool": "llm_analyze_file",
@@ -256,6 +269,7 @@ Optimized analysis for LLM consumption with token limits.
 ```
 
 **Example Response:**
+
 ```json
 {
   "md5": "098f6bcd4621d373cade4e832627b4f6",
@@ -276,7 +290,7 @@ Optimized analysis for LLM consumption with token limits.
     "Process injection capability",
     "Registry persistence mechanism"
   ],
-  "yara_rule_suggestion": "rule suspicious_file {\n    meta:\n        md5 = \"098f6bcd4621d373cade4e832627b4f6\"\n    strings:\n        $api1 = \"CreateRemoteThread\"\n        $api2 = \"VirtualAllocEx\"\n    condition:\n        uint16(0) == 0x5A4D and all of ($api*)\n}"
+  "yara_rule_suggestion": "rule suspicious_file { ... }"
 }
 ```
 
@@ -534,7 +548,7 @@ file-scanner mcp-stdio 2> mcp-debug.log
 
 ## Integration Examples
 
-### With Claude Code
+### Python Integration Example
 
 ```python
 # In Claude Code, you can say:
@@ -564,14 +578,14 @@ def analyze_file(file_path):
         },
         "id": 1
     }
-    
+
     result = subprocess.run(
         ["file-scanner", "mcp-stdio"],
         input=json.dumps(request),
         capture_output=True,
         text=True
     )
-    
+
     return json.loads(result.stdout)
 ```
 

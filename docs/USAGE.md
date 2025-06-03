@@ -7,7 +7,7 @@ Comprehensive guide for using File Scanner's features and capabilities.
 - [Command Line Interface](#command-line-interface)
 - [Basic Usage](#basic-usage)
 - [Analysis Options](#analysis-options)
-- [Output Formats](#output-formats)
+- [Output Examples](#output-examples)
 - [Advanced Examples](#advanced-examples)
 - [Batch Processing](#batch-processing)
 - [Integration with Other Tools](#integration-with-other-tools)
@@ -23,7 +23,7 @@ file-scanner [OPTIONS] <FILE_PATH | COMMAND>
 
 ### Global Options
 
-```
+```text
 -h, --help                    Print help information
 -V, --version                 Print version information
 -f, --format <FORMAT>         Output format [json|yaml|pretty] (default: pretty)
@@ -34,7 +34,7 @@ file-scanner [OPTIONS] <FILE_PATH | COMMAND>
 
 ### Analysis Options
 
-```
+```text
 -s, --strings                 Extract ASCII and Unicode strings
     --min-string-len <N>      Minimum string length (default: 4)
     --max-strings <N>         Maximum strings to extract (default: 10000)
@@ -52,7 +52,7 @@ file-scanner [OPTIONS] <FILE_PATH | COMMAND>
 
 ### MCP Server Commands
 
-```
+```text
 mcp-stdio                     Start MCP server with STDIO transport
 mcp-http --port <PORT>        Start MCP server with HTTP transport
 mcp-sse --port <PORT>         Start MCP server with SSE transport
@@ -80,7 +80,7 @@ file-scanner --all /path/to/file.exe
 
 #### Default (Pretty) Output
 
-```bash
+```text
 $ file-scanner /bin/ls
 
 File Scanner Analysis Report
@@ -115,7 +115,7 @@ file-scanner --format json /bin/ls > analysis.json
 file-scanner --format yaml /bin/ls
 ```
 
-## Analysis Options
+## Advanced Analysis Options
 
 ### String Extraction
 
@@ -335,7 +335,7 @@ file-scanner --all --format json suspicious.exe | \
 # Analyze malware family
 for sample in malware_family/*.exe; do
   file-scanner --all --format json "$sample"
-done | jq -s 'group_by(.binary_info.compiler) | 
+done | jq -s 'group_by(.binary_info.compiler) |
   map({compiler: .[0].binary_info.compiler, count: length})'
 
 # Extract common strings

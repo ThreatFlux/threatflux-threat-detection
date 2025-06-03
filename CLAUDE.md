@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-A comprehensive native file scanner written in Rust that provides detailed metadata, hash calculations, string extraction, binary analysis, hex dumping, and digital signature verification. Built using Rust 1.87.0 with modern async capabilities and multiple output formats.
+A comprehensive native file scanner written in Rust that provides detailed metadata, hash calculations,
+string extraction, binary analysis, hex dumping, and digital signature verification. Built using Rust 1.87.0
+with modern async capabilities and multiple output formats.
 
 ## Key Features
 
@@ -16,7 +18,8 @@ A comprehensive native file scanner written in Rust that provides detailed metad
 - **Performance Optimized**: Concurrent hash calculation and efficient memory usage
 - **MCP Server Support**: Model Context Protocol server with STDIO, HTTP, and SSE transports
 - **Analysis Caching**: Automatic caching of analysis results with persistence for improved performance
-- **String Tracking & Statistics**: Advanced string analysis with usage statistics, categorization, and filtering
+- **String Tracking & Statistics**: Advanced string analysis with usage statistics, categorization,
+  and filtering
 
 ## Build and Test Commands
 
@@ -28,7 +31,8 @@ cargo build --release
 ./target/release/file-scanner /path/to/file
 
 # Full analysis with all features
-./target/release/file-scanner /path/to/file --strings --hex-dump --verify-signatures --format yaml
+./target/release/file-scanner /path/to/file --strings --hex-dump \
+  --verify-signatures --format yaml
 
 # Test with different output formats
 ./target/release/file-scanner /bin/ls --format json
@@ -52,13 +56,16 @@ npx @modelcontextprotocol/inspector http://localhost:3000/mcp
 npx @modelcontextprotocol/inspector http://localhost:3000/sse
 
 # CLI testing mode for individual tools
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name get_file_metadata --tool-arg file_path=/bin/ls
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/list
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name get_file_metadata \
+  --tool-arg file_path=/bin/ls
 ```
 
 ## Project Structure
 
-```
+```text
 src/
 ├── main.rs              # CLI interface and main application logic
 ├── metadata.rs          # File metadata extraction and core data structures
@@ -94,7 +101,8 @@ The scanner has been tested on various file types:
 
 ### Test Program Suite
 
-The project includes comprehensive test programs in 9 compiled languages to validate detection capabilities:
+The project includes comprehensive test programs in 9 compiled languages to validate detection
+capabilities:
 
 - **C** (`c_advanced_binary`): Buffer overflows, format strings, anti-debugging
 - **C++** (`cpp_test_binary`): Polymorphism, templates, anti-analysis
@@ -105,6 +113,7 @@ The project includes comprehensive test programs in 9 compiled languages to vali
 - **Fortran** (`fortran_test_binary`): Scientific computing, resource exhaustion
 
 All test binaries simulate malicious behaviors including:
+
 - Anti-debugging techniques (ptrace, timing checks)
 - Network C2 communication (msftupdater.com)
 - Process injection simulation
@@ -133,16 +142,19 @@ All test binaries simulate malicious behaviors including:
 ## Output Formats
 
 ### JSON (Compact)
+
 ```bash
 ./target/release/file-scanner file.bin --format json
 ```
 
 ### YAML (Human-readable)
+
 ```bash
 ./target/release/file-scanner file.bin --format yaml
 ```
 
 ### Pretty JSON (Default)
+
 ```bash
 ./target/release/file-scanner file.bin
 ```
@@ -156,7 +168,9 @@ All test binaries simulate malicious behaviors including:
 
 ## MCP Server Integration
 
-The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for AI assistants. **The MCP server is now fully functional and tested!**
+The file-scanner can run as an MCP (Model Context Protocol) server, exposing its capabilities as tools for
+AI assistants. **The MCP server is now fully functional and tested with comprehensive OpenAPI 3.0
+documentation!**
 
 ### Available MCP Tools
 
@@ -169,6 +183,7 @@ A unified tool that allows you to specify exactly which analyses to perform usin
 **Tool Name:** `analyze_file`
 
 **Parameters:**
+
 - `file_path` (required): Path to the file to analyze
 - `metadata`: Include file metadata (size, timestamps, permissions)
 - `hashes`: Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)
@@ -191,6 +206,7 @@ A unified tool that allows you to specify exactly which analyses to perform usin
 - `yara_indicators`: Extract YARA rule indicators
 
 **Example Usage:**
+
 ```json
 {
   "file_path": "/bin/ls",
@@ -203,11 +219,13 @@ A unified tool that allows you to specify exactly which analyses to perform usin
 
 #### 2. `llm_analyze_file` - LLM-Optimized Analysis Tool
 
-A focused analysis tool designed specifically for LLM consumption and YARA rule generation. Returns only the most relevant information within a controlled token limit.
+A focused analysis tool designed specifically for LLM consumption and YARA rule generation. Returns only
+the most relevant information within a controlled token limit.
 
 **Tool Name:** `llm_analyze_file`
 
 **Key Features:**
+
 - Returns only MD5 hash (not all hash types)
 - Extracts key strings prioritized for YARA rules
 - Identifies important hex patterns and opcodes
@@ -216,6 +234,7 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 - Token-limited output (default 25K tokens)
 
 **Parameters:**
+
 - `file_path` (required): Path to the file to analyze
 - `token_limit`: Maximum response size in characters (default: 25000)
 - `min_string_length`: Minimum string length to extract (default: 6)
@@ -226,6 +245,7 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 - `suggest_yara_rule`: Generate YARA rule suggestion (default: true)
 
 **Example Usage:**
+
 ```json
 {
   "file_path": "/suspicious/malware.exe",
@@ -236,6 +256,7 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 ```
 
 **Example Output:**
+
 ```json
 {
   "md5": "d41d8cd98f00b204e9800998ecf8427e",
@@ -261,13 +282,14 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
     "FF 15 00 00"
   ],
   "entropy": 7.8,
-  "yara_rule_suggestion": "rule suspicious_malware_exe {\n    meta:\n        md5 = \"d41d8cd98f00b204e9800998ecf8427e\"\n        filesize = 45056\n    strings:\n        $header = { 4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00 }\n        $s1 = \"CreateRemoteThread\"\n        $s2 = \"VirtualAllocEx\"\n        $s3 = \"WriteProcessMemory\"\n    condition:\n        filesize == 45056 and math.entropy(0, filesize) > 7.3 and 2 of ($s*) and $header at 0\n}\n"
+  "yara_rule_suggestion": "rule suspicious_malware_exe { /* YARA rule content */ }"
 }
 ```
 
 ### MCP Configuration for Claude Code
 
 **STDIO Transport (Recommended):**
+
 ```json
 {
   "mcpServers": {
@@ -280,6 +302,7 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 ```
 
 **HTTP Transport:**
+
 ```json
 {
   "mcpServers": {
@@ -292,6 +315,7 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 ```
 
 **SSE Transport:**
+
 ```json
 {
   "mcpServers": {
@@ -305,20 +329,24 @@ A focused analysis tool designed specifically for LLM consumption and YARA rule 
 
 ### MCP Testing Status
 
-✅ **FIXED**: JSON-RPC protocol compliance issues resolved  
-✅ **UNIFIED**: Single `analyze_file` tool with configurable analysis options  
-✅ **TESTED**: MCP Inspector CLI and UI modes working  
-✅ **VERIFIED**: Tool calls return proper formatted responses  
-✅ **CACHING**: Automatic result caching with persistence across sessions  
-✅ **COMPLIANT**: Now under 15-tool MCP limit with comprehensive functionality  
+✅ **FIXED**: JSON-RPC protocol compliance issues resolved
+✅ **UNIFIED**: Single `analyze_file` tool with configurable analysis options
+✅ **TESTED**: MCP Inspector CLI and UI modes working
+✅ **VERIFIED**: Tool calls return proper formatted responses
+✅ **CACHING**: Automatic result caching with persistence across sessions
+✅ **COMPLIANT**: Now under 15-tool MCP limit with comprehensive functionality
 
 **Known Working Commands:**
+
 ```bash
 # List all available tools
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/list
 
 # Test file metadata extraction
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name get_file_metadata --tool-arg file_path=/bin/ls
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name get_file_metadata \
+  --tool-arg file_path=/bin/ls
 
 # Interactive UI testing
 npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio
@@ -348,6 +376,7 @@ curl -X POST http://localhost:3000/cache/clear
 ```
 
 **Cache Features:**
+
 - Automatic caching of all MCP tool call results
 - Persistence to disk in temp directory (`/tmp/file-scanner-cache/`)
 - SHA256-based file identification for cache hits
@@ -357,7 +386,8 @@ curl -X POST http://localhost:3000/cache/clear
 
 ### String Tracking & Analysis
 
-The file scanner includes an advanced string tracking system that analyzes and categorizes all strings found during file analysis:
+The file scanner includes an advanced string tracking system that analyzes and categorizes all strings
+found during file analysis:
 
 ```bash
 # String statistics
@@ -390,6 +420,7 @@ curl -X POST http://localhost:3000/strings/filter \
 ```
 
 **String Tracking Features:**
+
 - Automatic categorization (URLs, paths, imports, commands, etc.)
 - Entropy calculation for detecting encoded/encrypted strings
 - Suspicious string detection using pattern matching
@@ -411,6 +442,58 @@ curl -X POST http://localhost:3000/strings/filter \
   - Suspicious strings
 
 See `MCP_TESTING.md` for comprehensive testing instructions.
+
+### OpenAPI 3.0 Documentation
+
+The HTTP transport now includes comprehensive OpenAPI 3.0 specification support for easy API exploration
+and integration:
+
+**API Documentation Endpoints:**
+
+```bash
+# OpenAPI 3.0 JSON specification
+curl http://localhost:3000/api-docs/openapi.json
+
+# API information and endpoint listing
+curl http://localhost:3000/api/info
+
+# Health check
+curl http://localhost:3000/health
+```
+
+**OpenAPI Features:**
+
+- Complete OpenAPI 3.0 specification with schema definitions
+- Automatic generation of JSON-RPC, Cache, SSE, and other data models
+- Structured endpoint documentation for all HTTP routes
+- Schema validation for request/response bodies
+- Compatible with OpenAPI tooling and code generators
+
+**Integration Examples:**
+
+```bash
+# Generate client SDKs using OpenAPI Generator
+npx @openapitools/openapi-generator-cli generate \
+  -i http://localhost:3000/api-docs/openapi.json \
+  -g python-client \
+  -o ./python-client
+
+# Import into Postman, Insomnia, or other API tools
+# Use the OpenAPI spec URL: http://localhost:3000/api-docs/openapi.json
+
+# Generate documentation with ReDoc
+npx redoc-cli build http://localhost:3000/api-docs/openapi.json
+```
+
+The OpenAPI specification includes schemas for:
+
+- `JsonRpcRequest` / `JsonRpcResponse` / `JsonRpcError` - MCP protocol types
+- `CacheEntry` / `CacheSearchQuery` - Cache management types
+- `SseEvent` / `SseQuery` - Server-Sent Events types
+- Additional analysis and tool-specific data structures
+
+This enables seamless integration with API development tools, client SDK generation, and automated
+testing frameworks.
 
 ## Future Enhancement Ideas
 

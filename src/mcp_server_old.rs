@@ -29,7 +29,7 @@ use crate::{
 pub struct FileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
     pub file_path: String,
-    
+
     // Analysis options
     #[schemars(description = "Include file metadata (size, timestamps, permissions)")]
     pub metadata: Option<bool>,
@@ -260,7 +260,7 @@ impl FileScannerMcp {
             } else {
                 None
             };
-            
+
             if let Ok(behavioral) = analyze_behavior(&path, strings.as_ref(), symbols.as_ref(), disassembly.as_ref()) {
                 result.behavioral = Some(behavioral);
             }
@@ -392,19 +392,19 @@ impl FileScannerMcp {
         let include_all = request.indicators.as_ref()
             .map(|ind| ind.contains(&"all".to_string()))
             .unwrap_or(true);
-        
+
         let include_hashes = include_all || request.indicators.as_ref()
             .map(|ind| ind.contains(&"hashes".to_string()))
             .unwrap_or(false);
-            
+
         let include_strings = include_all || request.indicators.as_ref()
             .map(|ind| ind.contains(&"strings".to_string()))
             .unwrap_or(false);
-            
+
         let include_imports = include_all || request.indicators.as_ref()
             .map(|ind| ind.contains(&"imports".to_string()))
             .unwrap_or(false);
-            
+
         let include_entropy = include_all || request.indicators.as_ref()
             .map(|ind| ind.contains(&"entropy".to_string()))
             .unwrap_or(false);

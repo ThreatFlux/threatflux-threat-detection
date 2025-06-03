@@ -28,7 +28,7 @@ fn anti_debug_asm() -> bool {
 fn self_modify() {
     let code = vec![0x90; 100]; // NOP sled
     let code_ptr = code.as_ptr() as *mut u8;
-    
+
     unsafe {
         // Would normally modify code here
         ptr::write_volatile(code_ptr, 0xC3); // RET instruction
@@ -50,7 +50,7 @@ fn memory_tricks() {
     let mut data = vec![0u8; 1024 * 1024]; // 1MB
     data[0] = 0xFF;
     mem::forget(data); // Leak memory intentionally
-    
+
     // Stack manipulation
     let mut stack_data = [0x41u8; 8192]; // Large stack allocation
     unsafe {
@@ -67,7 +67,7 @@ fn hidden_payload() {
 
 fn main() {
     println!("Packed Rust Binary Test");
-    
+
     // Anti-debugging check
     #[cfg(target_arch = "x86_64")]
     {
@@ -75,20 +75,20 @@ fn main() {
             std::process::exit(1);
         }
     }
-    
+
     // Self-modification attempt
     self_modify();
-    
+
     // Memory manipulation
     memory_tricks();
-    
+
     // Obfuscated operations
     let encrypted_msg = [0x52, 0x3c, 0x3e, 0x38, 0x25, 0x61, 0x55, 0x5e, 0x4f, 0x49, 0x4b, 0x43];
     let msg = decrypt_string(&encrypted_msg);
     println!("Decrypted: {}", msg);
-    
+
     // Hidden functionality
     hidden_payload();
-    
+
     println!("Execution complete");
 }

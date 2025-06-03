@@ -7,11 +7,13 @@
 ## Test Categories
 
 ### 1. **Cache Creation and Management** (3 tests)
+
 - `test_new_cache_creation` - Verifies cache initialization with empty state
 - `test_cache_directory_creation` - Tests automatic directory creation
 - `test_cache_with_invalid_path` - Tests error handling for invalid paths
 
 ### 2. **Entry Operations** (6 tests)
+
 - `test_add_single_entry` - Tests adding a single cache entry
 - `test_add_multiple_entries_same_file` - Tests multiple entries for same file
 - `test_get_entries_nonexistent` - Tests retrieval of non-existent entries
@@ -21,6 +23,7 @@
 - `test_max_entries_per_file_limit` - Tests the 100-entry limit per file
 
 ### 3. **Search Functionality** (6 tests)
+
 - `test_search_by_tool_name` - Tests filtering by tool name
 - `test_search_by_file_path_pattern` - Tests path pattern matching
 - `test_search_by_time_range` - Tests time-based filtering
@@ -29,36 +32,43 @@
 - `test_search_no_matches` - Tests empty result handling
 
 ### 4. **Statistics** (3 tests)
+
 - `test_get_metadata` - Tests cache metadata generation
 - `test_get_statistics` - Tests detailed statistics calculation
 - `test_statistics_empty_cache` - Tests statistics on empty cache
 
 ### 5. **Persistence** (3 tests)
+
 - `test_save_and_load_cache` - Tests cache persistence to disk
 - `test_clear_cache_removes_files` - Tests cache clearing and file removal
 - `test_metadata_file_persistence` - Tests metadata file creation
 
 ### 6. **Concurrency** (3 tests)
+
 - `test_concurrent_add_entries` - Tests parallel entry addition
 - `test_concurrent_read_write` - Tests simultaneous read/write operations
 - `test_concurrent_search` - Tests parallel search operations
 
 ### 7. **Memory Management** (2 tests)
+
 - `test_cache_size_calculation` - Tests memory usage tracking
 - `test_entry_limit_enforcement` - Tests entry limit enforcement
 
 ### 8. **Error Handling** (3 tests)
+
 - `test_empty_cache_operations` - Tests operations on empty cache
 - `test_invalid_json_in_cache_files` - Tests handling of corrupted files
 - `test_partial_match_search` - Tests partial string matching
 
 ### 9. **Serialization** (4 tests)
+
 - `test_cache_entry_serialization` - Tests CacheEntry JSON serialization
 - `test_cache_metadata_serialization` - Tests CacheMetadata serialization
 - `test_cache_search_query_serialization` - Tests query serialization
 - `test_cache_statistics_serialization` - Tests statistics serialization
 
 ### 10. **Edge Cases** (7 tests)
+
 - `test_files_without_extensions` - Tests handling of extensionless files
 - `test_very_long_file_paths` - Tests long path handling
 - `test_unicode_in_paths_and_tools` - Tests Unicode support

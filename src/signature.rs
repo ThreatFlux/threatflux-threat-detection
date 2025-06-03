@@ -560,7 +560,7 @@ mod tests {
 gpg: Signature made Fri 15 Dec 2023 10:30:45 AM UTC
 gpg:                using RSA key 1234567890ABCDEF
 gpg: Can't check signature: No public key
-gpg: Signature made Fri 15 Dec 2023 10:30:45 AM UTC  
+gpg: Signature made Fri 15 Dec 2023 10:30:45 AM UTC
 gpg:                using RSA key FEDCBA0987654321
 gpg: Good signature from "John Doe <john@example.com>"
 gpg: WARNING: This key is not certified with a trusted signature!

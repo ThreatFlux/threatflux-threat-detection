@@ -1,6 +1,7 @@
 # Contributing to File Scanner
 
-Thank you for your interest in contributing to File Scanner! We welcome contributions from the community and are grateful for any help you can provide.
+Thank you for your interest in contributing to File Scanner! We welcome contributions from the community
+and are grateful for any help you can provide.
 
 ## Table of Contents
 
@@ -28,6 +29,7 @@ We are committed to providing a welcoming and inclusive environment. Please read
 ## Getting Started
 
 1. **Fork the Repository**
+
    ```bash
    # Fork via GitHub UI, then:
    git clone https://github.com/YOUR_USERNAME/file-scanner.git
@@ -36,16 +38,18 @@ We are committed to providing a welcoming and inclusive environment. Please read
    ```
 
 2. **Set Up Development Environment**
+
    ```bash
    # Install Rust
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   
+
    # Install development tools
    rustup component add rustfmt clippy
    cargo install cargo-watch cargo-nextest
    ```
 
 3. **Build and Test**
+
    ```bash
    cargo build
    cargo test
@@ -66,6 +70,7 @@ We are committed to providing a welcoming and inclusive environment. Please read
 ### Good First Issues
 
 Look for issues labeled:
+
 - `good first issue` - Great for newcomers
 - `help wanted` - We need help with these
 - `documentation` - Documentation improvements
@@ -125,9 +130,53 @@ pub fn calc_h(p: &Path) -> Result<String> {
 }
 ```
 
-### Code Formatting
+### Pre-commit Hooks (Recommended)
 
-Always run formatters before committing:
+This project uses pre-commit hooks to automatically ensure code quality. The hooks run:
+
+- **Format checking** (`cargo fmt --check`)
+- **Linting** (`cargo clippy` with strict settings)
+- **Tests** (`cargo test --lib --bins`)
+- **Security audit** (`cargo audit`)
+- **File validation** (YAML, TOML, JSON, etc.)
+
+#### Setup Pre-commit Hooks
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install pre-commit
+uv tool install pre-commit
+
+# Install hooks for this repository
+pre-commit install
+pre-commit install --hook-type commit-msg
+
+# (Optional) Test hooks on all files
+pre-commit run --all-files
+```
+
+#### What the Hooks Do
+
+**Before each commit:**
+
+- `cargo fmt --check` - Ensures consistent formatting
+- `cargo clippy --lib --bins -- -D warnings` - Strict linting for main code
+- `cargo clippy --tests -- -W clippy::all` - Standard linting for tests
+- `cargo check --all-features` - Fast compilation check
+- `cargo test --lib --bins` - Runs core tests
+- `cargo audit` - Security vulnerability scan
+- File format validation and basic hygiene checks
+
+**For commit messages:**
+
+- Enforces conventional commit format
+- Ensures clear, descriptive commit messages
+
+#### Manual Code Quality Checks
+
+If you prefer manual checks:
 
 ```bash
 # Format code
@@ -136,8 +185,14 @@ cargo fmt
 # Check formatting
 cargo fmt -- --check
 
-# Run clippy
-cargo clippy -- -D warnings
+# Lint with strict warnings (library code)
+cargo clippy --lib --bins -- -D warnings
+
+# Lint tests (standard warnings)
+cargo clippy --tests -- -W clippy::all
+
+# Security audit
+cargo audit
 ```
 
 ### Documentation
@@ -170,7 +225,7 @@ pub fn calculate_sha256(path: &Path) -> Result<String> {
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 feat: add support for BLAKE3 hashing
 fix: correct string extraction for UTF-16
 docs: update installation guide for Windows
@@ -237,6 +292,7 @@ open tarpaulin-report.html
 ## Pull Request Process
 
 1. **Create a Feature Branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -247,6 +303,7 @@ open tarpaulin-report.html
    - Update documentation
 
 3. **Test Your Changes**
+
    ```bash
    cargo test
    cargo clippy
@@ -254,12 +311,14 @@ open tarpaulin-report.html
    ```
 
 4. **Commit Your Changes**
+
    ```bash
    git add .
    git commit -m "feat: add awesome feature"
    ```
 
 5. **Push to Your Fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -291,6 +350,7 @@ open tarpaulin-report.html
 ### Bug Reports
 
 Please include:
+
 - File Scanner version
 - Operating system
 - Steps to reproduce
@@ -299,6 +359,7 @@ Please include:
 - Error messages/logs
 
 **Template:**
+
 ```markdown
 **Version:** 0.1.0
 **OS:** Ubuntu 22.04
@@ -314,20 +375,21 @@ Brief description of the bug
 **Actual:** What actually happens
 
 **Logs:**
-```
+```text
 Error output here
-```
 ```
 
 ### Feature Requests
 
 Please include:
+
 - Use case description
 - Proposed solution
 - Alternative solutions
 - Additional context
 
 **Template:**
+
 ```markdown
 **Feature:** Brief title
 
@@ -349,7 +411,8 @@ Any other relevant information
 **DO NOT** open public issues for security vulnerabilities.
 
 Instead:
-1. Email security@threatflux.com
+
+1. Email <security@threatflux.com>
 2. Include:
    - Description of vulnerability
    - Steps to reproduce
@@ -365,7 +428,7 @@ See [SECURITY.md](SECURITY.md) for details.
 - **GitHub Issues**: Bug reports, feature requests
 - **GitHub Discussions**: General questions, ideas
 - **Discord**: Real-time chat (coming soon)
-- **Email**: contact@threatflux.com
+- **Email**: <contact@threatflux.com>
 
 ### Getting Help
 
@@ -377,6 +440,7 @@ See [SECURITY.md](SECURITY.md) for details.
 ### Recognition
 
 Contributors are recognized in:
+
 - Release notes
 - Contributors file
 - Project README

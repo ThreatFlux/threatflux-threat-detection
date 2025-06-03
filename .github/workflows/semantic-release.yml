@@ -17,29 +17,29 @@ jobs:
     name: Semantic Release
     runs-on: ubuntu-latest
     if: github.repository_owner == 'vtriple'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
           toolchain: 1.87.0
-          
+
       - name: Install cargo-release
         uses: taiki-e/install-action@3068b7dc83db15fc2676a3ce4ae1ebb878685f59 # v2.44.13
         with:
           tool: cargo-release
-          
+
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
         with:
           node-version: '20'
-          
+
       - name: Install semantic-release
         run: |
           npm install -g \
@@ -48,7 +48,7 @@ jobs:
             @semantic-release/github@10.3.3 \
             @semantic-release/exec@6.0.3 \
             conventional-changelog-conventionalcommits@8.0.0
-            
+
       - name: Create semantic-release config
         run: |
           cat > .releaserc.json << 'EOF'
@@ -96,7 +96,7 @@ jobs:
             ]
           }
           EOF
-          
+
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
