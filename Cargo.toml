@@ -59,7 +59,7 @@ utoipa-swagger-ui = { version = "7.1", features = ["axum"] }
 addr2line = "0.21"
 memmap2 = "0.9"
 capstone = "0.13"
-petgraph = "0.6"
+petgraph = "0.8"
 
 # Threat detection
 yara-x = { git = "https://github.com/wroersma/yara-x", branch = "main" }
