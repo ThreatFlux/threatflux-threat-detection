@@ -1,223 +1,153 @@
-# File Scanner
+# 🔍 File Scanner
 
-A comprehensive native file scanner written in Rust that provides detailed metadata, hashes, strings extraction, and binary analysis. Includes advanced static analysis capabilities for security research and malware detection.
+<div align="center">
 
-## Features
+<img src="data/file-scanner.png" alt="File Scanner Logo" width="200">
 
-### Core Scanning
-- **File Metadata**: Size, timestamps, permissions, ownership
-- **Hash Calculation**: MD5, SHA256, SHA512, BLAKE3 (async for performance)
-- **String Extraction**: ASCII and Unicode strings with intelligent categorization
-- **Binary Analysis**: PE/ELF/Mach-O parsing with compiler detection
-- **Digital Signatures**: Authenticode, GPG, and macOS code signature verification
-- **Hex Dumping**: Header, footer, or custom offset hex dumps
-- **Multiple Output Formats**: JSON, YAML, and pretty-printed JSON
+[![codecov](https://codecov.io/github/ThreatFlux/file-scanner/graph/badge.svg?token=rcBpaFdgV3)](https://codecov.io/github/ThreatFlux/file-scanner)
+[![Rust](https://img.shields.io/badge/rust-1.87.0%2B-orange.svg)](https://www.rust-lang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 
-### Advanced Analysis
-- **Behavioral Analysis**: Anti-debugging detection, evasion techniques, persistence mechanisms
-- **Call Graph Generation**: Function relationship analysis with Graphviz output
-- **Control Flow Analysis**: Basic block detection, cyclomatic complexity
-- **Code Metrics**: Function complexity, code patterns, suspicious API usage
-- **Vulnerability Detection**: Buffer overflows, format strings, use-after-free
-- **Entropy Analysis**: Packed/encrypted section detection
-- **Threat Detection**: Malware patterns, suspicious strings, IoCs
-- **Disassembly**: x86/x64 instruction analysis with Capstone
+**A blazing fast, comprehensive file analysis framework for security research, malware detection, and forensic investigation**
 
-### MCP Server Integration
-- **Model Context Protocol**: Full MCP server implementation with 15 analysis tools
-- **Transport Modes**: STDIO, HTTP, and SSE support
-- **AI Integration**: Works with Claude Code, Cursor, and other MCP clients
-- **Tool Interface**: Programmatic access to all scanner features via JSON-RPC
+[Documentation](docs/) • [Installation](docs/INSTALLATION.md) • [Usage](docs/USAGE.md) • [API](docs/API.md) • [Contributing](CONTRIBUTING.md)
 
-## Installation
+</div>
+
+---
+
+## 🎯 Overview
+
+File Scanner is a high-performance, native file analysis tool written in Rust that provides deep insights into file contents, structure, and behavior. Designed for security researchers, malware analysts, and forensic investigators, it combines traditional static analysis with advanced pattern recognition and behavioral analysis capabilities.
+
+### 🚀 Key Features
+
+- **⚡ Lightning Fast** - Async hash calculations and parallel processing
+- **🔐 Security Focused** - Advanced malware detection and vulnerability analysis
+- **🤖 AI-Ready** - Full MCP (Model Context Protocol) integration
+- **📊 Comprehensive Analysis** - From basic metadata to advanced behavioral patterns
+- **🔧 Extensible** - Modular architecture for easy feature additions
+- **📦 Multi-Format** - PE, ELF, Mach-O binary analysis with compiler detection
+
+## 🚀 Quick Start
 
 ```bash
+# Clone and build
+git clone https://github.com/ThreatFlux/file-scanner.git
 cd file-scanner
 cargo build --release
-```
 
-## Usage
+# Basic scan
+./target/release/file-scanner /bin/ls
 
-Basic scan:
-```bash
-./target/release/file-scanner /path/to/file
-```
+# Full analysis
+./target/release/file-scanner /path/to/file --strings --hex-dump --verify-signatures
 
-With string extraction:
-```bash
-./target/release/file-scanner /path/to/file --strings
-```
-
-With signature verification:
-```bash
-./target/release/file-scanner /path/to/file --verify-signatures
-```
-
-With hex dump:
-```bash
-./target/release/file-scanner /path/to/file --hex-dump
-```
-
-Footer hex dump:
-```bash
-./target/release/file-scanner /path/to/file --hex-dump --hex-dump-offset=-256
-```
-
-JSON output:
-```bash
-./target/release/file-scanner /path/to/file --format json
-```
-
-YAML output:
-```bash
-./target/release/file-scanner /path/to/file --format yaml
-```
-
-## MCP Server Mode
-
-Run as an MCP server for AI integration:
-
-```bash
-# STDIO transport (recommended for Claude Code)
+# Start as MCP server
 ./target/release/file-scanner mcp-stdio
-
-# HTTP transport
-./target/release/file-scanner mcp-http --port 3000
-
-# SSE transport  
-./target/release/file-scanner mcp-sse --port 3000
 ```
 
-### Testing with MCP Inspector
+See [Installation Guide](docs/INSTALLATION.md) for detailed setup instructions.
 
-```bash
-# CLI mode for testing individual tools
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/list
-npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner mcp-stdio --method tools/call --tool-name get_file_metadata --tool-arg file_path=/bin/ls
+## 📖 Documentation
 
-# UI mode for interactive testing
-npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio
+- **[Installation Guide](docs/INSTALLATION.md)** - Prerequisites, building, Docker support
+- **[Usage Guide](docs/USAGE.md)** - Examples, CLI options, output formats
+- **[MCP Integration](docs/MCP.md)** - AI tool integration, configuration, API
+- **[Architecture](docs/ARCHITECTURE.md)** - Design, components, extending
+- **[API Reference](docs/API.md)** - Rust API documentation
+- **[Performance](docs/PERFORMANCE.md)** - Benchmarks, optimization tips
+- **[FAQ](docs/FAQ.md)** - Common questions and answers
 
-# HTTP/SSE testing
-npx @modelcontextprotocol/inspector http://localhost:3000/mcp
-npx @modelcontextprotocol/inspector http://localhost:3000/sse
-```
+## ✨ Core Capabilities
 
-### Available MCP Tools
+### File Analysis
+- 📁 **Metadata** - Size, timestamps, permissions, MIME types
+- 🔏 **Hashes** - MD5, SHA256, SHA512, BLAKE3
+- 📝 **Strings** - ASCII/Unicode extraction with categorization
+- 🔬 **Binary Analysis** - PE/ELF/Mach-O parsing
+- ✍️ **Signatures** - Authenticode, GPG, macOS verification
+- 🔢 **Hex Dumps** - Configurable header/footer/offset dumps
 
-The file scanner provides 2 powerful MCP tools that consolidate all analysis features:
+### Advanced Features
+- 🎭 **Behavioral Analysis** - Anti-debugging, evasion, persistence
+- 🕸️ **Call Graphs** - Function relationships, complexity metrics
+- 🚨 **Vulnerability Detection** - Buffer overflows, format strings
+- 🌡️ **Entropy Analysis** - Packed/encrypted section detection
+- ☠️ **Threat Detection** - Malware patterns, suspicious IoCs
+- 🔧 **Disassembly** - x86/x64 instruction analysis
 
-#### 1. `analyze_file` - Comprehensive Analysis Tool
-A unified tool that allows you to specify exactly which analyses to perform using boolean flags:
+### MCP Server
+- 🤖 **AI Integration** - Works with Claude, Cursor, and other MCP clients
+- 🚄 **Multiple Transports** - STDIO, HTTP, SSE support
+- 🛠️ **Comprehensive Tools** - Full scanner capabilities via JSON-RPC
+- 💾 **Smart Caching** - Automatic result persistence
 
-**Parameters:**
-- `file_path` (required): Path to the file to analyze
-- **Analysis flags** (all optional, default to false):
-  - `metadata`: Include file metadata (size, timestamps, permissions)
-  - `hashes`: Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)
-  - `strings`: Extract ASCII and Unicode strings
-  - `min_string_length`: Minimum string length (default: 4)
-  - `hex_dump`: Generate hex dump
-  - `hex_dump_size`: Hex dump size in bytes (default: 256)
-  - `hex_dump_offset`: Hex dump offset from start
-  - `binary_info`: Analyze binary format (PE/ELF/Mach-O)
-  - `signatures`: Verify digital signatures
-  - `symbols`: Analyze function symbols
-  - `control_flow`: Analyze control flow
-  - `vulnerabilities`: Detect vulnerabilities
-  - `code_quality`: Analyze code quality metrics
-  - `dependencies`: Analyze dependencies
-  - `entropy`: Analyze entropy patterns
-  - `disassembly`: Disassemble code
-  - `threats`: Detect threats and malware
-  - `behavioral`: Analyze behavioral patterns
-  - `yara_indicators`: Extract YARA rule indicators
-
-#### 2. `llm_analyze_file` - LLM-Optimized Analysis Tool
-A focused analysis tool designed for AI consumption with token limits (see CLAUDE.md for details)
-
-### Claude Code Configuration
-
-Add to your MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "file-scanner": {
-      "command": "./target/release/file-scanner",
-      "args": ["mcp-stdio"]
-    }
-  }
-}
-```
-
-## Example Output
+## 🧪 Example Output
 
 ```json
 {
   "file_path": "/usr/bin/ls",
-  "file_name": "ls",
   "file_size": 142848,
-  "created": "2024-01-15T10:30:00Z",
-  "modified": "2024-01-15T10:30:00Z",
-  "permissions": "755",
-  "is_executable": true,
   "mime_type": "application/x-elf",
   "hashes": {
     "md5": "d41d8cd98f00b204e9800998ecf8427e",
-    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sha512": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce",
-    "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "binary_info": {
     "format": "ELF",
     "architecture": "x86_64",
     "compiler": "GCC/GNU",
-    "entry_point": 16960,
-    "is_stripped": false,
-    "has_debug_info": true
+    "is_stripped": false
   }
 }
 ```
 
-## Test Programs
+## 🤝 Contributing
 
-The project includes comprehensive test programs in multiple compiled languages for testing detection capabilities:
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-### Supported Languages
-- **C** - Buffer overflows, format strings, anti-debugging
-- **C++** - Polymorphism, templates, advanced anti-analysis
-- **Go** - Goroutines, network operations, crypto mining simulation
-- **Rust** - Memory safety bypasses, unsafe operations
-- **Nim** - Compile-time obfuscation, metaprogramming
-- **D** - Template-based obfuscation, parallel processing
-- **Fortran** - Scientific computing patterns, resource exhaustion
-- **Pascal** - Classic techniques, Windows API simulation (partial)
-- **Ada** - Strong typing with malicious patterns (partial)
-
-### Compiling Test Programs
 ```bash
-cd test_programs
-./compile_all.sh  # Requires language compilers to be installed
+# Fork, clone, and create a feature branch
+git clone https://github.com/YOUR_USERNAME/file-scanner.git
+cd file-scanner
+git checkout -b feature/amazing-feature
+
+# Make changes and test
+cargo test
+cargo fmt
+cargo clippy
+
+# Submit a pull request
 ```
 
-### Installing Additional Compilers
-```bash
-# Ubuntu/Debian
-sudo apt-get install fpc           # Pascal
-sudo apt-get install gfortran      # Fortran
-sudo apt-get install gnat          # Ada
-sudo apt-get install gdc-13        # D Language
+## 🔒 Security
 
-# Nim (via choosenim)
-curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
-export PATH=$HOME/.nimble/bin:$PATH
-```
+For security concerns, please see our [Security Policy](SECURITY.md) or email security@threatflux.com.
 
-## Requirements
+## 🗺️ Roadmap
 
-- Rust 1.87.0 or later
-- Optional: osslsigncode (for Authenticode verification)
-- Optional: gpg (for GPG signature verification)
-- Optional: codesign (for macOS signature verification on macOS)
-- Optional: Language compilers for test programs (see above)
+See our [detailed roadmap](docs/ROADMAP.md) for planned features:
+
+- **Q1 2025** - PE advanced analysis, YARA rule generation
+- **Q2 2025** - ML classification, distributed scanning
+- **Q3 2025** - Real-time monitoring, VirusTotal integration
+- **Q4 2025** - Custom rules, sandbox integration
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**[⬆ back to top](#-file-scanner)**
+
+Made with ❤️ by [ThreatFlux](https://github.com/ThreatFlux)
+
+[Report Bug](https://github.com/ThreatFlux/file-scanner/issues) • [Request Feature](https://github.com/ThreatFlux/file-scanner/issues)
+
+</div>

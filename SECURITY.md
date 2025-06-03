@@ -11,11 +11,11 @@ We release patches for security vulnerabilities. Which versions are eligible for
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities by creating a [security advisory](https://github.com/vtriple/file-scanner/security/advisories/new) in this repository.
+Please report security vulnerabilities by creating a [security advisory](https://github.com/ThreatFlux/file-scanner/security/advisories/new) in this repository.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-If you prefer to submit via email, please send your report to the repository maintainers. 
+If you prefer to submit via email, please send your report to security@threatflux.com. 
 
 ### What to Include
 
