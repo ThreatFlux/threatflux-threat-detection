@@ -485,14 +485,14 @@ mod tests {
             assert!(result.is_ok());
 
             let info = result.unwrap();
-            
+
             // Check platform-specific format
             #[cfg(target_os = "linux")]
             assert_eq!(info.format, "ELF");
-            
+
             #[cfg(target_os = "macos")]
             assert_eq!(info.format, "Mach-O");
-            
+
             assert!(!info.imports.is_empty()); // ls should have imports
             assert!(info.entry_point.is_some());
         }
