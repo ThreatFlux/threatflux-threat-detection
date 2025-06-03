@@ -778,6 +778,7 @@ mod tests {
         Ok((temp_dir, file_path))
     }
 
+    #[allow(dead_code)]
     fn create_test_elf_file() -> Result<(TempDir, std::path::PathBuf), std::io::Error> {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test_elf");
