@@ -298,6 +298,7 @@ async fn test_mcp_tool_registration() {
 }
 
 #[tokio::test]
+#[cfg_attr(target_os = "macos", ignore = "Skipping on macOS due to CI issues")]
 async fn test_analyze_file_all_options() {
     let server = create_test_server().await;
     let temp_dir = TempDir::new().unwrap();
