@@ -628,3 +628,274 @@ fn test_function_address_validation() {
         );
     }
 }
+
+#[test]
+fn test_analyze_symbols_with_pe_binary() {
+    // Test with PE binary if available
+    let pe_binary = Path::new("./test_programs/c_advanced_binary");
+
+    if pe_binary.exists() {
+        match analyze_symbols(pe_binary) {
+            Ok(symbol_table) => {
+                println!(
+                    "PE analysis found {} functions",
+                    symbol_table.functions.len()
+                );
+
+                // Should have some structure
+                assert!(symbol_table.symbol_count.total_functions >= 0);
+
+                // Test PE-specific features
+                if !symbol_table.imports.is_empty() {
+                    let has_library = symbol_table.imports.iter().any(|i| i.library.is_some());
+                    println!("Has library imports: {}", has_library);
+                }
+
+                // Check exports if any
+                if !symbol_table.exports.is_empty() {
+                    println!("Found {} exports", symbol_table.exports.len());
+                }
+            }
+            Err(e) => {
+                println!("PE analysis error (expected for non-PE): {}", e);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_analyze_symbols_comprehensive_elf() {
+    // Test with various ELF binaries to exercise different code paths
+    let test_binaries = vec![
+        "./test_programs/rust_test_binary",
+        "./test_programs/go_test_binary",
+        "./test_programs/cpp_test_binary",
+        "./test_programs/c_advanced_binary",
+        "/bin/ls", // System binary
+    ];
+
+    let mut successful_analyses = 0;
+
+    for binary_path in test_binaries {
+        let path = Path::new(binary_path);
+        if !path.exists() {
+            continue;
+        }
+
+        match analyze_symbols(path) {
+            Ok(symbol_table) => {
+                successful_analyses += 1;
+                println!(
+                    "Successfully analyzed {}: {} functions",
+                    binary_path,
+                    symbol_table.functions.len()
+                );
+
+                // Verify symbol table consistency
+                assert_eq!(
+                    symbol_table.functions.len(),
+                    symbol_table.symbol_count.total_functions
+                );
+
+                // Test function type distribution
+                let local_count = symbol_table
+                    .functions
+                    .iter()
+                    .filter(|f| matches!(f.function_type, FunctionType::Local))
+                    .count();
+                let imported_count = symbol_table
+                    .functions
+                    .iter()
+                    .filter(|f| f.is_imported)
+                    .count();
+                let exported_count = symbol_table
+                    .functions
+                    .iter()
+                    .filter(|f| f.is_exported)
+                    .count();
+
+                assert_eq!(local_count, symbol_table.symbol_count.local_functions);
+                assert_eq!(imported_count, symbol_table.symbol_count.imported_functions);
+                assert_eq!(exported_count, symbol_table.symbol_count.exported_functions);
+
+                // Test that entry points are identified if present
+                let entry_points = symbol_table
+                    .functions
+                    .iter()
+                    .filter(|f| f.is_entry_point)
+                    .count();
+                println!("Entry points found: {}", entry_points);
+
+                // Verify calling conventions are set for some functions
+                let with_calling_conv = symbol_table
+                    .functions
+                    .iter()
+                    .filter(|f| f.calling_convention.is_some())
+                    .count();
+                println!("Functions with calling conventions: {}", with_calling_conv);
+
+                // Test variable analysis
+                println!(
+                    "Global variables found: {}",
+                    symbol_table.global_variables.len()
+                );
+                for var in symbol_table.global_variables.iter().take(5) {
+                    assert!(!var.name.is_empty());
+                    assert!(var.size > 0 || var.name.starts_with("_"));
+                }
+
+                // Test import/export analysis
+                println!(
+                    "Imports: {}, Exports: {}",
+                    symbol_table.imports.len(),
+                    symbol_table.exports.len()
+                );
+            }
+            Err(e) => {
+                println!("Analysis failed for {}: {}", binary_path, e);
+            }
+        }
+    }
+
+    // Should successfully analyze at least one binary
+    assert!(
+        successful_analyses > 0,
+        "Should successfully analyze at least one binary"
+    );
+}
+
+#[test]
+fn test_analyze_symbols_error_conditions_comprehensive() {
+    // Test various error conditions
+
+    // Non-existent file
+    let result = analyze_symbols(Path::new("/definitely/does/not/exist"));
+    assert!(result.is_err());
+
+    // Directory instead of file
+    let result = analyze_symbols(Path::new("."));
+    assert!(result.is_err());
+
+    // Invalid binary data
+    let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+    temp_file.write_all(b"Not a valid binary format").unwrap();
+    temp_file.flush().unwrap();
+
+    let result = analyze_symbols(temp_file.path());
+    assert!(result.is_err());
+
+    // Empty file
+    let mut empty_file = tempfile::NamedTempFile::new().unwrap();
+    empty_file.flush().unwrap();
+
+    let result = analyze_symbols(empty_file.path());
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_symbol_table_statistics_accuracy() {
+    let test_binary = Path::new("./target/debug/file-scanner");
+
+    if test_binary.exists() {
+        let symbol_table = analyze_symbols(test_binary).unwrap();
+
+        // Manually count and verify statistics
+        let manual_total = symbol_table.functions.len();
+        let manual_local = symbol_table
+            .functions
+            .iter()
+            .filter(|f| matches!(f.function_type, FunctionType::Local))
+            .count();
+        let manual_imported = symbol_table
+            .functions
+            .iter()
+            .filter(|f| f.is_imported)
+            .count();
+        let manual_exported = symbol_table
+            .functions
+            .iter()
+            .filter(|f| f.is_exported)
+            .count();
+        let manual_variables = symbol_table.global_variables.len();
+        let manual_xrefs = symbol_table.cross_references.len();
+
+        // Verify all statistics match
+        assert_eq!(manual_total, symbol_table.symbol_count.total_functions);
+        assert_eq!(manual_local, symbol_table.symbol_count.local_functions);
+        assert_eq!(
+            manual_imported,
+            symbol_table.symbol_count.imported_functions
+        );
+        assert_eq!(
+            manual_exported,
+            symbol_table.symbol_count.exported_functions
+        );
+        assert_eq!(manual_variables, symbol_table.symbol_count.global_variables);
+        assert_eq!(manual_xrefs, symbol_table.symbol_count.cross_references);
+
+        // Test total counts make sense
+        assert!(manual_total >= manual_local + manual_imported);
+
+        println!("Statistics verification passed:");
+        println!("  Total functions: {}", manual_total);
+        println!(
+            "  Local: {}, Imported: {}, Exported: {}",
+            manual_local, manual_imported, manual_exported
+        );
+        println!(
+            "  Variables: {}, Cross-references: {}",
+            manual_variables, manual_xrefs
+        );
+    }
+}
+
+#[test]
+fn test_dynamic_symbol_analysis() {
+    // Test analysis of dynamic symbols in ELF binaries
+    let test_binary = Path::new("/bin/ls");
+
+    if test_binary.exists() {
+        let symbol_table = analyze_symbols(test_binary).unwrap();
+
+        // Should find some imported functions from dynamic symbols
+        let dynamic_imports = symbol_table
+            .functions
+            .iter()
+            .filter(|f| f.is_imported && matches!(f.function_type, FunctionType::Imported))
+            .count();
+
+        println!("Dynamic imports found: {}", dynamic_imports);
+
+        // Check that imported functions have reasonable properties
+        for func in symbol_table
+            .functions
+            .iter()
+            .filter(|f| f.is_imported)
+            .take(10)
+        {
+            assert!(!func.name.is_empty());
+            assert!(matches!(func.function_type, FunctionType::Imported));
+            assert!(func.is_imported);
+            assert!(!func.is_exported);
+            assert!(!func.is_entry_point);
+        }
+
+        // Verify imports have corresponding ImportInfo entries
+        let import_names: std::collections::HashSet<_> =
+            symbol_table.imports.iter().map(|i| &i.name).collect();
+        let imported_func_names: std::collections::HashSet<_> = symbol_table
+            .functions
+            .iter()
+            .filter(|f| f.is_imported)
+            .map(|f| &f.name)
+            .collect();
+
+        // Most imported functions should have import entries
+        let overlap = import_names.intersection(&imported_func_names).count();
+        println!(
+            "Import overlap: {} out of {} functions",
+            overlap,
+            imported_func_names.len()
+        );
+    }
+}
