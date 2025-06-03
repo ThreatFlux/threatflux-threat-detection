@@ -1374,7 +1374,7 @@ dependencies = [
  "predicates",
  "pretty_assertions",
  "proptest",
- "rand 0.8.5",
+ "rand 0.9.1",
  "regex",
  "reqwest",
  "ring",
