@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use file_scanner::binary_parser::parse_binary;
 use file_scanner::strings::extract_strings;

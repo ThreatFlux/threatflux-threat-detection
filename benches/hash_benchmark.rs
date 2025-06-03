@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use file_scanner::hash::{calculate_all_hashes, calculate_md5};
 use std::fs;
