@@ -1,5 +1,7 @@
 use anyhow::Result;
+use goblin::Object;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::Path;
 use std::process::Command;
 
@@ -35,10 +37,20 @@ pub fn verify_signature(path: &Path) -> Result<SignatureInfo> {
         return Ok(gpg_info);
     }
 
-    // Check for macOS code signatures
+    // Check for macOS code signatures (only for Mach-O binaries)
     if cfg!(target_os = "macos") {
-        if let Ok(codesign_info) = check_macos_codesign(path) {
-            return Ok(codesign_info);
+        // Only check codesign for Mach-O binaries
+        if let Ok(buffer) = fs::read(path) {
+            match Object::parse(&buffer) {
+                Ok(Object::Mach(_)) => {
+                    if let Ok(codesign_info) = check_macos_codesign(path) {
+                        return Ok(codesign_info);
+                    }
+                }
+                _ => {
+                    // Not a Mach-O binary, skip macOS codesign check
+                }
+            }
         }
     }
 
