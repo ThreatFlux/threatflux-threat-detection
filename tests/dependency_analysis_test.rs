@@ -1,5 +1,5 @@
 use file_scanner::dependency_analysis::*;
-use file_scanner::function_analysis::{SymbolTable, SymbolCounts, ImportInfo, analyze_symbols};
+use file_scanner::function_analysis::{analyze_symbols, ImportInfo, SymbolCounts, SymbolTable};
 use file_scanner::strings::ExtractedStrings;
 use std::collections::HashMap;
 use std::path::Path;
@@ -44,7 +44,7 @@ fn test_analyze_dependencies_basic() {
             cross_references: 0,
         },
     };
-    
+
     // Create mock extracted strings
     let extracted_strings = ExtractedStrings {
         total_count: 4,
@@ -58,20 +58,34 @@ fn test_analyze_dependencies_basic() {
         unicode_strings: vec![],
         interesting_strings: vec![],
     };
-    
-    let result = analyze_dependencies(Path::new("/fake/path"), &symbol_table, Some(&extracted_strings));
-    
+
+    let result = analyze_dependencies(
+        Path::new("/fake/path"),
+        &symbol_table,
+        Some(&extracted_strings),
+    );
+
     match result {
         Ok(analysis) => {
             // Check that we found dependencies
             assert!(analysis.dependencies.len() > 0);
-            
+
             // Verify we found some dependencies
-            println!("Found dependencies: {:?}", analysis.dependencies.iter().map(|d| &d.name).collect::<Vec<_>>());
-            
+            println!(
+                "Found dependencies: {:?}",
+                analysis
+                    .dependencies
+                    .iter()
+                    .map(|d| &d.name)
+                    .collect::<Vec<_>>()
+            );
+
             // Just check that we have dependencies
-            assert!(analysis.dependencies.len() > 0, "Should find at least one dependency");
-            
+            assert!(
+                analysis.dependencies.len() > 0,
+                "Should find at least one dependency"
+            );
+
             // Check dependency graph
             assert!(analysis.dependency_graph.total_dependencies > 0);
         }
@@ -98,17 +112,17 @@ fn test_vulnerability_severity_serialization() {
         VulnerabilitySeverity::Low,
         VulnerabilitySeverity::None,
     ];
-    
+
     for severity in severities {
         let serialized = serde_json::to_string(&severity).unwrap();
         let deserialized: VulnerabilitySeverity = serde_json::from_str(&serialized).unwrap();
-        
+
         match (severity, deserialized) {
-            (VulnerabilitySeverity::Critical, VulnerabilitySeverity::Critical) => {},
-            (VulnerabilitySeverity::High, VulnerabilitySeverity::High) => {},
-            (VulnerabilitySeverity::Medium, VulnerabilitySeverity::Medium) => {},
-            (VulnerabilitySeverity::Low, VulnerabilitySeverity::Low) => {},
-            (VulnerabilitySeverity::None, VulnerabilitySeverity::None) => {},
+            (VulnerabilitySeverity::Critical, VulnerabilitySeverity::Critical) => {}
+            (VulnerabilitySeverity::High, VulnerabilitySeverity::High) => {}
+            (VulnerabilitySeverity::Medium, VulnerabilitySeverity::Medium) => {}
+            (VulnerabilitySeverity::Low, VulnerabilitySeverity::Low) => {}
+            (VulnerabilitySeverity::None, VulnerabilitySeverity::None) => {}
             _ => panic!("Severity serialization mismatch"),
         }
     }
@@ -126,20 +140,20 @@ fn test_license_family_serialization() {
         LicenseFamily::PublicDomain,
         LicenseFamily::Unknown,
     ];
-    
+
     for family in families {
         let serialized = serde_json::to_string(&family).unwrap();
         let deserialized: LicenseFamily = serde_json::from_str(&serialized).unwrap();
-        
+
         match (family, deserialized) {
-            (LicenseFamily::Mit, LicenseFamily::Mit) => {},
-            (LicenseFamily::Apache, LicenseFamily::Apache) => {},
-            (LicenseFamily::Gpl, LicenseFamily::Gpl) => {},
-            (LicenseFamily::Lgpl, LicenseFamily::Lgpl) => {},
-            (LicenseFamily::Bsd, LicenseFamily::Bsd) => {},
-            (LicenseFamily::Proprietary, LicenseFamily::Proprietary) => {},
-            (LicenseFamily::PublicDomain, LicenseFamily::PublicDomain) => {},
-            (LicenseFamily::Unknown, LicenseFamily::Unknown) => {},
+            (LicenseFamily::Mit, LicenseFamily::Mit) => {}
+            (LicenseFamily::Apache, LicenseFamily::Apache) => {}
+            (LicenseFamily::Gpl, LicenseFamily::Gpl) => {}
+            (LicenseFamily::Lgpl, LicenseFamily::Lgpl) => {}
+            (LicenseFamily::Bsd, LicenseFamily::Bsd) => {}
+            (LicenseFamily::Proprietary, LicenseFamily::Proprietary) => {}
+            (LicenseFamily::PublicDomain, LicenseFamily::PublicDomain) => {}
+            (LicenseFamily::Unknown, LicenseFamily::Unknown) => {}
             _ => panic!("License family serialization mismatch"),
         }
     }
@@ -154,17 +168,17 @@ fn test_library_type_serialization() {
         LibraryType::RuntimeLibrary,
         LibraryType::Framework,
     ];
-    
+
     for lib_type in types {
         let serialized = serde_json::to_string(&lib_type).unwrap();
         let deserialized: LibraryType = serde_json::from_str(&serialized).unwrap();
-        
+
         match (lib_type, deserialized) {
-            (LibraryType::StaticLibrary, LibraryType::StaticLibrary) => {},
-            (LibraryType::DynamicLibrary, LibraryType::DynamicLibrary) => {},
-            (LibraryType::SystemLibrary, LibraryType::SystemLibrary) => {},
-            (LibraryType::RuntimeLibrary, LibraryType::RuntimeLibrary) => {},
-            (LibraryType::Framework, LibraryType::Framework) => {},
+            (LibraryType::StaticLibrary, LibraryType::StaticLibrary) => {}
+            (LibraryType::DynamicLibrary, LibraryType::DynamicLibrary) => {}
+            (LibraryType::SystemLibrary, LibraryType::SystemLibrary) => {}
+            (LibraryType::RuntimeLibrary, LibraryType::RuntimeLibrary) => {}
+            (LibraryType::Framework, LibraryType::Framework) => {}
             _ => panic!("Library type serialization mismatch"),
         }
     }
@@ -174,8 +188,11 @@ fn test_library_type_serialization() {
 fn test_dependency_graph_creation() {
     let deps = vec!["libc.so.6", "libm.so.6"];
     let mut transitive = HashMap::new();
-    transitive.insert("app".to_string(), deps.iter().map(|s| s.to_string()).collect());
-    
+    transitive.insert(
+        "app".to_string(),
+        deps.iter().map(|s| s.to_string()).collect(),
+    );
+
     let graph = DependencyGraph {
         direct_dependencies: deps.iter().map(|s| s.to_string()).collect(),
         transitive_dependencies: transitive.clone(),
@@ -183,7 +200,7 @@ fn test_dependency_graph_creation() {
         dependency_depth: 1,
         total_dependencies: 2,
     };
-    
+
     assert_eq!(graph.direct_dependencies.len(), 2);
     assert_eq!(graph.total_dependencies, 2);
     assert_eq!(graph.dependency_depth, 1);
@@ -200,7 +217,7 @@ fn test_known_vulnerability_creation() {
         cvss_score: Some(7.5),
         published_date: Some("2021-01-01".to_string()),
     };
-    
+
     assert_eq!(vuln.cve_id, "CVE-2021-12345");
     assert!(matches!(vuln.severity, VulnerabilitySeverity::High));
     assert_eq!(vuln.cvss_score, Some(7.5));
@@ -216,7 +233,7 @@ fn test_license_info_creation() {
         is_commercial_friendly: true,
         attribution_required: true,
     };
-    
+
     assert_eq!(license.license_type, "MIT License");
     assert!(matches!(license.license_family, LicenseFamily::Mit));
     assert!(license.is_oss);
@@ -238,7 +255,7 @@ fn test_dependency_info_creation() {
         is_system_library: true,
         imported_functions: vec!["malloc".to_string(), "free".to_string()],
     };
-    
+
     assert_eq!(dep.name, "libc");
     assert_eq!(dep.version, Some("2.31".to_string()));
     assert!(matches!(dep.library_type, LibraryType::SystemLibrary));
@@ -250,7 +267,7 @@ fn test_dependency_info_creation() {
 fn test_analyze_dependencies_with_real_binary() {
     // Try with the test binary if it exists
     let test_binary = Path::new("./target/debug/file-scanner");
-    
+
     if test_binary.exists() {
         // Get function analysis first
         match analyze_symbols(test_binary) {
@@ -263,13 +280,15 @@ fn test_analyze_dependencies_with_real_binary() {
                     unicode_strings: vec![],
                     interesting_strings: vec![],
                 };
-                
+
                 match analyze_dependencies(test_binary, &symbol_table, Some(&strings)) {
                     Ok(dep_analysis) => {
                         println!("Found {} dependencies", dep_analysis.dependencies.len());
-                        
+
                         // Should find at least some system libraries
-                        let system_libs = dep_analysis.dependencies.iter()
+                        let system_libs = dep_analysis
+                            .dependencies
+                            .iter()
                             .filter(|d| d.is_system_library)
                             .count();
                         assert!(system_libs > 0, "Should find at least one system library");

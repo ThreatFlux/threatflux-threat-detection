@@ -1,16 +1,16 @@
+use file_scanner::cache::AnalysisCache;
+use file_scanner::mcp_server::FileScannerMcp;
 use file_scanner::mcp_transport::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, McpServerState, McpTransportServer, SseEvent,
     SseQuery,
 };
-use file_scanner::cache::{AnalysisCache, CacheSearchQuery};
-use file_scanner::mcp_server::FileScannerMcp;
-use file_scanner::string_tracker::{StringFilter, StringTracker};
-use serde_json::{json, Value};
+use file_scanner::string_tracker::StringTracker;
+use futures_util::future;
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
-use tokio::sync::mpsc;
 
 // Helper function to create a test server state
 fn create_test_state() -> McpServerState {
@@ -52,7 +52,10 @@ async fn test_http_sse_transport_setup() {
     let methods = vec![
         ("initialize", None),
         ("tools/list", None),
-        ("tools/call", Some(json!({"name": "analyze_file", "arguments": {"file_path": "/tmp/nonexistent"}}))),
+        (
+            "tools/call",
+            Some(json!({"name": "analyze_file", "arguments": {"file_path": "/tmp/nonexistent"}})),
+        ),
         ("unknown_method", None),
     ];
 
@@ -66,7 +69,7 @@ async fn test_http_sse_transport_setup() {
 
         let response = server.handle_jsonrpc_request(request).await;
         assert_eq!(response.jsonrpc, "2.0");
-        
+
         if method == "unknown_method" {
             assert!(response.error.is_some());
         } else {
@@ -127,13 +130,12 @@ async fn test_tool_call_llm_analyze_file_comprehensive() {
     let server = create_test_transport_server();
     let temp_dir = TempDir::new().unwrap();
     let test_file = temp_dir.path().join("llm_test.bin");
-    
+
     // Create a small binary file
     let binary_content = vec![
         0x7f, 0x45, 0x4c, 0x46, // ELF magic
-        0x02, 0x01, 0x01, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x02, 0x00, 0x3e, 0x00, // ELF header continuation
+        0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x3e,
+        0x00, // ELF header continuation
     ];
     fs::write(&test_file, &binary_content).unwrap();
 
@@ -204,7 +206,7 @@ async fn test_error_handling_edge_cases() {
     let response = server.handle_jsonrpc_request(request_unknown_tool).await;
     assert_eq!(response.jsonrpc, "2.0");
     assert!(response.result.is_some());
-    
+
     // Check that the result contains an error message about unknown tool
     if let Some(result) = response.result {
         let content = result.get("content").unwrap().as_array().unwrap();
@@ -266,7 +268,7 @@ async fn test_json_rpc_structures_comprehensive() {
     // Serialize and deserialize to test serde
     let serialized = serde_json::to_string(&full_request).unwrap();
     let deserialized: JsonRpcRequest = serde_json::from_str(&serialized).unwrap();
-    
+
     assert_eq!(full_request.jsonrpc, deserialized.jsonrpc);
     assert_eq!(full_request.id, deserialized.id);
     assert_eq!(full_request.method, deserialized.method);
@@ -286,7 +288,7 @@ async fn test_json_rpc_structures_comprehensive() {
 
     let serialized = serde_json::to_string(&error_response).unwrap();
     let deserialized: JsonRpcResponse = serde_json::from_str(&serialized).unwrap();
-    
+
     assert_eq!(error_response.jsonrpc, deserialized.jsonrpc);
     assert_eq!(error_response.id, deserialized.id);
     assert!(deserialized.result.is_none());
@@ -303,7 +305,7 @@ async fn test_default_implementations() {
     // Test McpTransportServer default implementation
     let default_server = McpTransportServer::default();
     let new_server = McpTransportServer::new();
-    
+
     // Both should be able to handle basic requests
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
@@ -322,17 +324,13 @@ async fn test_default_implementations() {
 
 #[tokio::test]
 async fn test_server_state_functionality() {
-    let state = create_test_state();
-    
+    let _state = create_test_state();
+
     // Test that the state has the expected components
     // We can't directly test private fields, but we can test behavior
-    
+
     // Create a simple analyze_file request through the transport
-    let server = McpTransportServer {
-        handler: state.handler.clone(),
-        cache: state.cache.clone(),
-        string_tracker: state.string_tracker.clone(),
-    };
+    let server = create_test_transport_server();
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
@@ -376,7 +374,7 @@ async fn test_caching_integration() {
         id: Some(json!(2)),
         method: "tools/call".to_string(),
         params: Some(json!({
-            "name": "analyze_file", 
+            "name": "analyze_file",
             "arguments": {
                 "file_path": test_file.to_str().unwrap(),
                 "metadata": true,
@@ -394,7 +392,11 @@ async fn test_string_tracking_integration() {
     let server = create_test_transport_server();
     let temp_dir = TempDir::new().unwrap();
     let test_file = temp_dir.path().join("strings_test.txt");
-    fs::write(&test_file, b"Test string content with URLs like https://example.com and paths /usr/bin/test").unwrap();
+    fs::write(
+        &test_file,
+        b"Test string content with URLs like https://example.com and paths /usr/bin/test",
+    )
+    .unwrap();
 
     // Analyze file with string extraction
     let request = JsonRpcRequest {
@@ -442,7 +444,7 @@ async fn test_error_scenarios_comprehensive() {
 
     let response = server.handle_jsonrpc_request(invalid_file_request).await;
     assert!(response.result.is_some());
-    
+
     // Should contain error information in the result
     if let Some(result) = response.result {
         let content = result.get("content").unwrap().as_array().unwrap();
@@ -473,7 +475,7 @@ async fn test_error_scenarios_comprehensive() {
 async fn test_concurrent_requests() {
     let server = Arc::new(create_test_transport_server());
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create multiple test files
     let mut files = Vec::new();
     for i in 0..5 {
@@ -487,7 +489,7 @@ async fn test_concurrent_requests() {
     for (i, file) in files.iter().enumerate() {
         let server_clone = server.clone();
         let file_path = file.to_str().unwrap().to_string();
-        
+
         let handle = tokio::spawn(async move {
             let request = JsonRpcRequest {
                 jsonrpc: "2.0".to_string(),
@@ -505,13 +507,13 @@ async fn test_concurrent_requests() {
 
             server_clone.handle_jsonrpc_request(request).await
         });
-        
+
         handles.push(handle);
     }
 
     // Wait for all requests to complete
-    let results = futures::future::join_all(handles).await;
-    
+    let results = future::join_all(handles).await;
+
     // Verify all requests succeeded
     for result in results {
         let response = result.unwrap();
@@ -557,7 +559,12 @@ async fn test_memory_management() {
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: Some(json!(i)),
-            method: if i % 2 == 0 { "initialize" } else { "tools/list" }.to_string(),
+            method: if i % 2 == 0 {
+                "initialize"
+            } else {
+                "tools/list"
+            }
+            .to_string(),
             params: None,
         };
 
@@ -572,7 +579,7 @@ async fn test_large_request_handling() {
     let server = create_test_transport_server();
     let temp_dir = TempDir::new().unwrap();
     let test_file = temp_dir.path().join("large_test.txt");
-    
+
     // Create a larger test file
     let large_content = "Large test content with many repeated patterns. ".repeat(1000);
     fs::write(&test_file, large_content.as_bytes()).unwrap();

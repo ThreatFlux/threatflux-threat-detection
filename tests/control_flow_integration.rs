@@ -1,27 +1,27 @@
 use file_scanner::control_flow::{analyze_control_flow, ControlFlowAnalyzer};
 use file_scanner::function_analysis::{analyze_symbols, FunctionInfo, FunctionType, SymbolTable};
+use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
-use std::io::Write;
 
 #[test]
 fn test_control_flow_analysis_on_real_binary() {
     // Use the test binary if it exists
     let test_binary_path = Path::new("./target/debug/file-scanner");
-    
+
     if test_binary_path.exists() {
         // First analyze symbols to get the symbol table
         let symbol_table = analyze_symbols(test_binary_path).unwrap();
-        
+
         // Then analyze control flow
         let result = analyze_control_flow(test_binary_path, &symbol_table);
-        
+
         match result {
             Ok(analysis) => {
                 // Verify we analyzed some functions
                 assert!(analysis.overall_metrics.total_functions > 0);
                 assert!(analysis.cfgs.len() > 0);
-                
+
                 // Check that we have basic blocks and edges
                 for cfg in &analysis.cfgs {
                     assert!(cfg.basic_blocks.len() > 0);
@@ -30,7 +30,10 @@ fn test_control_flow_analysis_on_real_binary() {
             }
             Err(e) => {
                 // It's okay if analysis fails on some binaries, but log the error
-                eprintln!("Control flow analysis failed (expected on some platforms): {}", e);
+                eprintln!(
+                    "Control flow analysis failed (expected on some platforms): {}",
+                    e
+                );
             }
         }
     }
@@ -61,12 +64,12 @@ fn test_control_flow_analyzer_with_simple_elf() {
         0x00, 0x00, // Section header count
         0x00, 0x00, // Section name string table index
     ];
-    
+
     // Add padding to reach program header offset (0x40)
     while elf_data.len() < 0x40 {
         elf_data.push(0x00);
     }
-    
+
     // Program header
     elf_data.extend_from_slice(&[
         0x01, 0x00, 0x00, 0x00, // PT_LOAD
@@ -78,28 +81,28 @@ fn test_control_flow_analyzer_with_simple_elf() {
         0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Memory size
         0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Alignment
     ]);
-    
+
     // Simple x86-64 code at offset 0x1000
     while elf_data.len() < 0x1000 {
         elf_data.push(0x00);
     }
-    
+
     // Add some simple x86-64 instructions
     elf_data.extend_from_slice(&[
-        0x55,                   // push rbp
-        0x48, 0x89, 0xe5,       // mov rbp, rsp
+        0x55, // push rbp
+        0x48, 0x89, 0xe5, // mov rbp, rsp
         0x48, 0x83, 0xec, 0x10, // sub rsp, 0x10
         0xb8, 0x2a, 0x00, 0x00, 0x00, // mov eax, 42
         0x48, 0x83, 0xc4, 0x10, // add rsp, 0x10
-        0x5d,                   // pop rbp
-        0xc3,                   // ret
+        0x5d, // pop rbp
+        0xc3, // ret
     ]);
-    
+
     // Create test file
     let mut temp_file = NamedTempFile::new().unwrap();
     temp_file.write_all(&elf_data).unwrap();
     temp_file.flush().unwrap();
-    
+
     // Create a minimal symbol table
     let symbol_table = SymbolTable {
         functions: vec![FunctionInfo {
@@ -126,10 +129,10 @@ fn test_control_flow_analyzer_with_simple_elf() {
             cross_references: 0,
         },
     };
-    
+
     // Try to analyze control flow
     let result = analyze_control_flow(temp_file.path(), &symbol_table);
-    
+
     // Even if it fails, we're testing that the function executes
     match result {
         Ok(analysis) => {
@@ -166,7 +169,7 @@ fn test_analyze_control_flow_with_invalid_path() {
             cross_references: 0,
         },
     };
-    
+
     let result = analyze_control_flow(Path::new("/nonexistent/file"), &symbol_table);
     assert!(result.is_err());
 }
@@ -179,12 +182,12 @@ fn test_control_flow_with_example_binaries() {
         "./examples/binaries/rust_test_binary",
         "./examples/binaries/go_test_binary",
     ];
-    
+
     for path_str in example_paths {
         let path = Path::new(path_str);
         if path.exists() {
             println!("Testing control flow on {}", path_str);
-            
+
             // Get symbol table first
             match analyze_symbols(path) {
                 Ok(symbol_table) => {
@@ -192,10 +195,13 @@ fn test_control_flow_with_example_binaries() {
                     match analyze_control_flow(path, &symbol_table) {
                         Ok(cf_analysis) => {
                             println!("Successfully analyzed {} functions", cf_analysis.cfgs.len());
-                            
+
                             // Verify some metrics
-                            assert!(cf_analysis.overall_metrics.total_functions >= cf_analysis.overall_metrics.analyzed_functions);
-                            
+                            assert!(
+                                cf_analysis.overall_metrics.total_functions
+                                    >= cf_analysis.overall_metrics.analyzed_functions
+                            );
+
                             // Check individual CFGs
                             for cfg in &cf_analysis.cfgs {
                                 assert!(!cfg.function_name.is_empty());
