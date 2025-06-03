@@ -352,7 +352,7 @@ const BATCH_SIZE: usize = 100;
 for chunk in files.chunks(BATCH_SIZE) {
     let results = process_batch(chunk).await;
     save_results(results).await?;
-    
+
     // Clear caches between batches
     scanner.clear_cache();
 }

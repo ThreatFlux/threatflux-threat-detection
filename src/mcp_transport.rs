@@ -29,13 +29,15 @@ use crate::string_tracker::{StringFilter, StringTracker};
 #[derive(OpenApi)]
 #[openapi(
     paths(),
-    components(
-        schemas(JsonRpcRequest, JsonRpcResponse, JsonRpcError, CacheEntry, SseEvent, SseQuery)
-    ),
-    info(
-        title = "File Scanner MCP API",
-        version = "0.1.0"
-    )
+    components(schemas(
+        JsonRpcRequest,
+        JsonRpcResponse,
+        JsonRpcError,
+        CacheEntry,
+        SseEvent,
+        SseQuery
+    )),
+    info(title = "File Scanner MCP API", version = "0.1.0")
 )]
 struct ApiDoc;
 
@@ -800,26 +802,66 @@ async fn cors_middleware(
 // API information handlers
 async fn serve_openapi() -> Result<AxumJson<Value>, StatusCode> {
     let openapi = ApiDoc::openapi();
-    let openapi_json = serde_json::to_value(openapi).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let openapi_json =
+        serde_json::to_value(openapi).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(AxumJson(openapi_json))
 }
 
 async fn handle_api_info() -> Result<AxumJson<Value>, StatusCode> {
     let mut endpoints = HashMap::new();
-    endpoints.insert("/mcp".to_string(), "POST - Execute MCP JSON-RPC request".to_string());
+    endpoints.insert(
+        "/mcp".to_string(),
+        "POST - Execute MCP JSON-RPC request".to_string(),
+    );
     endpoints.insert("/health".to_string(), "GET - Health check".to_string());
-    endpoints.insert("/cache/stats".to_string(), "GET - Get cache statistics".to_string());
-    endpoints.insert("/cache/list".to_string(), "GET - List all cache entries".to_string());
-    endpoints.insert("/cache/search".to_string(), "POST - Search cache with query".to_string());
-    endpoints.insert("/cache/clear".to_string(), "POST - Clear all cache entries".to_string());
-    endpoints.insert("/strings/stats".to_string(), "GET - Get string statistics".to_string());
-    endpoints.insert("/strings/search".to_string(), "POST - Search strings".to_string());
-    endpoints.insert("/strings/details".to_string(), "POST - Get string details".to_string());
-    endpoints.insert("/strings/related".to_string(), "POST - Find related strings".to_string());
-    endpoints.insert("/strings/filter".to_string(), "POST - Filter strings by criteria".to_string());
-    endpoints.insert("/docs".to_string(), "GET - Swagger UI documentation".to_string());
-    endpoints.insert("/redoc".to_string(), "GET - Redoc API documentation".to_string());
-    endpoints.insert("/api-docs/openapi.json".to_string(), "GET - OpenAPI 3.0 specification".to_string());
+    endpoints.insert(
+        "/cache/stats".to_string(),
+        "GET - Get cache statistics".to_string(),
+    );
+    endpoints.insert(
+        "/cache/list".to_string(),
+        "GET - List all cache entries".to_string(),
+    );
+    endpoints.insert(
+        "/cache/search".to_string(),
+        "POST - Search cache with query".to_string(),
+    );
+    endpoints.insert(
+        "/cache/clear".to_string(),
+        "POST - Clear all cache entries".to_string(),
+    );
+    endpoints.insert(
+        "/strings/stats".to_string(),
+        "GET - Get string statistics".to_string(),
+    );
+    endpoints.insert(
+        "/strings/search".to_string(),
+        "POST - Search strings".to_string(),
+    );
+    endpoints.insert(
+        "/strings/details".to_string(),
+        "POST - Get string details".to_string(),
+    );
+    endpoints.insert(
+        "/strings/related".to_string(),
+        "POST - Find related strings".to_string(),
+    );
+    endpoints.insert(
+        "/strings/filter".to_string(),
+        "POST - Filter strings by criteria".to_string(),
+    );
+    endpoints.insert(
+        "/docs".to_string(),
+        "GET - Swagger UI documentation".to_string(),
+    );
+    endpoints.insert(
+        "/redoc".to_string(),
+        "GET - Redoc API documentation".to_string(),
+    );
+    endpoints.insert(
+        "/api-docs/openapi.json".to_string(),
+        "GET - OpenAPI 3.0 specification".to_string(),
+    );
 
     Ok(AxumJson(json!({
         "name": "File Scanner MCP API",
@@ -864,9 +906,7 @@ async fn get_cache_stats(
     })))
 }
 
-async fn clear_cache(
-    State(state): State<McpServerState>,
-) -> Result<AxumJson<Value>, StatusCode> {
+async fn clear_cache(State(state): State<McpServerState>) -> Result<AxumJson<Value>, StatusCode> {
     match state.cache.clear().await {
         Ok(_) => Ok(AxumJson(json!({
             "status": "success",
@@ -1329,9 +1369,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let result = search_cache(State(state), AxumJson(query))
-            .await
-            .unwrap();
+        let result = search_cache(State(state), AxumJson(query)).await.unwrap();
         let value = result.0;
 
         let results = value.get("results").unwrap().as_array().unwrap();

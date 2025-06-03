@@ -64,6 +64,7 @@ File Scanner follows a modular, async-first architecture designed for:
 ### Main Entry Point (`main.rs`)
 
 Responsibilities:
+
 - CLI argument parsing with clap
 - Mode selection (scan vs MCP server)
 - Top-level error handling
@@ -98,6 +99,7 @@ pub struct FileMetadata {
 ```
 
 Key functions:
+
 - `extract_metadata()` - Gathers file system information
 - `detect_mime_type()` - MIME type detection
 - `format_permissions()` - Unix permission formatting
@@ -116,6 +118,7 @@ pub struct HashResult {
 ```
 
 Features:
+
 - Concurrent hash calculation using tokio
 - Streaming API for large files
 - Progress tracking support
@@ -144,6 +147,7 @@ pub enum StringCategory {
 ```
 
 Processing pipeline:
+
 1. Raw byte scanning
 2. Encoding detection (ASCII/UTF-16)
 3. Pattern matching for categorization
@@ -167,6 +171,7 @@ pub struct BinaryInfo {
 ```
 
 Supported formats:
+
 - PE (Windows executables)
 - ELF (Linux/Unix executables)
 - Mach-O (macOS executables)
@@ -213,6 +218,7 @@ pub struct CacheEntry {
 ```
 
 Features:
+
 - SHA256-based file identification
 - LRU eviction policy
 - Disk persistence
@@ -365,13 +371,13 @@ let results = futures::future::join_all(handles).await;
 pub enum ScannerError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Parse error: {0}")]
     Parse(String),
-    
+
     #[error("Analysis failed: {0}")]
     Analysis(String),
-    
+
     #[error("MCP error: {0}")]
     Mcp(#[from] MpcError),
 }

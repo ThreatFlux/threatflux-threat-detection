@@ -64,6 +64,7 @@ See [Installation Guide](docs/INSTALLATION.md) for detailed setup instructions.
 ## ✨ Core Capabilities
 
 ### File Analysis
+
 - 📁 **Metadata** - Size, timestamps, permissions, MIME types
 - 🔏 **Hashes** - MD5, SHA256, SHA512, BLAKE3
 - 📝 **Strings** - ASCII/Unicode extraction with categorization
@@ -72,6 +73,7 @@ See [Installation Guide](docs/INSTALLATION.md) for detailed setup instructions.
 - 🔢 **Hex Dumps** - Configurable header/footer/offset dumps
 
 ### Advanced Features
+
 - 🎭 **Behavioral Analysis** - Anti-debugging, evasion, persistence
 - 🕸️ **Call Graphs** - Function relationships, complexity metrics
 - 🚨 **Vulnerability Detection** - Buffer overflows, format strings
@@ -80,6 +82,7 @@ See [Installation Guide](docs/INSTALLATION.md) for detailed setup instructions.
 - 🔧 **Disassembly** - x86/x64 instruction analysis
 
 ### MCP Server
+
 - 🤖 **AI Integration** - Works with Claude, Cursor, and other MCP clients
 - 🚄 **Multiple Transports** - STDIO, HTTP, SSE support
 - 🛠️ **Comprehensive Tools** - Full scanner capabilities via JSON-RPC
@@ -115,6 +118,11 @@ git clone https://github.com/YOUR_USERNAME/file-scanner.git
 cd file-scanner
 git checkout -b feature/amazing-feature
 
+# Install pre-commit hooks (recommended for developers)
+# This ensures code quality checks run automatically before commits
+pip install pre-commit
+pre-commit install
+
 # Make changes and test
 cargo test
 cargo fmt
@@ -125,7 +133,7 @@ cargo clippy
 
 ## 🔒 Security
 
-For security concerns, please see our [Security Policy](SECURITY.md) or email security@threatflux.com.
+For security concerns, please see our [Security Policy](SECURITY.md) or email <security@threatflux.com>.
 
 ## 🗺️ Roadmap
 

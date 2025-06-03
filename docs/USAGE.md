@@ -335,7 +335,7 @@ file-scanner --all --format json suspicious.exe | \
 # Analyze malware family
 for sample in malware_family/*.exe; do
   file-scanner --all --format json "$sample"
-done | jq -s 'group_by(.binary_info.compiler) | 
+done | jq -s 'group_by(.binary_info.compiler) |
   map({compiler: .[0].binary_info.compiler, count: length})'
 
 # Extract common strings

@@ -18,12 +18,14 @@ A clear and concise description of any alternative solutions or features you've 
 
 **Use case**
 Describe specific use cases where this feature would be valuable:
+
 - Security analysis scenario
 - File investigation needs
 - Integration requirements
 
 **Proposed implementation**
 If you have ideas about how to implement this feature:
+
 - New CLI flags/options
 - API changes
 - Output format modifications

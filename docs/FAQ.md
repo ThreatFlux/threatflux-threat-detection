@@ -16,6 +16,7 @@
 ### What is File Scanner?
 
 File Scanner is a comprehensive file analysis tool written in Rust that provides:
+
 - Metadata extraction
 - Cryptographic hash calculation
 - String extraction and categorization
@@ -39,6 +40,7 @@ File Scanner is a comprehensive file analysis tool written in Rust that provides
 ### Is File Scanner suitable for production use?
 
 Yes! File Scanner is designed for production environments with:
+
 - Comprehensive error handling
 - Resource limits and timeouts
 - Memory-safe Rust implementation
@@ -48,6 +50,7 @@ Yes! File Scanner is designed for production environments with:
 ### What file types are supported?
 
 File Scanner can analyze any file type, with specialized support for:
+
 - **Executables**: PE (Windows), ELF (Linux), Mach-O (macOS)
 - **Archives**: Detection only (no extraction)
 - **Documents**: Basic metadata and strings
@@ -61,6 +64,7 @@ File Scanner can analyze any file type, with specialized support for:
 **Q: I get "error: package requires rustc 1.87.0"**
 
 A: Update Rust to the latest version:
+
 ```bash
 rustup update stable
 rustup default stable
@@ -71,6 +75,7 @@ rustup default stable
 **Q: Build fails with "pkg-config not found"**
 
 A: Install system dependencies:
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install pkg-config libssl-dev
@@ -87,6 +92,7 @@ sudo dnf install pkg-config openssl-devel
 **Q: "error: linker cc not found"**
 
 A: Install build tools:
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install build-essential
@@ -199,6 +205,7 @@ file-scanner huge.iso --stream-mode
 **Q: "Address already in use" error**
 
 A: Another process is using the port:
+
 ```bash
 # Find process using port
 lsof -i :3000
@@ -214,6 +221,7 @@ file-scanner mcp-http --port 3001
 **Q: "Command not found" in Claude Code**
 
 A: Use absolute path in configuration:
+
 ```json
 {
   "mcpServers": {
@@ -228,6 +236,7 @@ A: Use absolute path in configuration:
 ### MCP tools not showing up
 
 Check MCP server status:
+
 ```bash
 # Test with inspector
 npx @modelcontextprotocol/inspector file-scanner mcp-stdio
@@ -242,6 +251,7 @@ echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
 ### Is it safe to scan untrusted files?
 
 Yes, with precautions:
+
 - File Scanner never executes scanned files
 - Use resource limits for untrusted files
 - Run in a container or VM for isolation
@@ -257,6 +267,7 @@ docker run --rm -v /suspicious:/data:ro \
 ### Can File Scanner detect all malware?
 
 File Scanner provides indicators but is not a complete antivirus:
+
 - ✅ Detects suspicious patterns and strings
 - ✅ Identifies packed/encrypted sections
 - ✅ Finds known malicious APIs
@@ -269,6 +280,7 @@ Use alongside traditional AV tools.
 ### What about privacy?
 
 File Scanner:
+
 - ✅ Runs completely offline
 - ✅ No telemetry or data collection
 - ✅ No network connections (except MCP server mode)
@@ -292,6 +304,7 @@ sudo chown $USER:$USER file.bin
 ### "File not found" but file exists
 
 Common causes:
+
 - Relative vs absolute paths
 - Symbolic links
 - Special characters in filename
@@ -341,12 +354,13 @@ nice -n 19 file-scanner large.iso
 5. Update documentation
 
 Example:
+
 ```rust
 pub struct MyAnalyzer;
 
 impl Analyzer for MyAnalyzer {
     type Output = MyAnalysis;
-    
+
     async fn analyze(&self, data: &[u8]) -> Result<Self::Output> {
         // Implementation
     }
@@ -356,6 +370,7 @@ impl Analyzer for MyAnalyzer {
 ### How do I contribute?
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for details:
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -367,7 +382,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for details:
 - 📖 [Documentation](https://github.com/ThreatFlux/file-scanner/tree/main/docs)
 - 💬 [GitHub Discussions](https://github.com/ThreatFlux/file-scanner/discussions)
 - 🐛 [Issue Tracker](https://github.com/ThreatFlux/file-scanner/issues)
-- 📧 Email: support@threatflux.com
+- 📧 Email: <support@threatflux.com>
 - 💬 Discord: Coming soon!
 
 ## Still have questions?

@@ -6,11 +6,13 @@ This directory contains automated workflows for building, testing, and releasing
 
 ### 1. Release Workflow (`release.yml`)
 
-**Trigger**: 
+**Trigger**:
+
 - Git tags matching `v*` (e.g., `v1.0.0`, `v2.1.3`)
 - Manual dispatch with tag input
 
 **What it does**:
+
 - ✅ Creates a GitHub release with comprehensive release notes
 - 🏗️ Builds cross-platform binaries for 5 targets
 - 🐳 Builds and pushes multi-architecture Docker images
@@ -30,12 +32,14 @@ This directory contains automated workflows for building, testing, and releasing
 ### 2. Docker Workflow (`docker.yml`)
 
 **Trigger**:
+
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop`
 - Changes to source code, Cargo files, or Dockerfile
 - Manual dispatch
 
 **What it does**:
+
 - 🏗️ Builds Docker images for development
 - 🧪 Tests Docker functionality
 - 🔒 Performs security scanning
@@ -43,6 +47,7 @@ This directory contains automated workflows for building, testing, and releasing
 - 📦 Pushes to GitHub Container Registry
 
 **Image Tags**:
+
 - `dev` - Latest main branch
 - `main-<sha>` - Specific commit from main
 - `develop-<sha>` - Specific commit from develop
@@ -53,6 +58,7 @@ This directory contains automated workflows for building, testing, and releasing
 ### Creating a Release
 
 #### Method 1: Git Tag (Recommended)
+
 ```bash
 # Create and push a new tag
 git tag v1.0.0
@@ -67,6 +73,7 @@ git push origin v1.0.0
 ```
 
 #### Method 2: Manual Dispatch
+
 1. Go to Actions → Release → Run workflow
 2. Enter the tag name (e.g., `v1.0.0`)
 3. Click "Run workflow"
@@ -74,6 +81,7 @@ git push origin v1.0.0
 ### Using Released Assets
 
 #### Download Binaries
+
 ```bash
 # Linux AMD64
 wget https://github.com/owner/file-scanner/releases/download/v1.0.0/file-scanner-linux-amd64
@@ -88,6 +96,7 @@ chmod +x file-scanner-macos-amd64
 ```
 
 #### Docker Images
+
 ```bash
 # Production release
 docker pull ghcr.io/owner/file-scanner:v1.0.0
@@ -104,14 +113,18 @@ docker run --rm -v /path/to/files:/data ghcr.io/owner/file-scanner:v1.0.0 /data/
 ### Development Workflow
 
 #### Pull Request Testing
+
 When you create a PR:
+
 - Docker images are built but not pushed
 - All tests run automatically
 - Security scans are performed
 - Results show in PR checks
 
 #### Branch Development
+
 Pushing to `main` or `develop`:
+
 - Builds and pushes development Docker images
 - Performs full testing and security scanning
 - Images tagged with branch name and commit SHA
@@ -119,24 +132,28 @@ Pushing to `main` or `develop`:
 ## Workflow Features
 
 ### 🚀 Performance Optimizations
+
 - **Caching**: Cargo registry and target directories cached
 - **Parallel Builds**: Matrix strategy for multiple platforms
 - **Multi-stage Docker**: Optimized image layers
 - **Build Cache**: Docker buildx cache for faster builds
 
 ### 🔒 Security Features
+
 - **Vulnerability Scanning**: Trivy scans all Docker images
 - **SARIF Upload**: Results integrated with GitHub Security tab
 - **Pinned Actions**: All actions pinned to specific SHA for security
 - **Minimal Permissions**: Each job has minimal required permissions
 
 ### 🧪 Quality Assurance
+
 - **Binary Testing**: Each binary tested for basic functionality
 - **Docker Testing**: Container functionality validated
 - **Cross-compilation**: ARM64 builds tested on x86_64
 - **Format Validation**: JSON/YAML output tested
 
 ### 📦 Release Automation
+
 - **Semantic Versioning**: Automatic semver tag parsing
 - **Release Notes**: Auto-generated with features and usage
 - **Asset Organization**: Consistent naming and organization
@@ -147,6 +164,7 @@ Pushing to `main` or `develop`:
 ### Common Issues
 
 #### Build Failures
+
 ```bash
 # Check build logs in GitHub Actions
 # Common fixes:
@@ -156,6 +174,7 @@ Pushing to `main` or `develop`:
 ```
 
 #### Docker Build Issues
+
 ```bash
 # Test locally:
 docker build -t test-build .
@@ -168,6 +187,7 @@ docker run --rm test-build --version
 ```
 
 #### Release Asset Missing
+
 ```bash
 # Check if:
 - Tag format is correct (v*.*.*)
@@ -191,19 +211,23 @@ docker buildx build --platform linux/amd64,linux/arm64 .
 ## Configuration
 
 ### Required Secrets
+
 - `GITHUB_TOKEN` - Automatically provided by GitHub
 
 ### Required Permissions
+
 - `contents: write` - For creating releases
 - `packages: write` - For pushing to GHCR
 
 ### Environment Variables
+
 - `CARGO_TERM_COLOR: always` - Colorized cargo output
 - `RUST_BACKTRACE: 1` - Debug information on build failures
 
 ## Maintenance
 
 ### Updating Actions
+
 All actions are pinned to specific SHAs. To update:
 
 1. Check for newer versions on GitHub Marketplace
@@ -211,6 +235,7 @@ All actions are pinned to specific SHAs. To update:
 3. Test thoroughly before merging
 
 ### Adding New Platforms
+
 To add a new build target:
 
 1. Add to matrix in `release.yml`
@@ -219,6 +244,7 @@ To add a new build target:
 4. Update documentation
 
 ### Customizing Release Notes
+
 Edit the release body template in `release.yml` under the "Create Release" step.
 
 ## Security Considerations
@@ -232,6 +258,7 @@ Edit the release body template in `release.yml` under the "Create Release" step.
 ## Monitoring
 
 Check workflow status:
+
 - GitHub Actions tab for real-time status
 - Security tab for vulnerability reports
 - Packages tab for container registry
