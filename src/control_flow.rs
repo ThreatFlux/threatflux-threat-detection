@@ -153,7 +153,7 @@ pub struct AnalysisStats {
 }
 
 pub struct ControlFlowAnalyzer {
-    capstone: Capstone,
+    pub capstone: Capstone,
 }
 
 impl ControlFlowAnalyzer {
@@ -268,7 +268,7 @@ impl ControlFlowAnalyzer {
         })
     }
 
-    fn analyze_function(
+    pub fn analyze_function(
         &self,
         function: &FunctionInfo,
         function_bytes: &[u8],
@@ -311,7 +311,11 @@ impl ControlFlowAnalyzer {
         })
     }
 
-    fn disassemble_function(&self, bytes: &[u8], base_address: u64) -> Result<Vec<Instruction>> {
+    pub fn disassemble_function(
+        &self,
+        bytes: &[u8],
+        base_address: u64,
+    ) -> Result<Vec<Instruction>> {
         let instructions = self
             .capstone
             .disasm_all(bytes, base_address)
@@ -337,7 +341,7 @@ impl ControlFlowAnalyzer {
         Ok(result)
     }
 
-    fn classify_instruction(&self, insn: &capstone::Insn) -> InstructionType {
+    pub fn classify_instruction(&self, insn: &capstone::Insn) -> InstructionType {
         let mnemonic = insn.mnemonic().unwrap_or("");
 
         match mnemonic {
@@ -375,7 +379,7 @@ impl ControlFlowAnalyzer {
         }
     }
 
-    fn analyze_flow_control(&self, insn: &capstone::Insn) -> FlowControl {
+    pub fn analyze_flow_control(&self, insn: &capstone::Insn) -> FlowControl {
         let mnemonic = insn.mnemonic().unwrap_or("");
 
         match mnemonic {
@@ -422,7 +426,7 @@ impl ControlFlowAnalyzer {
         }
     }
 
-    fn find_basic_block_boundaries(&self, instructions: &[Instruction]) -> HashSet<u64> {
+    pub fn find_basic_block_boundaries(&self, instructions: &[Instruction]) -> HashSet<u64> {
         let mut boundaries = HashSet::new();
 
         // First instruction is always a boundary
@@ -458,7 +462,7 @@ impl ControlFlowAnalyzer {
         boundaries
     }
 
-    fn create_basic_blocks(
+    pub fn create_basic_blocks(
         &self,
         instructions: &[Instruction],
         boundaries: &HashSet<u64>,
@@ -544,7 +548,7 @@ impl ControlFlowAnalyzer {
         basic_blocks
     }
 
-    fn determine_block_type(&self, instructions: &[Instruction]) -> BlockType {
+    pub fn determine_block_type(&self, instructions: &[Instruction]) -> BlockType {
         if let Some(last_insn) = instructions.last() {
             match &last_insn.flow_control {
                 FlowControl::Return => BlockType::Return,
@@ -557,7 +561,7 @@ impl ControlFlowAnalyzer {
         }
     }
 
-    fn build_control_flow_edges(&self, basic_blocks: &[BasicBlock]) -> Vec<CfgEdge> {
+    pub fn build_control_flow_edges(&self, basic_blocks: &[BasicBlock]) -> Vec<CfgEdge> {
         let mut edges = Vec::new();
 
         // Create address to block ID mapping
@@ -639,7 +643,7 @@ impl ControlFlowAnalyzer {
         edges
     }
 
-    fn detect_loops(&self, _basic_blocks: &[BasicBlock], edges: &[CfgEdge]) -> Vec<Loop> {
+    pub fn detect_loops(&self, _basic_blocks: &[BasicBlock], edges: &[CfgEdge]) -> Vec<Loop> {
         let mut loops = Vec::new();
 
         // Simple back-edge detection for natural loops
@@ -659,7 +663,7 @@ impl ControlFlowAnalyzer {
         loops
     }
 
-    fn calculate_complexity_metrics(
+    pub fn calculate_complexity_metrics(
         &self,
         basic_blocks: &[BasicBlock],
         edges: &[CfgEdge],
@@ -693,7 +697,7 @@ impl ControlFlowAnalyzer {
         }
     }
 
-    fn calculate_cognitive_complexity(&self, basic_blocks: &[BasicBlock]) -> u32 {
+    pub fn calculate_cognitive_complexity(&self, basic_blocks: &[BasicBlock]) -> u32 {
         let mut complexity = 0;
 
         for block in basic_blocks {
@@ -707,7 +711,7 @@ impl ControlFlowAnalyzer {
         complexity
     }
 
-    fn calculate_nesting_depth(&self, basic_blocks: &[BasicBlock]) -> u32 {
+    pub fn calculate_nesting_depth(&self, basic_blocks: &[BasicBlock]) -> u32 {
         // Simplified nesting depth calculation
         let mut max_depth: u32 = 0;
         let mut current_depth: i32 = 0;
@@ -728,7 +732,7 @@ impl ControlFlowAnalyzer {
         max_depth
     }
 
-    fn find_unreachable_blocks(
+    pub fn find_unreachable_blocks(
         &self,
         basic_blocks: &[BasicBlock],
         edges: &[CfgEdge],
@@ -760,7 +764,7 @@ impl ControlFlowAnalyzer {
             .collect()
     }
 
-    fn find_exit_blocks(&self, basic_blocks: &[BasicBlock]) -> Vec<usize> {
+    pub fn find_exit_blocks(&self, basic_blocks: &[BasicBlock]) -> Vec<usize> {
         basic_blocks
             .iter()
             .filter(|block| matches!(block.block_type, BlockType::Return | BlockType::Exit))
