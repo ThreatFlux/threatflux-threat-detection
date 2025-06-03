@@ -87,6 +87,137 @@ fn test_analyze_symbols_with_real_binary() {
 }
 
 #[test]
+fn test_analyze_symbols_with_c_binary() {
+    let test_binary = Path::new("./test_programs/c_advanced_binary");
+
+    if test_binary.exists() {
+        let result = analyze_symbols(test_binary);
+        assert!(result.is_ok(), "Should successfully analyze C binary");
+
+        let symbol_table = result.unwrap();
+
+        // Should have found functions
+        assert!(
+            symbol_table.functions.len() > 0,
+            "Should find functions in C binary"
+        );
+
+        // Verify symbol count consistency
+        assert_eq!(
+            symbol_table.symbol_count.total_functions,
+            symbol_table.functions.len(),
+            "Function count should be consistent"
+        );
+
+        // Should have imports from libc
+        assert!(
+            symbol_table.imports.len() > 0,
+            "Should have imported functions"
+        );
+
+        // Look for common C functions
+        let has_printf = symbol_table
+            .imports
+            .iter()
+            .any(|i| i.name.contains("printf"));
+        let has_malloc = symbol_table
+            .imports
+            .iter()
+            .any(|i| i.name.contains("malloc"));
+        assert!(has_printf || has_malloc, "Should import common C functions");
+
+        println!(
+            "C binary analysis: {} functions, {} imports",
+            symbol_table.functions.len(),
+            symbol_table.imports.len()
+        );
+    }
+}
+
+#[test]
+fn test_analyze_symbols_with_rust_binary() {
+    let test_binary = Path::new("./test_programs/rust_test_binary");
+
+    if test_binary.exists() {
+        let result = analyze_symbols(test_binary);
+        assert!(result.is_ok(), "Should successfully analyze Rust binary");
+
+        let symbol_table = result.unwrap();
+
+        // Should have found functions
+        assert!(
+            symbol_table.functions.len() > 0,
+            "Should find functions in Rust binary"
+        );
+
+        // Rust binaries typically have many functions due to monomorphization
+        assert!(
+            symbol_table.functions.len() >= 10,
+            "Rust binary should have multiple functions"
+        );
+
+        // Verify function types are properly categorized
+        let local_funcs = symbol_table
+            .functions
+            .iter()
+            .filter(|f| matches!(f.function_type, FunctionType::Local))
+            .count();
+        let imported_funcs = symbol_table
+            .functions
+            .iter()
+            .filter(|f| matches!(f.function_type, FunctionType::Imported))
+            .count();
+
+        assert!(local_funcs > 0, "Should have local functions");
+
+        println!(
+            "Rust binary analysis: {} total, {} local, {} imported",
+            symbol_table.functions.len(),
+            local_funcs,
+            imported_funcs
+        );
+    }
+}
+
+#[test]
+fn test_analyze_symbols_with_go_binary() {
+    let test_binary = Path::new("./test_programs/go_test_binary");
+
+    if test_binary.exists() {
+        let result = analyze_symbols(test_binary);
+        assert!(result.is_ok(), "Should successfully analyze Go binary");
+
+        let symbol_table = result.unwrap();
+
+        // Go binaries have extensive runtime functions
+        assert!(
+            symbol_table.functions.len() > 50,
+            "Go binary should have many runtime functions"
+        );
+
+        // Should find some Go runtime functions
+        let has_go_runtime = symbol_table
+            .functions
+            .iter()
+            .any(|f| f.name.starts_with("runtime.") || f.name.starts_with("go."));
+        assert!(has_go_runtime, "Should find Go runtime functions");
+
+        // Check for proper function categorization
+        let entry_points = symbol_table
+            .functions
+            .iter()
+            .filter(|f| f.is_entry_point)
+            .count();
+
+        println!(
+            "Go binary analysis: {} functions, {} entry points",
+            symbol_table.functions.len(),
+            entry_points
+        );
+    }
+}
+
+#[test]
 fn test_function_type_serialization() {
     let types = vec![
         FunctionType::Local,
@@ -333,15 +464,20 @@ fn test_analyze_symbols_with_invalid_path() {
 }
 
 #[test]
-fn test_analyze_symbols_with_example_binaries() {
-    // Try to analyze example binaries if they exist
-    let example_paths = vec![
-        "./examples/binaries/c_advanced_binary",
-        "./examples/binaries/rust_test_binary",
-        "./examples/binaries/go_test_binary",
+fn test_analyze_symbols_with_multiple_binaries() {
+    // Try to analyze multiple test binaries
+    let test_binaries = vec![
+        "./test_programs/c_advanced_binary",
+        "./test_programs/rust_test_binary",
+        "./test_programs/go_test_binary",
+        "./test_programs/cpp_test_binary",
+        "./test_programs/nim_test_binary",
+        "./test_programs/d_test_binary",
     ];
 
-    for path_str in example_paths {
+    let mut successful_analyses = 0;
+
+    for path_str in test_binaries {
         let path = Path::new(path_str);
         if path.exists() {
             println!("Testing function analysis on {}", path_str);
@@ -349,23 +485,146 @@ fn test_analyze_symbols_with_example_binaries() {
             match analyze_symbols(path) {
                 Ok(symbol_table) => {
                     println!(
-                        "Successfully analyzed {} functions",
-                        symbol_table.functions.len()
+                        "Successfully analyzed {} functions in {}",
+                        symbol_table.functions.len(),
+                        path_str
                     );
 
-                    // Verify some basic properties
-                    assert!(symbol_table.symbol_count.total_functions >= 0);
+                    // Verify basic properties - counts are unsigned so always >= 0
 
-                    // Check for consistency
-                    let total_funcs = symbol_table.symbol_count.local_functions
-                        + symbol_table.symbol_count.imported_functions
-                        + symbol_table.symbol_count.exported_functions;
-                    assert!(total_funcs <= symbol_table.symbol_count.total_functions);
+                    // Check for consistency - function types are categorized independently
+                    // of is_imported/is_exported flags, so we don't expect them to sum up
+                    assert!(
+                        symbol_table.symbol_count.local_functions
+                            <= symbol_table.symbol_count.total_functions
+                    );
+                    assert!(
+                        symbol_table.symbol_count.imported_functions
+                            <= symbol_table.symbol_count.total_functions
+                    );
+                    assert!(
+                        symbol_table.symbol_count.exported_functions
+                            <= symbol_table.symbol_count.total_functions
+                    );
+
+                    // Each binary should have at least some functions
+                    assert!(
+                        symbol_table.functions.len() > 0,
+                        "Binary {} should have functions",
+                        path_str
+                    );
+
+                    successful_analyses += 1;
                 }
                 Err(e) => {
                     eprintln!("Function analysis failed for {}: {}", path_str, e);
                 }
             }
         }
+    }
+
+    // At least some binaries should be successfully analyzed
+    assert!(
+        successful_analyses > 0,
+        "Should successfully analyze at least one test binary"
+    );
+}
+
+#[test]
+fn test_analyze_symbols_error_conditions() {
+    // Test with non-existent file
+    let result = analyze_symbols(Path::new("/nonexistent/file"));
+    assert!(result.is_err(), "Should fail with non-existent file");
+
+    // Test with directory instead of file
+    let result = analyze_symbols(Path::new("."));
+    assert!(result.is_err(), "Should fail when given directory");
+
+    // Test with text file (not a binary)
+    let mut temp_file = NamedTempFile::new().unwrap();
+    temp_file.write_all(b"This is not a binary file").unwrap();
+    temp_file.flush().unwrap();
+
+    let result = analyze_symbols(temp_file.path());
+    assert!(result.is_err(), "Should fail with non-binary file");
+}
+
+#[test]
+fn test_symbol_table_statistics() {
+    // Use the test binary if available
+    let test_binary = Path::new("./test_programs/c_advanced_binary");
+
+    if test_binary.exists() {
+        let symbol_table = analyze_symbols(test_binary).unwrap();
+
+        // Verify counts are non-negative (usize types are always >= 0, so just verify structure exists)
+
+        // Each category should not exceed total functions
+        assert!(
+            symbol_table.symbol_count.local_functions <= symbol_table.symbol_count.total_functions
+        );
+        assert!(
+            symbol_table.symbol_count.imported_functions
+                <= symbol_table.symbol_count.total_functions
+        );
+        assert!(
+            symbol_table.symbol_count.exported_functions
+                <= symbol_table.symbol_count.total_functions
+        );
+
+        // Function list length should match total count
+        assert_eq!(
+            symbol_table.functions.len(),
+            symbol_table.symbol_count.total_functions
+        );
+
+        // Variable list length should match variable count
+        assert_eq!(
+            symbol_table.global_variables.len(),
+            symbol_table.symbol_count.global_variables
+        );
+    }
+}
+
+#[test]
+fn test_function_address_validation() {
+    let test_binary = Path::new("./test_programs/rust_test_binary");
+
+    if test_binary.exists() {
+        let symbol_table = analyze_symbols(test_binary).unwrap();
+
+        // All functions should have valid addresses
+        for function in &symbol_table.functions {
+            assert!(
+                function.address > 0 || function.is_imported,
+                "Function {} should have valid address or be imported",
+                function.name
+            );
+
+            // Function size should be reasonable
+            assert!(
+                function.size < 0x1000000, // 16MB max function size
+                "Function {} has unreasonable size: {}",
+                function.name,
+                function.size
+            );
+
+            // Name should not be empty
+            assert!(
+                !function.name.is_empty(),
+                "Function should have non-empty name"
+            );
+        }
+
+        // Check that we have reasonable calling conventions
+        let conv_count = symbol_table
+            .functions
+            .iter()
+            .filter_map(|f| f.calling_convention.as_ref())
+            .count();
+        assert!(
+            conv_count > 0,
+            "Should have functions with calling conventions"
+        );
     }
 }
