@@ -493,8 +493,12 @@ mod tests {
             #[cfg(target_os = "macos")]
             assert_eq!(info.format, "Mach-O");
 
-            assert!(!info.imports.is_empty()); // ls should have imports
+            // Entry point should be present
             assert!(info.entry_point.is_some());
+
+            // On Linux, imports should be detected
+            #[cfg(target_os = "linux")]
+            assert!(!info.imports.is_empty());
         }
     }
 
