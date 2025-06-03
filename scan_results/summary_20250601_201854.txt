@@ -1,9 +1,0 @@
-Scan Summary - Sun Jun  1 08:18:54 PM EDT 2025
-========================
-Total files: 0
-Successful: 0
-Failed: 0
-Duration: 0 seconds
-Rate:  files/sec
-
-Files scanned:
