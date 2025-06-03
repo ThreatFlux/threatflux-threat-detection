@@ -269,7 +269,7 @@ mod dependency_analysis_tests {
     fn test_license_info_structure() {
         let license = LicenseInfo {
             license_type: "MIT".to_string(),
-            license_family: LicenseFamily::MIT,
+            license_family: LicenseFamily::Mit,
             is_oss: true,
             is_copyleft: false,
             is_commercial_friendly: true,
@@ -277,7 +277,7 @@ mod dependency_analysis_tests {
         };
 
         assert_eq!(license.license_type, "MIT");
-        assert!(matches!(license.license_family, LicenseFamily::MIT));
+        assert!(matches!(license.license_family, LicenseFamily::Mit));
         assert!(license.is_oss);
         assert!(!license.is_copyleft);
         assert!(license.is_commercial_friendly);
@@ -456,11 +456,11 @@ mod dependency_analysis_tests {
     #[test]
     fn test_license_families() {
         let families = vec![
-            LicenseFamily::MIT,
+            LicenseFamily::Mit,
             LicenseFamily::Apache,
-            LicenseFamily::GPL,
-            LicenseFamily::LGPL,
-            LicenseFamily::BSD,
+            LicenseFamily::Gpl,
+            LicenseFamily::Lgpl,
+            LicenseFamily::Bsd,
             LicenseFamily::Proprietary,
             LicenseFamily::PublicDomain,
             LicenseFamily::Unknown,
@@ -468,11 +468,11 @@ mod dependency_analysis_tests {
 
         for family in families {
             match family {
-                LicenseFamily::MIT => assert!(true),
+                LicenseFamily::Mit => assert!(true),
                 LicenseFamily::Apache => assert!(true),
-                LicenseFamily::GPL => assert!(true),
-                LicenseFamily::LGPL => assert!(true),
-                LicenseFamily::BSD => assert!(true),
+                LicenseFamily::Gpl => assert!(true),
+                LicenseFamily::Lgpl => assert!(true),
+                LicenseFamily::Bsd => assert!(true),
                 LicenseFamily::Proprietary => assert!(true),
                 LicenseFamily::PublicDomain => assert!(true),
                 LicenseFamily::Unknown => assert!(true),
