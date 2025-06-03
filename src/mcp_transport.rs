@@ -104,9 +104,9 @@ pub struct JsonRpcError {
 }
 
 #[derive(Deserialize)]
-struct ToolCallParams {
-    name: String,
-    arguments: HashMap<String, Value>,
+pub struct ToolCallParams {
+    pub name: String,
+    pub arguments: HashMap<String, Value>,
 }
 
 pub struct McpTransportServer {
@@ -505,7 +505,7 @@ impl McpTransportServer {
         }
     }
 
-    async fn handle_tool_call(&self, params: ToolCallParams) -> Value {
+    pub async fn handle_tool_call(&self, params: ToolCallParams) -> Value {
         use crate::mcp_server::FileAnalysisRequest;
         use rmcp::handler::server::wrapper::Json;
 
@@ -1638,6 +1638,159 @@ mod tests {
         assert!(parsed.id.is_none());
         assert_eq!(parsed.method, "test");
         assert!(parsed.params.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_handle_tool_call_analyze_file_success() {
+        let server = create_test_transport_server();
+        let test_file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(&test_file, b"Hello World Test Content").unwrap();
+
+        let mut arguments = HashMap::new();
+        arguments.insert(
+            "file_path".to_string(),
+            json!(test_file.path().to_str().unwrap()),
+        );
+        arguments.insert("metadata".to_string(), json!(true));
+        arguments.insert("hashes".to_string(), json!(true));
+
+        let params = ToolCallParams {
+            name: "analyze_file".to_string(),
+            arguments,
+        };
+
+        let result = server.handle_tool_call(params).await;
+
+        let content = result.get("content").unwrap().as_array().unwrap();
+        let text = content[0].get("text").unwrap().as_str().unwrap();
+
+        // Should contain valid JSON result
+        assert!(!text.contains("Error"));
+
+        // Parse the JSON to verify structure
+        let parsed_result: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed_result.get("metadata").is_some());
+        assert!(parsed_result.get("hashes").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_tool_call_llm_analyze_file_success() {
+        let server = create_test_transport_server();
+        let test_file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(&test_file, b"Test content for LLM analysis").unwrap();
+
+        let mut arguments = HashMap::new();
+        arguments.insert(
+            "file_path".to_string(),
+            json!(test_file.path().to_str().unwrap()),
+        );
+        arguments.insert("token_limit".to_string(), json!(10000));
+        arguments.insert("suggest_yara_rule".to_string(), json!(false));
+
+        let params = ToolCallParams {
+            name: "llm_analyze_file".to_string(),
+            arguments,
+        };
+
+        let result = server.handle_tool_call(params).await;
+
+        let content = result.get("content").unwrap().as_array().unwrap();
+        let text = content[0].get("text").unwrap().as_str().unwrap();
+
+        // Should contain valid JSON result
+        assert!(!text.contains("Error"));
+
+        // Parse the JSON to verify structure
+        let parsed_result: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed_result.get("md5").is_some());
+        assert!(parsed_result.get("file_size").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_tool_call_analyze_file_nonexistent() {
+        let server = create_test_transport_server();
+
+        let mut arguments = HashMap::new();
+        arguments.insert("file_path".to_string(), json!("/nonexistent/file/path"));
+        arguments.insert("metadata".to_string(), json!(true));
+
+        let params = ToolCallParams {
+            name: "analyze_file".to_string(),
+            arguments,
+        };
+
+        let result = server.handle_tool_call(params).await;
+
+        let content = result.get("content").unwrap().as_array().unwrap();
+        let text = content[0].get("text").unwrap().as_str().unwrap();
+        assert!(text.contains("Error"));
+    }
+
+    #[tokio::test]
+    async fn test_serve_openapi() {
+        let result = serve_openapi().await.unwrap();
+        let openapi_spec = result.0;
+
+        // Should contain OpenAPI structure
+        assert!(openapi_spec.get("openapi").is_some());
+        assert!(openapi_spec.get("info").is_some());
+        assert!(openapi_spec.get("components").is_some());
+
+        let info = openapi_spec.get("info").unwrap();
+        assert_eq!(
+            info.get("title").unwrap().as_str().unwrap(),
+            "File Scanner MCP API"
+        );
+        assert_eq!(info.get("version").unwrap().as_str().unwrap(), "0.1.0");
+    }
+
+    #[tokio::test]
+    async fn test_handle_api_info() {
+        let result = handle_api_info().await.unwrap();
+        let info = result.0;
+
+        assert_eq!(
+            info.get("name").unwrap().as_str().unwrap(),
+            "File Scanner MCP API"
+        );
+        assert_eq!(info.get("version").unwrap().as_str().unwrap(), "0.1.0");
+        assert_eq!(info.get("status").unwrap().as_str().unwrap(), "healthy");
+
+        let endpoints = info.get("endpoints").unwrap().as_object().unwrap();
+        assert!(endpoints.contains_key("/mcp"));
+        assert!(endpoints.contains_key("/health"));
+        assert!(endpoints.contains_key("/cache/stats"));
+    }
+
+    #[tokio::test]
+    async fn test_mcp_server_state_constructor() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
+        let string_tracker = Arc::new(StringTracker::new());
+        let sse_clients = Arc::new(Mutex::new(HashMap::new()));
+
+        let _state = McpServerState::new_for_testing(
+            FileScannerMcp,
+            sse_clients.clone(),
+            cache.clone(),
+            string_tracker.clone(),
+        );
+
+        // Verify state is properly constructed
+        assert_eq!(Arc::strong_count(&cache), 2); // state + local reference
+        assert_eq!(Arc::strong_count(&string_tracker), 2); // state + local reference
+        assert_eq!(Arc::strong_count(&sse_clients), 2); // state + local reference
+    }
+
+    #[tokio::test]
+    async fn test_mcp_transport_server_default() {
+        let server1 = McpTransportServer::new();
+        let server2 = McpTransportServer::default();
+
+        // Just verify both constructors work
+        // Can't directly compare servers, but can test they're created
+        drop(server1);
+        drop(server2);
     }
 
     #[test]
