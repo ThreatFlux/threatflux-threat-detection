@@ -64,6 +64,10 @@ petgraph = "0.8"
 # Threat detection
 yara-x = { git = "https://github.com/wroersma/yara-x", branch = "main" }
 
+# OLE and VBA parsing
+cfb = "0.9"  # Compound File Binary format (OLE storage)
+zip = "2.1"  # For OOXML format support
+
 [dev-dependencies]
 tempfile = "3.8"
 # Testing utilities

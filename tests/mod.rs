@@ -14,6 +14,7 @@ mod disassembly_test;
 mod entropy_analysis_comprehensive_test;
 mod function_analysis_comprehensive_test;
 mod function_analysis_test;
+mod ole_vba_analysis_test;
 mod signature_test;
 mod string_tracker_test;
 mod threat_detection_test;

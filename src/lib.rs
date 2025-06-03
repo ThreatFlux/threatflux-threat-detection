@@ -13,6 +13,7 @@ pub mod hexdump;
 pub mod mcp_server;
 pub mod mcp_transport;
 pub mod metadata;
+pub mod ole_vba_analysis;
 pub mod signature;
 pub mod string_tracker;
 pub mod strings;
