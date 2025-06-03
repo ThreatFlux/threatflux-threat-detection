@@ -1307,9 +1307,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_list_empty() {
+    async fn test_list_cache_entries_empty() {
         let state = create_test_state();
-        let result = handle_cache_list(State(state)).await.unwrap();
+        let result = list_cache_entries(State(state)).await.unwrap();
         let value = result.0;
 
         let entries = value.get("entries").unwrap().as_array().unwrap();
@@ -1318,7 +1318,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_search() {
+    async fn test_search_cache() {
         let state = create_test_state();
         let query = CacheSearchQuery {
             tool_name: Some("analyze_file".to_string()),
@@ -1329,7 +1329,7 @@ mod tests {
             max_file_size: None,
         };
 
-        let result = handle_cache_search(State(state), AxumJson(query))
+        let result = search_cache(State(state), AxumJson(query))
             .await
             .unwrap();
         let value = result.0;
@@ -1340,9 +1340,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_stats() {
+    async fn test_get_cache_stats() {
         let state = create_test_state();
-        let result = handle_cache_stats(State(state)).await.unwrap();
+        let result = get_cache_stats(State(state)).await.unwrap();
         let value = result.0;
 
         assert!(value.get("statistics").is_some());
@@ -1350,9 +1350,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_cache_clear() {
+    async fn test_clear_cache() {
         let state = create_test_state();
-        let result = handle_cache_clear(State(state)).await.unwrap();
+        let result = clear_cache(State(state)).await.unwrap();
         let value = result.0;
 
         assert_eq!(value.get("status").unwrap().as_str().unwrap(), "success");
@@ -1365,9 +1365,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_strings_stats() {
+    async fn test_get_string_stats() {
         let state = create_test_state();
-        let result = handle_strings_stats(State(state)).await.unwrap();
+        let result = get_string_stats(State(state)).await.unwrap();
         let value = result.0;
 
         // The actual structure depends on StringTracker implementation
@@ -1376,13 +1376,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_strings_search() {
+    async fn test_search_strings() {
         let state = create_test_state();
         let mut params = HashMap::new();
         params.insert("query".to_string(), json!("test"));
         params.insert("limit".to_string(), json!(10));
 
-        let result = handle_strings_search(State(state), AxumJson(params))
+        let result = search_strings(State(state), AxumJson(params))
             .await
             .unwrap();
         let value = result.0;
@@ -1392,11 +1392,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_strings_search_defaults() {
+    async fn test_search_strings_defaults() {
         let state = create_test_state();
         let params = HashMap::new();
 
-        let result = handle_strings_search(State(state), AxumJson(params))
+        let result = search_strings(State(state), AxumJson(params))
             .await
             .unwrap();
         let value = result.0;
