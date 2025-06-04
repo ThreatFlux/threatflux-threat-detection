@@ -1,0 +1,35 @@
+---
+extends: default
+
+rules:
+  # Allow longer lines for GitHub Actions (common for long URLs, commands)
+  line-length:
+    max: 120
+
+  # Don't require document start for GitHub Actions
+  document-start: disable
+
+  # Allow truthy values like 'on' which is common in GitHub Actions
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']
+
+  # Allow extra spaces in brackets for readability
+  brackets:
+    max-spaces-inside: 1
+
+  # Allow extra spaces in braces for readability
+  braces:
+    max-spaces-inside: 1
+
+  # Allow empty values (common in GitHub Actions)
+  empty-values: disable
+
+  # Don't be too strict about indentation in complex nested structures
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Allow comments to be slightly more flexible
+  comments:
+    min-spaces-from-content: 1

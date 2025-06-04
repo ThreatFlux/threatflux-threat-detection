@@ -28,12 +28,8 @@ jobs:
 
       - name: Validate YAML syntax
         run: |
-          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
-            if [ -f "$file" ]; then
-              echo "Validating $file..."
-              yamllint "$file"
-            fi
-          done
+          echo "Validating workflow YAML files..."
+          yamllint .github/workflows/
 
       - name: Run project CI checks (includes lint and format validation)
         run: make ci
