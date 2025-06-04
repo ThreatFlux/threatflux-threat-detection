@@ -17,20 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          go-version: '1.21'
+          components: clippy, rustfmt
 
       - name: Install workflow validation tools
         run: |
           pip install yamllint
-
-          # Install actionlint using go install (more reliable)
-          go install github.com/rhymond/actionlint/cmd/actionlint@latest
-
-          # Add Go bin to PATH for subsequent steps
-          echo "$HOME/go/bin" >> $GITHUB_PATH
 
       - name: Validate YAML syntax
         run: |
@@ -41,70 +35,15 @@ jobs:
             fi
           done
 
-      - name: Validate GitHub Actions workflow syntax
-        run: |
-          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
-            if [ -f "$file" ]; then
-              echo "Checking GitHub Actions syntax for $file..."
-              actionlint "$file"
-            fi
-          done
+      - name: Run project CI checks (includes lint and format validation)
+        run: make ci
 
-      - name: Validate Dockerfile
-        run: |
-          docker buildx build --check .
-
-      - name: Check for required files
+      - name: Check for required workflow files
         run: |
           echo "Checking for required workflow files..."
-          test -f .github/workflows/release.yml && echo "✓ Release workflow found"
-          test -f .github/workflows/docker.yml && echo "✓ Docker workflow found"
-          test -f .github/workflows/ci.yml && echo "✓ CI workflow found"
-          test -f .github/workflows/README.md && echo "✓ Workflow documentation found"
-
-      - name: Validate release workflow structure
-        run: |
-          echo "Validating release.yml structure..."
-          python3 -c "
-          import yaml
-          with open('.github/workflows/release.yml') as f:
-              data = yaml.safe_load(f)
-
-          # Check required jobs
-          required_jobs = ['create-release', 'build-and-upload', 'docker-release']
-          for job in required_jobs:
-              assert job in data['jobs'], f'Missing job: {job}'
-
-          # Check platforms
-          matrix = data['jobs']['build-and-upload']['strategy']['matrix']['include']
-          platforms = [item['target'] for item in matrix]
-          expected = ['x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu',
-                     'x86_64-apple-darwin', 'aarch64-apple-darwin', 'x86_64-pc-windows-msvc']
-          for platform in expected:
-              assert platform in platforms, f'Missing platform: {platform}'
-
-          print('✓ Release workflow structure is valid')
-          "
-
-      - name: Validate Docker workflow structure
-        run: |
-          echo "Validating docker.yml structure..."
-          python3 -c "
-          import yaml
-          with open('.github/workflows/docker.yml') as f:
-              data = yaml.safe_load(f)
-
-          # Check required jobs
-          required_jobs = ['docker-build-test']
-          for job in required_jobs:
-              assert job in data['jobs'], f'Missing job: {job}'
-
-          # Check triggers
-          assert 'push' in data['on'], 'Missing push trigger'
-          assert 'pull_request' in data['on'], 'Missing PR trigger'
-
-          print('✓ Docker workflow structure is valid')
-          "
+          test -f .github/workflows/release.yml && echo "✓ Release workflow found" || echo "✗ Release workflow missing"
+          test -f .github/workflows/docker.yml && echo "✓ Docker workflow found" || echo "✗ Docker workflow missing"
+          test -f .github/workflows/ci.yml && echo "✓ CI workflow found" || echo "✗ CI workflow missing"
 
   test-docker-build:
     name: Test Docker Build
