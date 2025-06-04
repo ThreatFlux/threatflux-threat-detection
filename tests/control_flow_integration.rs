@@ -20,11 +20,11 @@ fn test_control_flow_analysis_on_real_binary() {
             Ok(analysis) => {
                 // Verify we analyzed some functions
                 assert!(analysis.overall_metrics.total_functions > 0);
-                assert!(analysis.cfgs.len() > 0);
+                assert!(!analysis.cfgs.is_empty());
 
                 // Check that we have basic blocks and edges
                 for cfg in &analysis.cfgs {
-                    assert!(cfg.basic_blocks.len() > 0);
+                    assert!(!cfg.basic_blocks.is_empty());
                     assert_eq!(cfg.basic_blocks[0].id, cfg.entry_block);
                 }
             }
@@ -205,7 +205,7 @@ fn test_control_flow_with_example_binaries() {
                             // Check individual CFGs
                             for cfg in &cf_analysis.cfgs {
                                 assert!(!cfg.function_name.is_empty());
-                                assert!(cfg.basic_blocks.len() > 0);
+                                assert!(!cfg.basic_blocks.is_empty());
                                 assert!(cfg.complexity.basic_block_count == cfg.basic_blocks.len());
                             }
                         }

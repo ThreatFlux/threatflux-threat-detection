@@ -1,8 +1,6 @@
 use file_scanner::mcp_transport::{JsonRpcRequest, McpTransportServer};
-use reqwest;
 use serde_json::{json, Value};
 use std::time::Duration;
-use tokio;
 use tokio::time::sleep;
 
 // Test HTTP transport server integration
@@ -66,7 +64,7 @@ async fn test_http_mcp_endpoint_integration() {
 
     // Test health endpoint
     let health_result = client
-        .get(&format!("http://localhost:{}/health", port))
+        .get(format!("http://localhost:{}/health", port))
         .timeout(Duration::from_millis(1000))
         .send()
         .await;
@@ -92,7 +90,7 @@ async fn test_http_mcp_endpoint_integration() {
     };
 
     let mcp_result = client
-        .post(&format!("http://localhost:{}/mcp", port))
+        .post(format!("http://localhost:{}/mcp", port))
         .json(&initialize_request)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -135,7 +133,7 @@ async fn test_http_tools_endpoints() {
     };
 
     let tools_result = client
-        .post(&format!("http://localhost:{}/tools/list", port))
+        .post(format!("http://localhost:{}/tools/list", port))
         .json(&tools_request)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -169,7 +167,7 @@ async fn test_http_tools_endpoints() {
     };
 
     let call_result = client
-        .post(&format!("http://localhost:{}/tools/call", port))
+        .post(format!("http://localhost:{}/tools/call", port))
         .json(&call_request)
         .timeout(Duration::from_millis(2000))
         .send()
@@ -202,7 +200,7 @@ async fn test_cache_endpoints() {
 
     // Test cache stats endpoint
     let stats_result = client
-        .get(&format!("http://localhost:{}/cache/stats", port))
+        .get(format!("http://localhost:{}/cache/stats", port))
         .timeout(Duration::from_millis(1000))
         .send()
         .await;
@@ -220,7 +218,7 @@ async fn test_cache_endpoints() {
 
     // Test cache list endpoint
     let list_result = client
-        .get(&format!("http://localhost:{}/cache/list", port))
+        .get(format!("http://localhost:{}/cache/list", port))
         .timeout(Duration::from_millis(1000))
         .send()
         .await;
@@ -240,7 +238,7 @@ async fn test_cache_endpoints() {
     });
 
     let search_result = client
-        .post(&format!("http://localhost:{}/cache/search", port))
+        .post(format!("http://localhost:{}/cache/search", port))
         .json(&search_body)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -273,7 +271,7 @@ async fn test_string_endpoints() {
 
     // Test string stats endpoint
     let stats_result = client
-        .get(&format!("http://localhost:{}/strings/stats", port))
+        .get(format!("http://localhost:{}/strings/stats", port))
         .timeout(Duration::from_millis(1000))
         .send()
         .await;
@@ -296,7 +294,7 @@ async fn test_string_endpoints() {
     });
 
     let search_result = client
-        .post(&format!("http://localhost:{}/strings/search", port))
+        .post(format!("http://localhost:{}/strings/search", port))
         .json(&search_body)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -317,7 +315,7 @@ async fn test_string_endpoints() {
     });
 
     let details_result = client
-        .post(&format!("http://localhost:{}/strings/details", port))
+        .post(format!("http://localhost:{}/strings/details", port))
         .json(&details_body)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -340,7 +338,7 @@ async fn test_string_endpoints() {
     });
 
     let filter_result = client
-        .post(&format!("http://localhost:{}/strings/filter", port))
+        .post(format!("http://localhost:{}/strings/filter", port))
         .json(&filter_body)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -373,7 +371,7 @@ async fn test_api_documentation_endpoints() {
 
     // Test OpenAPI endpoint
     let openapi_result = client
-        .get(&format!("http://localhost:{}/api-docs/openapi.json", port))
+        .get(format!("http://localhost:{}/api-docs/openapi.json", port))
         .timeout(Duration::from_millis(1000))
         .send()
         .await;
@@ -392,7 +390,7 @@ async fn test_api_documentation_endpoints() {
 
     // Test API info endpoint
     let info_result = client
-        .get(&format!("http://localhost:{}/api/info", port))
+        .get(format!("http://localhost:{}/api/info", port))
         .timeout(Duration::from_millis(1000))
         .send()
         .await;
@@ -427,7 +425,7 @@ async fn test_cors_middleware() {
 
     // Test CORS headers on health endpoint
     let cors_result = client
-        .get(&format!("http://localhost:{}/health", port))
+        .get(format!("http://localhost:{}/health", port))
         .header("Origin", "http://localhost:3000")
         .timeout(Duration::from_millis(1000))
         .send()
@@ -466,7 +464,7 @@ async fn test_sse_connection_attempt() {
 
     // Test SSE endpoint connection attempt
     let sse_result = client
-        .get(&format!("http://localhost:{}/sse", port))
+        .get(format!("http://localhost:{}/sse", port))
         .header("Accept", "text/event-stream")
         .header("Cache-Control", "no-cache")
         .timeout(Duration::from_millis(1000))
@@ -496,7 +494,7 @@ async fn test_sse_connection_attempt() {
     };
 
     let mcp_sse_result = client
-        .post(&format!("http://localhost:{}/mcp", port))
+        .post(format!("http://localhost:{}/mcp", port))
         .json(&mcp_sse_request)
         .timeout(Duration::from_millis(1000))
         .send()
@@ -529,7 +527,7 @@ async fn test_error_handling_invalid_requests() {
 
     // Test invalid JSON request
     let invalid_json_result = client
-        .post(&format!("http://localhost:{}/mcp", port))
+        .post(format!("http://localhost:{}/mcp", port))
         .header("Content-Type", "application/json")
         .body("invalid json")
         .timeout(Duration::from_millis(1000))
@@ -554,7 +552,7 @@ async fn test_error_handling_invalid_requests() {
     });
 
     let missing_method_result = client
-        .post(&format!("http://localhost:{}/mcp", port))
+        .post(format!("http://localhost:{}/mcp", port))
         .json(&missing_method)
         .timeout(Duration::from_millis(1000))
         .send()

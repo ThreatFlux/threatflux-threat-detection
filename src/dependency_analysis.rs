@@ -1535,7 +1535,7 @@ mod tests {
         let path = Path::new("/test/binary");
 
         let analyzer = DependencyAnalyzer::new();
-        let result = analyzer.analyze(&path, &symbol_table, Some(&strings));
+        let result = analyzer.analyze(path, &symbol_table, Some(&strings));
 
         assert!(result.is_ok());
         let analysis = result.unwrap();
@@ -1564,7 +1564,7 @@ mod tests {
         let strings = create_test_extracted_strings();
         let path = Path::new("/test/binary");
 
-        let result = analyze_dependencies(&path, &symbol_table, Some(&strings));
+        let result = analyze_dependencies(path, &symbol_table, Some(&strings));
         assert!(result.is_ok());
 
         let analysis = result.unwrap();

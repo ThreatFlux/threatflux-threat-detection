@@ -2,7 +2,6 @@ use file_scanner::mcp_transport::{JsonRpcRequest, McpTransportServer};
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_transport_creation() {

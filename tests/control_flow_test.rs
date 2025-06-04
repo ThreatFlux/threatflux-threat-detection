@@ -386,7 +386,7 @@ fn test_control_flow_analyzer_classify_instruction() {
     for (bytes, _expected_type) in test_cases {
         let disassembled = analyzer.capstone.disasm_all(&bytes, 0x1000).unwrap();
         if let Some(insn) = disassembled.as_ref().iter().next() {
-            let _inst_type = analyzer.classify_instruction(&insn);
+            let _inst_type = analyzer.classify_instruction(insn);
             // Just verify that classify_instruction runs without panicking
             // More specific type checking would require exact capstone behavior
         }
@@ -405,7 +405,7 @@ fn test_control_flow_analyzer_analyze_flow_control() {
     for (bytes, expected_flow) in test_cases {
         let disassembled = analyzer.capstone.disasm_all(&bytes, 0x1000).unwrap();
         if let Some(insn) = disassembled.as_ref().iter().next() {
-            let flow = analyzer.analyze_flow_control(&insn);
+            let flow = analyzer.analyze_flow_control(insn);
             match (&flow, &expected_flow) {
                 (FlowControl::Return, FlowControl::Return) => assert!(true),
                 (FlowControl::Branch(_), FlowControl::Branch(_)) => assert!(true),

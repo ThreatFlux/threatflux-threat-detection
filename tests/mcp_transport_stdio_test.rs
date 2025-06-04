@@ -1,10 +1,9 @@
 use file_scanner::mcp_transport::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, McpTransportServer,
 };
-use serde_json::{json, Value};
-use std::io::{self, Cursor};
+use serde_json::json;
+use std::io::Cursor;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 
@@ -118,7 +117,7 @@ async fn test_jsonrpc_tools_list_response() {
     if let Some(result) = response.result {
         assert!(result.get("tools").is_some());
         let tools = result["tools"].as_array().unwrap();
-        assert!(tools.len() > 0); // Should have at least analyze_file tool
+        assert!(!tools.is_empty()); // Should have at least analyze_file tool
 
         // Verify tool structure
         let first_tool = &tools[0];

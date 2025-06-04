@@ -1,5 +1,4 @@
 use file_scanner::pdf_analysis::*;
-use serde_json;
 use std::collections::HashMap;
 use std::io::Write;
 use tempfile::NamedTempFile;

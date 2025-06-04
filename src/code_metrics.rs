@@ -770,7 +770,7 @@ mod tests {
         };
 
         let mi = analyzer.calculate_maintainability_index(&halstead, 5, 20);
-        assert!(mi >= 0.0 && mi <= 100.0);
+        assert!((0.0..=100.0).contains(&mi));
 
         // Test edge cases
         let mi_low_complexity = analyzer.calculate_maintainability_index(&halstead, 1, 5);
@@ -1272,7 +1272,7 @@ mod tests {
         };
 
         let mi = analyzer.calculate_maintainability_index(&minimal_halstead, 1, 1);
-        assert!(mi >= 0.0 && mi <= 100.0);
+        assert!((0.0..=100.0).contains(&mi));
 
         // Test with zero values
         let zero_halstead = HalsteadMetrics {
@@ -1290,7 +1290,7 @@ mod tests {
         };
 
         let mi_zero = analyzer.calculate_maintainability_index(&zero_halstead, 0, 0);
-        assert!(mi_zero >= 0.0 && mi_zero <= 100.0);
+        assert!((0.0..=100.0).contains(&mi_zero));
 
         // Test debt calculation with zero values
         let debt = analyzer.estimate_technical_debt(0, 0, 0, 0);

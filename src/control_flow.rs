@@ -867,19 +867,19 @@ mod tests {
         let insns: Vec<_> = disassembled.as_ref().iter().collect();
 
         // Test classification of mov instruction
-        let mov_type = analyzer.classify_instruction(&insns[0]);
+        let mov_type = analyzer.classify_instruction(insns[0]);
         assert!(matches!(mov_type, InstructionType::Memory));
 
         // Test classification of sub instruction
-        let sub_type = analyzer.classify_instruction(&insns[1]);
+        let sub_type = analyzer.classify_instruction(insns[1]);
         assert!(matches!(sub_type, InstructionType::Arithmetic));
 
         // Test classification of call instruction
-        let call_type = analyzer.classify_instruction(&insns[2]);
+        let call_type = analyzer.classify_instruction(insns[2]);
         assert!(matches!(call_type, InstructionType::Call));
 
         // Test classification of ret instruction
-        let ret_type = analyzer.classify_instruction(&insns[3]);
+        let ret_type = analyzer.classify_instruction(insns[3]);
         assert!(matches!(ret_type, InstructionType::Return));
     }
 
@@ -907,7 +907,7 @@ mod tests {
             let disassembled = analyzer.capstone.disasm_all(&bytes, 0x1000).unwrap();
             if let Some(insn) = disassembled.as_ref().iter().next() {
                 assert_eq!(insn.mnemonic().unwrap(), expected_mnemonic);
-                let flow = analyzer.analyze_flow_control(&insn);
+                let flow = analyzer.analyze_flow_control(insn);
                 // Flow control analysis depends on operand parsing which varies
                 match expected_mnemonic {
                     "ret" => assert!(matches!(flow, FlowControl::Return)),
@@ -1573,7 +1573,7 @@ mod tests {
 
         // Detect loops
         let loops = analyzer.detect_loops(&blocks, &edges);
-        assert!(loops.len() >= 1); // Should detect the back edge as a loop
+        assert!(!loops.is_empty()); // Should detect the back edge as a loop
 
         // Calculate metrics
         let metrics = analyzer.calculate_complexity_metrics(&blocks, &edges, &loops);

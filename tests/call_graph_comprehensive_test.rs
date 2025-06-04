@@ -355,7 +355,7 @@ fn test_comprehensive_call_graph_generation() {
     assert_eq!(graph.nodes.len(), 10); // 7 functions + 2 imports + 1 indirect call placeholder
 
     // Verify entry points
-    assert!(graph.entry_points.len() >= 1); // At least main
+    assert!(!graph.entry_points.is_empty()); // At least main
     assert!(graph.entry_points.contains(&0x1000)); // main
 
     // Verify edges

@@ -2410,7 +2410,7 @@ mod tests {
         let symbols = create_test_symbols();
         let disassembly = create_test_disassembly();
 
-        let result = analyze_behavior(&path, Some(&strings), Some(&symbols), Some(&disassembly));
+        let result = analyze_behavior(path, Some(&strings), Some(&symbols), Some(&disassembly));
         assert!(result.is_ok());
 
         let analysis = result.unwrap();

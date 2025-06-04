@@ -292,7 +292,7 @@ fn test_generate_call_graph_with_simple_symbols() {
 
     match result {
         Ok(graph) => {
-            assert!(graph.nodes.len() >= 1);
+            assert!(!graph.nodes.is_empty());
             assert!(graph.statistics.total_nodes >= 1);
 
             // Check that we have an entry point

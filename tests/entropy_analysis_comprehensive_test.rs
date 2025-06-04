@@ -1,6 +1,4 @@
 use file_scanner::entropy_analysis::*;
-use serde_json;
-use serde_yaml;
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -385,9 +383,9 @@ fn test_analyze_entropy_with_binary_like_data() {
     // Add some binary-like patterns
     binary_data.extend_from_slice(&[0x7f, 0x45, 0x4c, 0x46]); // ELF magic-like
     binary_data.extend_from_slice(&[0x4d, 0x5a]); // PE magic-like
-    binary_data.extend_from_slice(&vec![0x00; 100]); // Padding
+    binary_data.extend_from_slice(&[0x00; 100]); // Padding
     binary_data.extend_from_slice(&[0xca, 0xfe, 0xba, 0xbe]); // Mach-O magic-like
-    binary_data.extend_from_slice(&vec![0x55; 200]); // More data
+    binary_data.extend_from_slice(&[0x55; 200]); // More data
 
     temp_file.write_all(&binary_data).unwrap();
     temp_file.flush().unwrap();

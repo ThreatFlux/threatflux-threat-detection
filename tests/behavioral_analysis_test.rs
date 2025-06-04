@@ -692,7 +692,7 @@ fn test_dropper_behavior_identification() {
 
 #[test]
 fn test_evasion_score_calculation() {
-    let _anti_analysis = vec![
+    let _anti_analysis = [
         AntiAnalysisTechnique {
             technique_type: AntiAnalysisType::AntiDebug,
             indicators: vec!["IsDebuggerPresent".to_string()],
@@ -707,7 +707,7 @@ fn test_evasion_score_calculation() {
         },
     ];
 
-    let _suspicious_behaviors = vec![SuspiciousBehavior {
+    let _suspicious_behaviors = [SuspiciousBehavior {
         behavior_type: "Ransomware".to_string(),
         description: "File encryption".to_string(),
         severity: Severity::Critical,

@@ -145,7 +145,6 @@ mod tests {
     use std::fs;
     use std::io::Write;
     use tempfile::TempDir;
-    use tokio;
 
     fn create_test_file(content: &[u8]) -> Result<(TempDir, std::path::PathBuf)> {
         let temp_dir = TempDir::new()?;

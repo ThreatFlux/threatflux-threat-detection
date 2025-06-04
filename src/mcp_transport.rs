@@ -992,7 +992,7 @@ mod tests {
     // Helper function to create a test server state
     fn create_test_state() -> McpServerState {
         let temp_dir = TempDir::new().unwrap();
-        let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
+        let cache = Arc::new(AnalysisCache::new(temp_dir.path()).unwrap());
         let string_tracker = Arc::new(StringTracker::new());
         let sse_clients = Arc::new(Mutex::new(HashMap::new()));
 
@@ -1007,7 +1007,7 @@ mod tests {
     // Helper function to create a test transport server
     fn create_test_transport_server() -> McpTransportServer {
         let temp_dir = TempDir::new().unwrap();
-        let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
+        let cache = Arc::new(AnalysisCache::new(temp_dir.path()).unwrap());
         let string_tracker = Arc::new(StringTracker::new());
 
         McpTransportServer {
@@ -1521,7 +1521,7 @@ mod tests {
     #[tokio::test]
     async fn test_mcp_server_state_creation() {
         let temp_dir = TempDir::new().unwrap();
-        let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
+        let cache = Arc::new(AnalysisCache::new(temp_dir.path()).unwrap());
         let string_tracker = Arc::new(StringTracker::new());
         let sse_clients = Arc::new(Mutex::new(HashMap::new()));
 
@@ -1765,7 +1765,7 @@ mod tests {
     #[tokio::test]
     async fn test_mcp_server_state_constructor() {
         let temp_dir = TempDir::new().unwrap();
-        let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
+        let cache = Arc::new(AnalysisCache::new(temp_dir.path()).unwrap());
         let string_tracker = Arc::new(StringTracker::new());
         let sse_clients = Arc::new(Mutex::new(HashMap::new()));
 
@@ -1852,10 +1852,7 @@ mod tests {
             params.arguments.get("file_path").unwrap().as_str().unwrap(),
             "/test/path"
         );
-        assert_eq!(
-            params.arguments.get("metadata").unwrap().as_bool().unwrap(),
-            true
-        );
+        assert!(params.arguments.get("metadata").unwrap().as_bool().unwrap());
         assert_eq!(params.arguments.get("count").unwrap().as_u64().unwrap(), 42);
     }
 

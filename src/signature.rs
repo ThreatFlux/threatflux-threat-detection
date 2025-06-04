@@ -1028,7 +1028,7 @@ Number of signatures  : 1
 
         for header in binary_headers {
             let mut content = header.clone();
-            content.extend_from_slice(&vec![0; 100]); // Pad with zeros
+            content.extend_from_slice(&[0; 100]); // Pad with zeros
 
             let (_temp_dir, file_path) = create_test_file(&content).unwrap();
             let result = verify_signature(&file_path).unwrap();

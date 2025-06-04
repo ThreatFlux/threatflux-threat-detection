@@ -445,7 +445,7 @@ mod tests {
 
         if let Ok(info) = parse_binary(&file_path) {
             // Minimal ELF has no sections
-            assert!(info.sections.is_empty() || info.sections.len() > 0);
+            assert!(info.sections.is_empty() || !info.sections.is_empty());
         }
     }
 

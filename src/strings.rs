@@ -452,7 +452,7 @@ mod tests {
         let result = extract_strings(&file_path, 4).unwrap();
 
         // String will be split at newlines since they're not in the printable ASCII range
-        assert!(result.ascii_strings.len() >= 1);
+        assert!(!result.ascii_strings.is_empty());
         // Check that we captured the expected parts
         let all_strings = result.ascii_strings.join(" ");
         assert!(all_strings.contains("String with"));

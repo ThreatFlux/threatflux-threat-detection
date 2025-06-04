@@ -64,7 +64,7 @@ fn test_analyze_symbols_with_real_binary() {
                 println!("Found {} functions", symbol_table.functions.len());
 
                 // Should find at least some functions
-                assert!(symbol_table.functions.len() > 0);
+                assert!(!symbol_table.functions.is_empty());
 
                 // Check stats consistency
                 assert_eq!(
@@ -98,7 +98,7 @@ fn test_analyze_symbols_with_c_binary() {
 
         // Should have found functions
         assert!(
-            symbol_table.functions.len() > 0,
+            !symbol_table.functions.is_empty(),
             "Should find functions in C binary"
         );
 
@@ -111,7 +111,7 @@ fn test_analyze_symbols_with_c_binary() {
 
         // Should have imports from libc
         assert!(
-            symbol_table.imports.len() > 0,
+            !symbol_table.imports.is_empty(),
             "Should have imported functions"
         );
 
@@ -146,7 +146,7 @@ fn test_analyze_symbols_with_rust_binary() {
 
         // Should have found functions
         assert!(
-            symbol_table.functions.len() > 0,
+            !symbol_table.functions.is_empty(),
             "Should find functions in Rust binary"
         );
 
@@ -509,7 +509,7 @@ fn test_analyze_symbols_with_multiple_binaries() {
 
                     // Each binary should have at least some functions
                     assert!(
-                        symbol_table.functions.len() > 0,
+                        !symbol_table.functions.is_empty(),
                         "Binary {} should have functions",
                         path_str
                     );

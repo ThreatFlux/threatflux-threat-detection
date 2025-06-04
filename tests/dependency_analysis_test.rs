@@ -68,7 +68,7 @@ fn test_analyze_dependencies_basic() {
     match result {
         Ok(analysis) => {
             // Check that we found dependencies
-            assert!(analysis.dependencies.len() > 0);
+            assert!(!analysis.dependencies.is_empty());
 
             // Verify we found some dependencies
             println!(
@@ -82,7 +82,7 @@ fn test_analyze_dependencies_basic() {
 
             // Just check that we have dependencies
             assert!(
-                analysis.dependencies.len() > 0,
+                !analysis.dependencies.is_empty(),
                 "Should find at least one dependency"
             );
 
@@ -186,7 +186,7 @@ fn test_library_type_serialization() {
 
 #[test]
 fn test_dependency_graph_creation() {
-    let deps = vec!["libc.so.6", "libm.so.6"];
+    let deps = ["libc.so.6", "libm.so.6"];
     let mut transitive = HashMap::new();
     transitive.insert(
         "app".to_string(),

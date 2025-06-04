@@ -124,9 +124,9 @@ mod entry_operations_tests {
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
         let now = Utc::now();
-        let timestamps = vec![now - Duration::hours(2), now - Duration::hours(1), now];
+        let timestamps = [now - Duration::hours(2), now - Duration::hours(1), now];
 
-        for (_i, timestamp) in timestamps.iter().enumerate() {
+        for timestamp in timestamps.iter() {
             let entry = create_custom_entry(
                 "hash123",
                 "test_tool",
@@ -978,7 +978,7 @@ mod edge_case_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache = AnalysisCache::new(temp_dir.path()).unwrap();
 
-        let test_files = vec![
+        let test_files = [
             "/usr/bin/ls",
             "/etc/passwd",
             "/tmp/tempfile",

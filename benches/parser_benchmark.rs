@@ -3,7 +3,6 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use file_scanner::binary_parser::parse_binary;
 use file_scanner::strings::extract_strings;
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
 fn create_elf_file() -> (TempDir, std::path::PathBuf) {

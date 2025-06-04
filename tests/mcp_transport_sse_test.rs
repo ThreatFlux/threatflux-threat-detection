@@ -1,6 +1,5 @@
-use file_scanner::mcp_transport::{JsonRpcRequest, McpTransportServer, SseEvent, SseQuery};
+use file_scanner::mcp_transport::{McpTransportServer, SseEvent, SseQuery};
 use serde_json::json;
-use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
 #[tokio::test]
@@ -59,13 +58,6 @@ async fn test_sse_query_parsing() {
 
 #[tokio::test]
 async fn test_sse_server_state_creation() {
-    use file_scanner::cache::AnalysisCache;
-    use file_scanner::mcp_server::FileScannerMcp;
-    use file_scanner::mcp_transport::McpServerState;
-    use file_scanner::string_tracker::StringTracker;
-    use std::collections::HashMap;
-    use tokio::sync::mpsc;
-
     // Test that we can instantiate required components
     // Note: We can't easily test McpServerState creation without proper setup
     // so we'll test the basic component creation instead
@@ -307,7 +299,7 @@ async fn test_sse_multiple_clients_simulation() {
         data: json!({"message": "Hello all clients"}).to_string(),
     };
 
-    for (_, sender) in &clients {
+    for sender in clients.values() {
         let _ = sender.send(broadcast_event.clone());
     }
 

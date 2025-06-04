@@ -15,7 +15,7 @@ use tempfile::TempDir;
 // Helper function to create a test server state
 fn create_test_state() -> McpServerState {
     let temp_dir = TempDir::new().unwrap();
-    let cache = Arc::new(AnalysisCache::new(temp_dir.path().to_path_buf()).unwrap());
+    let cache = Arc::new(AnalysisCache::new(temp_dir.path()).unwrap());
     let string_tracker = Arc::new(StringTracker::new());
     let sse_clients = Arc::new(Mutex::new(HashMap::new()));
 

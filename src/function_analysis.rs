@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn test_function_type_variants() {
-        let types = vec![
+        let types = [
             FunctionType::Local,
             FunctionType::Imported,
             FunctionType::Exported,
@@ -820,7 +820,7 @@ mod tests {
             },
         ];
 
-        let global_variables = vec![
+        let global_variables = [
             VariableInfo {
                 name: "var1".to_string(),
                 address: 0x5000,
@@ -837,7 +837,7 @@ mod tests {
             },
         ];
 
-        let cross_references = vec![CrossReference {
+        let cross_references = [CrossReference {
             from_address: 0x1000,
             to_address: 0x2000,
             reference_type: ReferenceType::Call,

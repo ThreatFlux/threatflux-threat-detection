@@ -1,6 +1,4 @@
 use file_scanner::ole_vba_analysis::*;
-use serde_json;
-use serde_yaml;
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -503,7 +501,7 @@ fn test_suspicious_indicators_comprehensive() {
         process_operations: vec![ProcessOperation {
             operation_type: ProcessOperationType::Create,
             target_process: "cmd.exe".to_string(),
-            parameters: vec!["/c", "dir"].iter().map(|s| s.to_string()).collect(),
+            parameters: ["/c", "dir"].iter().map(|s| s.to_string()).collect(),
             location: "Module2".to_string(),
             risk_level: RiskLevel::Critical,
         }],

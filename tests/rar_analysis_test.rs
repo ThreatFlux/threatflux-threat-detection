@@ -147,8 +147,6 @@ fn test_rar_metadata_structure() {
 
 #[test]
 fn test_risk_level_calculation() {
-    use file_scanner::archive_analysis::SuspiciousArchiveIndicators;
-
     // Test different risk scenarios
     let temp_dir = TempDir::new().unwrap();
 
