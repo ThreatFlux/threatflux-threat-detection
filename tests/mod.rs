@@ -18,6 +18,7 @@ mod function_analysis_test;
 mod ole_vba_analysis_test;
 mod pdf_analysis_test;
 mod rar_analysis_test;
+mod sevenz_analysis_test;
 mod signature_test;
 mod string_tracker_test;
 mod threat_detection_test;

@@ -17,6 +17,7 @@ pub mod metadata;
 pub mod ole_vba_analysis;
 pub mod pdf_analysis;
 pub mod rar_analysis;
+pub mod sevenz_analysis;
 pub mod signature;
 pub mod string_tracker;
 pub mod strings;
