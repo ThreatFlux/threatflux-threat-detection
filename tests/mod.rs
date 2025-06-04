@@ -4,6 +4,7 @@ mod fixtures;
 mod integration;
 
 // Unit test modules
+mod archive_analysis_test;
 mod behavioral_analysis_test;
 mod cache_test;
 mod call_graph_comprehensive_test;

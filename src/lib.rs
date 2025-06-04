@@ -1,3 +1,4 @@
+pub mod archive_analysis;
 pub mod behavioral_analysis;
 pub mod binary_parser;
 pub mod cache;
