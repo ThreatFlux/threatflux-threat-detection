@@ -31,6 +31,8 @@ jobs:
   docker-build-test:
     name: Build and Test Docker Image
     runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.lowercase.outputs.image_name }}
     permissions:
       contents: read
       packages: write
@@ -53,11 +55,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set lowercase image name
+        id: lowercase
+        run: echo "image_name=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804  # v5.7.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -87,16 +93,19 @@ jobs:
 
       - name: Test Docker image
         run: |
+          # Convert image name to lowercase for Docker compatibility
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+
           # Test basic functionality
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ fromJSON(steps.meta.outputs.json).tags[0] }} --version
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ fromJSON(steps.meta.outputs.json).tags[0] }} --help
+          docker run --rm ${IMAGE_TAG} --version
+          docker run --rm ${IMAGE_TAG} --help
 
           # Test file analysis
           echo "Test Docker content" > test-file.txt
-          docker run --rm -v $(pwd):/data ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ fromJSON(steps.meta.outputs.json).tags[0] }} /data/test-file.txt --format json
+          docker run --rm -v $(pwd):/data ${IMAGE_TAG} /data/test-file.txt --format json
 
           # Test MCP server mode (just verify it starts)
-          timeout 5s docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ fromJSON(steps.meta.outputs.json).tags[0] }} mcp-stdio || true
+          timeout 5s docker run --rm ${IMAGE_TAG} mcp-stdio || true
 
   security-scan:
     name: Security Scan
@@ -108,7 +117,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@18f2510ee396bbf800e4dded78c5f5d7ea27a3ad  # v0.30.0
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ github.sha }}'
+          image-ref: '${{ env.REGISTRY }}/${{ needs.docker-build-test.outputs.image_name }}:${{ github.ref_name }}-${{ github.sha }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
 
