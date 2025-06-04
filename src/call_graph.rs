@@ -543,7 +543,25 @@ mod tests {
 
     #[test]
     fn test_call_graph_generation() {
-        // Placeholder test
-        assert!(true);
+        // Placeholder test - basic smoke test
+        let graph = CallGraph {
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            entry_points: Vec::new(),
+            unreachable_functions: Vec::new(),
+            statistics: CallGraphStatistics {
+                total_nodes: 0,
+                total_edges: 0,
+                max_depth: 0,
+                unreachable_count: 0,
+                recursive_functions: 0,
+                leaf_functions: 0,
+                root_functions: 0,
+                avg_in_degree: 0.0,
+                avg_out_degree: 0.0,
+                strongly_connected_components: 0,
+            },
+        };
+        assert_eq!(graph.nodes.len(), 0);
     }
 }

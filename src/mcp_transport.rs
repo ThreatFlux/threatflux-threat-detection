@@ -670,16 +670,19 @@ async fn handle_tools_list(
     State(_state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
     Ok(AxumJson(json!({
-        "tools": [
-            {
-                "name": "analyze_file",
-                "description": "Comprehensive file analysis tool - use flags to control which analyses to perform"
-            },
-            {
-                "name": "llm_analyze_file",
-                "description": "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output"
-            }
-        ]
+        "jsonrpc": "2.0",
+        "result": {
+            "tools": [
+                {
+                    "name": "analyze_file",
+                    "description": "Comprehensive file analysis tool - use flags to control which analyses to perform"
+                },
+                {
+                    "name": "llm_analyze_file",
+                    "description": "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output"
+                }
+            ]
+        }
     })))
 }
 
@@ -769,7 +772,7 @@ async fn handle_mcp_sse_request(
 
 async fn health_check() -> AxumJson<serde_json::Value> {
     AxumJson(serde_json::json!({
-        "status": "healthy",
+        "status": "ok",
         "service": "file-scanner-mcp",
         "version": "0.1.0",
         "transports": ["stdio", "http", "sse"]
@@ -901,8 +904,15 @@ async fn get_cache_stats(
     let stats = state.cache.get_statistics().await;
     let metadata = state.cache.get_metadata().await;
     Ok(AxumJson(json!({
-        "statistics": stats,
-        "metadata": metadata
+        "total_entries": metadata.total_entries,
+        "total_unique_files": metadata.total_unique_files,
+        "cache_size_bytes": metadata.cache_size_bytes,
+        "last_updated": metadata.last_updated,
+        "tool_counts": stats.tool_counts,
+        "file_type_counts": stats.file_type_counts,
+        "total_analyses": stats.total_analyses,
+        "unique_files": stats.unique_files,
+        "avg_execution_time_ms": stats.avg_execution_time_ms
     })))
 }
 
@@ -924,7 +934,17 @@ async fn get_string_stats(
     State(state): State<McpServerState>,
 ) -> Result<AxumJson<Value>, StatusCode> {
     let stats = state.string_tracker.get_statistics(None);
-    Ok(AxumJson(json!(stats)))
+    Ok(AxumJson(json!({
+        "total_strings": stats.total_unique_strings,
+        "total_unique_strings": stats.total_unique_strings,
+        "total_occurrences": stats.total_occurrences,
+        "total_files_analyzed": stats.total_files_analyzed,
+        "most_common": stats.most_common,
+        "suspicious_strings": stats.suspicious_strings,
+        "high_entropy_strings": stats.high_entropy_strings,
+        "category_distribution": stats.category_distribution,
+        "length_distribution": stats.length_distribution
+    })))
 }
 
 async fn search_strings(
@@ -1301,7 +1321,7 @@ mod tests {
         let response = health_check().await;
         let value = response.0;
 
-        assert_eq!(value.get("status").unwrap().as_str().unwrap(), "healthy");
+        assert_eq!(value.get("status").unwrap().as_str().unwrap(), "ok");
         assert_eq!(
             value.get("service").unwrap().as_str().unwrap(),
             "file-scanner-mcp"
@@ -1335,7 +1355,8 @@ mod tests {
         let result = handle_tools_list(State(state)).await.unwrap();
         let value = result.0;
 
-        let tools = value.get("tools").unwrap().as_array().unwrap();
+        let result = value.get("result").unwrap();
+        let tools = result.get("tools").unwrap().as_array().unwrap();
         assert_eq!(tools.len(), 2);
 
         let tool_names: Vec<&str> = tools
@@ -1383,8 +1404,8 @@ mod tests {
         let result = get_cache_stats(State(state)).await.unwrap();
         let value = result.0;
 
-        assert!(value.get("statistics").is_some());
-        assert!(value.get("metadata").is_some());
+        assert!(value.get("total_entries").is_some());
+        assert!(value.get("tool_counts").is_some());
     }
 
     #[tokio::test]

@@ -152,19 +152,14 @@ async fn test_http_tools_endpoints() {
     }
 
     // Test tools/call endpoint with file analysis
-    let call_request = JsonRpcRequest {
-        jsonrpc: "2.0".to_string(),
-        id: Some(json!(3)),
-        method: "tools/call".to_string(),
-        params: Some(json!({
-            "name": "analyze_file",
-            "arguments": {
-                "file_path": "/bin/ls",
-                "metadata": true,
-                "hashes": false
-            }
-        })),
-    };
+    let call_request = json!({
+        "name": "analyze_file",
+        "arguments": {
+            "file_path": "/bin/ls",
+            "metadata": true,
+            "hashes": false
+        }
+    });
 
     let call_result = client
         .post(format!("http://localhost:{}/tools/call", port))

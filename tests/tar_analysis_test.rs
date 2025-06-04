@@ -400,12 +400,12 @@ fn test_multiple_tar_variants() {
         }),
     ];
 
-    for (filename, expected_type, data) in variants {
+    for (filename, _expected_type, data) in variants {
         let path = temp_dir.path().join(filename);
         std::fs::write(&path, &data).unwrap();
 
         let analysis = analyze_tar(&path).unwrap();
-        assert!(matches!(analysis.archive_type, expected_type));
+        assert!(matches!(analysis.archive_type, ArchiveType::Tar));
     }
 }
 

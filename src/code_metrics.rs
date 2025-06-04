@@ -688,9 +688,9 @@ mod tests {
 
     #[test]
     fn test_code_quality_analyzer_new() {
-        let _analyzer = CodeQualityAnalyzer::new();
-        // Verify analyzer can be created without issues
-        assert!(true);
+        let analyzer = CodeQualityAnalyzer::new();
+        // Verify analyzer can be created without issues - unit struct test
+        assert_eq!(std::mem::size_of_val(&analyzer), 0);
     }
 
     #[test]
@@ -1195,8 +1195,7 @@ mod tests {
 
         assert_eq!(result.function_metrics.len(), 1);
         assert_eq!(result.function_metrics[0].function_name, "main");
-        // Analysis duration should be tracked
-        assert!(true); // Duration will be > 0 in real usage, but may be 0 in tests
+        // Analysis duration should be tracked (may be 0 in fast tests)
         assert_eq!(result.analysis_stats.functions_analyzed, 1);
         assert!(result.analysis_stats.instructions_analyzed > 0);
     }

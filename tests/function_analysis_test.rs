@@ -642,8 +642,8 @@ fn test_analyze_symbols_with_pe_binary() {
                     symbol_table.functions.len()
                 );
 
-                // Should have some structure
-                assert!(symbol_table.symbol_count.total_functions >= 0);
+                // Should have proper symbol count structure
+                assert!(symbol_table.symbol_count.total_functions == symbol_table.functions.len());
 
                 // Test PE-specific features
                 if !symbol_table.imports.is_empty() {

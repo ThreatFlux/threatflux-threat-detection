@@ -337,7 +337,7 @@ async fn test_jsonrpc_llm_analyze_file() {
 
 #[tokio::test]
 async fn test_multiple_concurrent_requests() {
-    let transport = McpTransportServer::new();
+    let _transport = McpTransportServer::new();
 
     // Test concurrent JSON-RPC requests
     let mut handles = Vec::new();
