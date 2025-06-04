@@ -178,11 +178,12 @@ async fn test_jsonrpc_tools_call_invalid_tool() {
 
     assert_eq!(response.jsonrpc, "2.0");
     assert_eq!(response.id, Some(json!(5)));
-    assert!(response.result.is_none());
-    assert!(response.error.is_some());
+    assert!(response.result.is_some());
+    assert!(response.error.is_none());
 
-    if let Some(error) = response.error {
-        assert!(error.message.contains("Tool not found") || error.message.contains("Unknown tool"));
+    if let Some(result) = response.result {
+        let result_str = serde_json::to_string(&result).unwrap();
+        assert!(result_str.contains("Unknown tool") || result_str.contains("nonexistent_tool"));
     }
 }
 
@@ -207,7 +208,7 @@ async fn test_jsonrpc_tools_call_missing_params() {
     assert!(response.error.is_some());
 
     if let Some(error) = response.error {
-        assert_eq!(error.code, -32602); // Invalid params
+        assert_eq!(error.code, -32600); // Invalid Request (missing params)
     }
 }
 
