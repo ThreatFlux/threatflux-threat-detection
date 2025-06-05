@@ -3,15 +3,15 @@ use tempfile::{NamedTempFile, TempDir};
 
 // Helper function to create a minimal valid TAR archive
 fn create_test_tar() -> Vec<u8> {
-    let mut tar = vec![0u8; 1536]; // 3 blocks: header + data + end
+    let mut tar = vec![0u8; 2560]; // 5 blocks: header + data + padding + end
 
     // Create file entry "hello.txt" with content "Hello World!"
     tar[0..9].copy_from_slice(b"hello.txt");
     tar[100..108].copy_from_slice(b"0000644 "); // Mode (octal)
     tar[108..116].copy_from_slice(b"0001000 "); // UID
     tar[116..124].copy_from_slice(b"0001000 "); // GID
-    tar[124..135].copy_from_slice(b"00000000014 "); // Size: 12 bytes
-    tar[136..147].copy_from_slice(b"14174607250 "); // Mtime
+    tar[124..135].copy_from_slice(b"00000000014"); // Size: 12 bytes
+    tar[136..147].copy_from_slice(b"14174607250"); // Mtime
     tar[156] = b'0'; // Regular file
     tar[257..262].copy_from_slice(b"ustar"); // Magic
     tar[263..265].copy_from_slice(b"00"); // Version
@@ -239,19 +239,35 @@ fn test_package_manager_tar_safety() {
     let temp_dir = TempDir::new().unwrap();
 
     let package_names = vec![
-        "safe-package-1.0.tar.xz",
-        "pkg-tools-2.1.tar.gz",
-        "libpackage-dev.tar.bz2",
+        ("safe-package-1.0.tar.xz", {
+            let mut data = create_xz_header();
+            data.extend_from_slice(&create_test_tar());
+            data
+        }),
+        ("pkg-tools-2.1.tar.gz", {
+            let mut data = create_gzip_header();
+            data.extend_from_slice(&create_test_tar());
+            data
+        }),
+        ("libpackage-dev.tar.bz2", {
+            let mut data = create_bzip2_header();
+            data.extend_from_slice(&create_test_tar());
+            data
+        }),
     ];
 
-    for name in package_names {
+    for (name, data) in package_names {
         let path = temp_dir.path().join(name);
-        let tar_data = create_test_tar();
-        std::fs::write(&path, &tar_data).unwrap();
+        std::fs::write(&path, &data).unwrap();
 
         let analysis = analyze_tar(&path).unwrap();
         // Package manager files should have reduced risk
-        assert!(analysis.suspicious_indicators.risk_score < 20);
+        assert!(
+            analysis.suspicious_indicators.risk_score < 20,
+            "Risk score {} >= 20 for package {}",
+            analysis.suspicious_indicators.risk_score,
+            name
+        );
     }
 }
 
@@ -405,7 +421,16 @@ fn test_multiple_tar_variants() {
         std::fs::write(&path, &data).unwrap();
 
         let analysis = analyze_tar(&path).unwrap();
-        assert!(matches!(analysis.archive_type, ArchiveType::Tar));
+        match (filename, &analysis.archive_type) {
+            ("test.tar", ArchiveType::Tar) => {}
+            ("test.tar.gz", ArchiveType::TarGz) => {}
+            ("test.tar.bz2", ArchiveType::TarBz2) => {}
+            ("test.tar.xz", ArchiveType::TarXz) => {}
+            _ => panic!(
+                "Unexpected archive type for {}: {:?}",
+                filename, analysis.archive_type
+            ),
+        }
     }
 }
 
