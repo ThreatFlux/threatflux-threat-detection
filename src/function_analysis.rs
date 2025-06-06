@@ -136,7 +136,7 @@ pub fn analyze_symbols(path: &Path) -> Result<SymbolTable> {
     }
 }
 
-fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
+pub fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
     let mut functions = Vec::new();
     let mut global_variables = Vec::new();
     let mut imports = Vec::new();
@@ -284,7 +284,7 @@ fn analyze_elf_symbols(elf: elf::Elf, _buffer: &[u8]) -> Result<SymbolTable> {
     })
 }
 
-fn analyze_pe_symbols(pe: pe::PE, _buffer: &[u8]) -> Result<SymbolTable> {
+pub fn analyze_pe_symbols(pe: pe::PE, _buffer: &[u8]) -> Result<SymbolTable> {
     let mut functions = Vec::new();
     let global_variables = Vec::new();
     let mut imports = Vec::new();
@@ -374,7 +374,7 @@ fn analyze_pe_symbols(pe: pe::PE, _buffer: &[u8]) -> Result<SymbolTable> {
     })
 }
 
-fn analyze_mach_symbols(mach: mach::Mach, _buffer: &[u8]) -> Result<SymbolTable> {
+pub fn analyze_mach_symbols(mach: mach::Mach, _buffer: &[u8]) -> Result<SymbolTable> {
     let mut functions = Vec::new();
     let mut global_variables = Vec::new();
     let mut imports = Vec::new();

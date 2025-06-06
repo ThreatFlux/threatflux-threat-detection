@@ -436,7 +436,7 @@ pub fn analyze_ole_vba(path: &Path) -> Result<OleVbaAnalysis> {
     })
 }
 
-fn detect_ole_file_type(file: &mut File) -> Result<OleFileType> {
+pub fn detect_ole_file_type(file: &mut File) -> Result<OleFileType> {
     let mut header = [0u8; 512];
     file.read_exact(&mut header)
         .context("Failed to read file header")?;
@@ -554,7 +554,7 @@ fn extract_stream_info(file: &mut File) -> Result<Vec<StreamInfo>> {
     Ok(streams)
 }
 
-fn determine_stream_type(name: &str) -> StreamType {
+pub fn determine_stream_type(name: &str) -> StreamType {
     match name {
         name if name.contains("VBA") => StreamType::VbaProject,
         name if name.contains("MODULE") => StreamType::VbaModule,
@@ -579,7 +579,7 @@ fn calculate_stream_entropy<R: Read + Seek>(
     Ok(0.0)
 }
 
-fn calculate_entropy(data: &[u8]) -> f64 {
+pub fn calculate_entropy(data: &[u8]) -> f64 {
     if data.is_empty() {
         return 0.0;
     }
@@ -837,7 +837,7 @@ fn analyze_suspicious_patterns(
     Ok(indicators)
 }
 
-fn perform_security_assessment(
+pub fn perform_security_assessment(
     suspicious_indicators: &SuspiciousIndicators,
     _macros: &[MacroInfo],
 ) -> Result<SecurityAssessment> {
@@ -963,7 +963,7 @@ impl Default for SecurityAssessment {
 }
 
 // Helper functions for VBA analysis
-fn extract_module_content<R: Read + Seek>(
+pub fn extract_module_content<R: Read + Seek>(
     cfb: &mut CompoundFile<R>,
     module_name: &str,
 ) -> Result<VbaModule> {
@@ -1008,7 +1008,7 @@ fn extract_module_content<R: Read + Seek>(
     Ok(module)
 }
 
-fn parse_vba_reference(reference_str: &str) -> VbaReference {
+pub fn parse_vba_reference(reference_str: &str) -> VbaReference {
     // Parse VBA reference string
     let parts: Vec<&str> = reference_str.split('*').collect();
 
@@ -1021,7 +1021,7 @@ fn parse_vba_reference(reference_str: &str) -> VbaReference {
     }
 }
 
-fn extract_procedures_from_source(source: &str) -> Vec<VbaProcedure> {
+pub fn extract_procedures_from_source(source: &str) -> Vec<VbaProcedure> {
     let mut procedures = Vec::new();
     let lines: Vec<&str> = source.lines().collect();
     let mut current_proc: Option<VbaProcedure> = None;
@@ -1084,9 +1084,18 @@ fn extract_procedures_from_source(source: &str) -> Vec<VbaProcedure> {
     procedures
 }
 
-fn extract_procedure_name(line: &str) -> String {
+pub fn extract_procedure_name(line: &str) -> String {
     let parts: Vec<&str> = line.split_whitespace().collect();
-    if parts.len() >= 2 {
+
+    // Handle Property Get/Set/Let
+    if parts.len() >= 3 && parts[0] == "Property" {
+        let name_part = parts[2];
+        if let Some(paren_pos) = name_part.find('(') {
+            name_part[..paren_pos].to_string()
+        } else {
+            name_part.to_string()
+        }
+    } else if parts.len() >= 2 {
         let name_part = parts[1];
         if let Some(paren_pos) = name_part.find('(') {
             name_part[..paren_pos].to_string()
@@ -1098,7 +1107,7 @@ fn extract_procedure_name(line: &str) -> String {
     }
 }
 
-fn extract_parameters(line: &str) -> Vec<String> {
+pub fn extract_parameters(line: &str) -> Vec<String> {
     if let Some(start) = line.find('(') {
         if let Some(end) = line.find(')') {
             let params_str = &line[start + 1..end];
@@ -1114,7 +1123,7 @@ fn extract_parameters(line: &str) -> Vec<String> {
     Vec::new()
 }
 
-fn detect_suspicious_vba_patterns(source: &str) -> Vec<String> {
+pub fn detect_suspicious_vba_patterns(source: &str) -> Vec<String> {
     let mut patterns = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1149,7 +1158,7 @@ fn detect_suspicious_vba_patterns(source: &str) -> Vec<String> {
     patterns
 }
 
-fn parse_property_set(buffer: &[u8], metadata: &mut OleMetadata) -> Result<()> {
+pub fn parse_property_set(buffer: &[u8], metadata: &mut OleMetadata) -> Result<()> {
     // Simplified property set parsing
     // Real implementation would parse the full property set format
 
@@ -1179,7 +1188,7 @@ fn parse_property_set(buffer: &[u8], metadata: &mut OleMetadata) -> Result<()> {
     Ok(())
 }
 
-fn detect_suspicious_api_calls(source: &str, module_name: &str) -> Vec<SuspiciousApiCall> {
+pub fn detect_suspicious_api_calls(source: &str, module_name: &str) -> Vec<SuspiciousApiCall> {
     let mut calls = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1209,7 +1218,7 @@ fn detect_suspicious_api_calls(source: &str, module_name: &str) -> Vec<Suspiciou
     calls
 }
 
-fn detect_obfuscation_patterns(source: &str, module_name: &str) -> Vec<ObfuscationIndicator> {
+pub fn detect_obfuscation_patterns(source: &str, module_name: &str) -> Vec<ObfuscationIndicator> {
     let mut indicators = Vec::new();
 
     // Check for string concatenation obfuscation
@@ -1245,7 +1254,7 @@ fn detect_obfuscation_patterns(source: &str, module_name: &str) -> Vec<Obfuscati
     indicators
 }
 
-fn detect_external_connections(source: &str, module_name: &str) -> Vec<ExternalConnection> {
+pub fn detect_external_connections(source: &str, module_name: &str) -> Vec<ExternalConnection> {
     let mut connections = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1272,7 +1281,7 @@ fn detect_external_connections(source: &str, module_name: &str) -> Vec<ExternalC
     connections
 }
 
-fn detect_file_operations(source: &str, module_name: &str) -> Vec<FileOperation> {
+pub fn detect_file_operations(source: &str, module_name: &str) -> Vec<FileOperation> {
     let mut operations = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1303,7 +1312,7 @@ fn detect_file_operations(source: &str, module_name: &str) -> Vec<FileOperation>
     operations
 }
 
-fn detect_registry_operations(source: &str, module_name: &str) -> Vec<RegistryOperation> {
+pub fn detect_registry_operations(source: &str, module_name: &str) -> Vec<RegistryOperation> {
     let mut operations = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1320,7 +1329,7 @@ fn detect_registry_operations(source: &str, module_name: &str) -> Vec<RegistryOp
     operations
 }
 
-fn detect_process_operations(source: &str, module_name: &str) -> Vec<ProcessOperation> {
+pub fn detect_process_operations(source: &str, module_name: &str) -> Vec<ProcessOperation> {
     let mut operations = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1337,7 +1346,7 @@ fn detect_process_operations(source: &str, module_name: &str) -> Vec<ProcessOper
     operations
 }
 
-fn detect_crypto_operations(source: &str, module_name: &str) -> Vec<CryptoOperation> {
+pub fn detect_crypto_operations(source: &str, module_name: &str) -> Vec<CryptoOperation> {
     let mut operations = Vec::new();
     let source_lower = source.to_lowercase();
 
@@ -1357,7 +1366,7 @@ fn detect_crypto_operations(source: &str, module_name: &str) -> Vec<CryptoOperat
     operations
 }
 
-fn calculate_risk_score(indicators: &SuspiciousIndicators) -> u8 {
+pub fn calculate_risk_score(indicators: &SuspiciousIndicators) -> u8 {
     let mut score = 0u32;
 
     // Base score for having macros
@@ -1390,7 +1399,7 @@ fn calculate_risk_score(indicators: &SuspiciousIndicators) -> u8 {
     std::cmp::min(score, 100) as u8
 }
 
-fn determine_overall_risk(risk_factors: &[RiskFactor], risk_score: u8) -> RiskLevel {
+pub fn determine_overall_risk(risk_factors: &[RiskFactor], risk_score: u8) -> RiskLevel {
     let critical_count = risk_factors
         .iter()
         .filter(|f| matches!(f.severity, RiskLevel::Critical))
