@@ -304,7 +304,6 @@ fn test_generate_call_graph_with_simple_symbols() {
         }
         Err(_) => {
             // Call graph generation might fail on dummy data, which is acceptable
-            assert!(true);
         }
     }
 }
@@ -374,7 +373,7 @@ fn test_generate_call_graph_empty_disassembly() {
         }
         Err(_) => {
             // Empty disassembly might cause errors, which is acceptable
-            assert!(true);
+            // Empty disassembly test passed
         }
     }
 }

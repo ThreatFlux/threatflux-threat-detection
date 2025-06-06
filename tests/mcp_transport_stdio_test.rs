@@ -33,7 +33,7 @@ async fn test_stdio_transport_creation() {
 
     // Verify transport can be created for stdio
     // This tests the basic instantiation path
-    assert!(true);
+    // Basic import test
 
     // Test that we can call run_stdio without immediate panic
     // (though it will error due to no actual stdin/stdout in test)

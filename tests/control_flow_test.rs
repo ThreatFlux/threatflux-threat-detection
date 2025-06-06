@@ -62,7 +62,7 @@ fn test_flow_control_types() {
             FlowControl::Jump(addr) => assert!(addr > 0),
             FlowControl::Branch(addr) => assert!(addr > 0),
             FlowControl::Call(addr) => assert!(addr > 0),
-            _ => assert!(true),
+            _ => {}
         }
     }
 }
@@ -240,7 +240,7 @@ fn test_analyze_control_flow_empty_file() {
         }
         Err(_) => {
             // Also acceptable for empty files
-            assert!(true);
+            // Test passed
         }
     }
 }
@@ -299,7 +299,7 @@ fn test_analyze_control_flow_simple_binary() {
         }
         Err(_) => {
             // If it fails, that's also expected for non-valid binaries
-            assert!(true);
+            // Test passed
         }
     }
 }
@@ -407,8 +407,8 @@ fn test_control_flow_analyzer_analyze_flow_control() {
         if let Some(insn) = disassembled.as_ref().iter().next() {
             let flow = analyzer.analyze_flow_control(insn);
             match (&flow, &expected_flow) {
-                (FlowControl::Return, FlowControl::Return) => assert!(true),
-                (FlowControl::Branch(_), FlowControl::Branch(_)) => assert!(true),
+                (FlowControl::Return, FlowControl::Return) => {}
+                (FlowControl::Branch(_), FlowControl::Branch(_)) => {}
                 _ => {
                     // For complex address resolution, we accept Indirect as well
                     assert!(matches!(flow, FlowControl::Indirect));
@@ -1025,7 +1025,7 @@ fn test_analyze_functions_integration() {
         Err(_) => {
             // Errors are expected for incomplete test data
             // The important thing is that the function executes without panicking
-            assert!(true);
+            // Test passed
         }
     }
 }

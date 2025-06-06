@@ -593,7 +593,6 @@ fn test_parse_binary_with_real_elf_like_data() {
         }
         Err(_) => {
             // Parsing failed, which is acceptable for minimal/invalid data
-            assert!(true);
         }
     }
 }
@@ -616,7 +615,6 @@ fn test_parse_binary_with_real_pe_like_data() {
         }
         Err(_) => {
             // Parsing failed, which is acceptable for minimal/invalid data
-            assert!(true);
         }
     }
 }
@@ -639,7 +637,6 @@ fn test_parse_binary_with_real_macho_like_data() {
         }
         Err(_) => {
             // Parsing failed, which is acceptable for minimal/invalid data
-            assert!(true);
         }
     }
 }

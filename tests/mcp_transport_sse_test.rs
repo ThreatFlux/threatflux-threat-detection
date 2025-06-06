@@ -53,7 +53,7 @@ async fn test_sse_query_parsing() {
     assert_eq!(query_without_id.client_id, None);
 
     // Just test the structure since SseQuery might not have Serialize
-    assert!(true); // Placeholder test
+    // Placeholder test - just verify basic structure exists
 }
 
 #[tokio::test]
@@ -62,7 +62,7 @@ async fn test_sse_server_state_creation() {
     // Note: We can't easily test McpServerState creation without proper setup
     // so we'll test the basic component creation instead
 
-    assert!(true); // Basic test that the imports work
+    // Basic test that the imports work
 }
 
 #[tokio::test]

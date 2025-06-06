@@ -19,7 +19,7 @@ mod tests {
     async fn test_mcp_transport_server_creation() {
         let _server = create_test_server();
         // Server should be created with cache and string tracker
-        assert!(true); // Basic creation test
+        // Basic creation test completed successfully
     }
 
     #[tokio::test]

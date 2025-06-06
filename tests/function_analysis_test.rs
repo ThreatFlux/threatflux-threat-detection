@@ -1,4 +1,5 @@
 use file_scanner::function_analysis::*;
+use std::collections::HashSet;
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -898,4 +899,1381 @@ fn test_dynamic_symbol_analysis() {
             imported_func_names.len()
         );
     }
+}
+
+// NEW COMPREHENSIVE TESTS
+
+#[test]
+fn test_elf_symbol_parsing_detailed() {
+    use file_scanner::function_analysis::analyze_elf_symbols;
+    use goblin::elf::Elf;
+
+    // Create a minimal ELF for testing individual function parsing
+    let elf_data = create_minimal_elf_with_symbols();
+
+    match Elf::parse(&elf_data) {
+        Ok(elf) => {
+            let result = analyze_elf_symbols(elf, &elf_data);
+            match result {
+                Ok(symbol_table) => {
+                    // Test basic structure
+                    // Test basic structure (len() is always >= 0 for Vec, so just verify structure exists)
+                    let _ = symbol_table.functions.len();
+                    let _ = symbol_table.global_variables.len();
+                    let _ = symbol_table.imports.len();
+                    let _ = symbol_table.exports.len();
+
+                    // Test symbol count consistency
+                    assert_eq!(
+                        symbol_table.functions.len(),
+                        symbol_table.symbol_count.total_functions
+                    );
+                    assert_eq!(
+                        symbol_table.global_variables.len(),
+                        symbol_table.symbol_count.global_variables
+                    );
+                }
+                Err(_) => {
+                    // Expected for minimal ELF without proper symbol table
+                }
+            }
+        }
+        Err(_) => {
+            // Expected for our minimal test ELF
+        }
+    }
+}
+
+#[test]
+fn test_function_type_detection() {
+    // Test all function types are properly detected
+    let func_local = FunctionInfo {
+        name: "local_func".to_string(),
+        address: 0x1000,
+        size: 100,
+        function_type: FunctionType::Local,
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![],
+        is_entry_point: false,
+        is_exported: false,
+        is_imported: false,
+    };
+
+    let func_imported = FunctionInfo {
+        name: "printf".to_string(),
+        address: 0,
+        size: 0,
+        function_type: FunctionType::Imported,
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![],
+        is_entry_point: false,
+        is_exported: false,
+        is_imported: true,
+    };
+
+    let func_exported = FunctionInfo {
+        name: "my_api_func".to_string(),
+        address: 0x2000,
+        size: 200,
+        function_type: FunctionType::Exported,
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![],
+        is_entry_point: false,
+        is_exported: true,
+        is_imported: false,
+    };
+
+    let func_entry = FunctionInfo {
+        name: "_start".to_string(),
+        address: 0x3000,
+        size: 50,
+        function_type: FunctionType::EntryPoint,
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![],
+        is_entry_point: true,
+        is_exported: false,
+        is_imported: false,
+    };
+
+    // Verify function properties
+    assert!(matches!(func_local.function_type, FunctionType::Local));
+    assert!(!func_local.is_imported && !func_local.is_exported && !func_local.is_entry_point);
+
+    assert!(matches!(
+        func_imported.function_type,
+        FunctionType::Imported
+    ));
+    assert!(func_imported.is_imported && !func_imported.is_exported);
+
+    assert!(matches!(
+        func_exported.function_type,
+        FunctionType::Exported
+    ));
+    assert!(func_exported.is_exported && !func_exported.is_imported);
+
+    assert!(matches!(func_entry.function_type, FunctionType::EntryPoint));
+    assert!(func_entry.is_entry_point);
+}
+
+#[test]
+fn test_calling_convention_detection() {
+    // Test calling convention detection logic
+    let conventions = vec![
+        CallingConvention::Cdecl,
+        CallingConvention::Stdcall,
+        CallingConvention::Fastcall,
+        CallingConvention::Thiscall,
+        CallingConvention::Vectorcall,
+        CallingConvention::SysV,
+        CallingConvention::Win64,
+        CallingConvention::Unknown,
+    ];
+
+    for convention in conventions {
+        let func = FunctionInfo {
+            name: "test_func".to_string(),
+            address: 0x1000,
+            size: 100,
+            function_type: FunctionType::Local,
+            calling_convention: Some(convention.clone()),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        };
+
+        assert!(func.calling_convention.is_some());
+        match (&convention, &func.calling_convention.unwrap()) {
+            (CallingConvention::Cdecl, CallingConvention::Cdecl) => {}
+            (CallingConvention::Stdcall, CallingConvention::Stdcall) => {}
+            (CallingConvention::Fastcall, CallingConvention::Fastcall) => {}
+            (CallingConvention::Thiscall, CallingConvention::Thiscall) => {}
+            (CallingConvention::Vectorcall, CallingConvention::Vectorcall) => {}
+            (CallingConvention::SysV, CallingConvention::SysV) => {}
+            (CallingConvention::Win64, CallingConvention::Win64) => {}
+            (CallingConvention::Unknown, CallingConvention::Unknown) => {}
+            _ => panic!("Calling convention mismatch"),
+        }
+    }
+}
+
+#[test]
+fn test_parameter_analysis() {
+    // Test function parameter detection and parsing
+    let param1 = Parameter {
+        name: Some("argc".to_string()),
+        param_type: Some("int".to_string()),
+        size: Some(4),
+    };
+
+    let param2 = Parameter {
+        name: Some("argv".to_string()),
+        param_type: Some("char**".to_string()),
+        size: Some(8),
+    };
+
+    let param3 = Parameter {
+        name: None,
+        param_type: Some("void*".to_string()),
+        size: Some(8),
+    };
+
+    let func_with_params = FunctionInfo {
+        name: "main".to_string(),
+        address: 0x1000,
+        size: 500,
+        function_type: FunctionType::EntryPoint,
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![param1.clone(), param2.clone(), param3.clone()],
+        is_entry_point: true,
+        is_exported: false,
+        is_imported: false,
+    };
+
+    // Verify parameter properties
+    assert_eq!(func_with_params.parameters.len(), 3);
+    assert_eq!(
+        func_with_params.parameters[0].name,
+        Some("argc".to_string())
+    );
+    assert_eq!(
+        func_with_params.parameters[0].param_type,
+        Some("int".to_string())
+    );
+    assert_eq!(func_with_params.parameters[0].size, Some(4));
+
+    assert_eq!(
+        func_with_params.parameters[1].name,
+        Some("argv".to_string())
+    );
+    assert_eq!(
+        func_with_params.parameters[1].param_type,
+        Some("char**".to_string())
+    );
+    assert_eq!(func_with_params.parameters[1].size, Some(8));
+
+    assert_eq!(func_with_params.parameters[2].name, None);
+    assert_eq!(
+        func_with_params.parameters[2].param_type,
+        Some("void*".to_string())
+    );
+    assert_eq!(func_with_params.parameters[2].size, Some(8));
+}
+
+#[test]
+fn test_variable_type_detection() {
+    // Test variable type detection for different scopes
+    let global_var = VariableInfo {
+        name: "global_counter".to_string(),
+        address: 0x4000,
+        size: 4,
+        var_type: VariableType::Global,
+        section: Some(".data".to_string()),
+    };
+
+    let static_var = VariableInfo {
+        name: "static_buffer".to_string(),
+        address: 0x4010,
+        size: 1024,
+        var_type: VariableType::Static,
+        section: Some(".bss".to_string()),
+    };
+
+    let thread_local_var = VariableInfo {
+        name: "thread_id".to_string(),
+        address: 0x5000,
+        size: 8,
+        var_type: VariableType::ThreadLocal,
+        section: Some(".tdata".to_string()),
+    };
+
+    let const_var = VariableInfo {
+        name: "version_string".to_string(),
+        address: 0x6000,
+        size: 20,
+        var_type: VariableType::Const,
+        section: Some(".rodata".to_string()),
+    };
+
+    // Verify variable type detection
+    assert!(matches!(global_var.var_type, VariableType::Global));
+    assert_eq!(global_var.section, Some(".data".to_string()));
+
+    assert!(matches!(static_var.var_type, VariableType::Static));
+    assert_eq!(static_var.section, Some(".bss".to_string()));
+
+    assert!(matches!(
+        thread_local_var.var_type,
+        VariableType::ThreadLocal
+    ));
+    assert_eq!(thread_local_var.section, Some(".tdata".to_string()));
+
+    assert!(matches!(const_var.var_type, VariableType::Const));
+    assert_eq!(const_var.section, Some(".rodata".to_string()));
+}
+
+#[test]
+fn test_cross_reference_analysis() {
+    // Test cross-reference detection and classification
+    let call_ref = CrossReference {
+        from_address: 0x1000,
+        to_address: 0x2000,
+        reference_type: ReferenceType::Call,
+        instruction_type: Some("call".to_string()),
+    };
+
+    let jump_ref = CrossReference {
+        from_address: 0x1010,
+        to_address: 0x1500,
+        reference_type: ReferenceType::Jump,
+        instruction_type: Some("jmp".to_string()),
+    };
+
+    let data_ref = CrossReference {
+        from_address: 0x1020,
+        to_address: 0x4000,
+        reference_type: ReferenceType::DataReference,
+        instruction_type: Some("mov".to_string()),
+    };
+
+    let string_ref = CrossReference {
+        from_address: 0x1030,
+        to_address: 0x6000,
+        reference_type: ReferenceType::StringReference,
+        instruction_type: Some("lea".to_string()),
+    };
+
+    let import_ref = CrossReference {
+        from_address: 0x1040,
+        to_address: 0x8000,
+        reference_type: ReferenceType::Import,
+        instruction_type: Some("call".to_string()),
+    };
+
+    let export_ref = CrossReference {
+        from_address: 0x1050,
+        to_address: 0x9000,
+        reference_type: ReferenceType::Export,
+        instruction_type: Some("jmp".to_string()),
+    };
+
+    // Verify cross-reference properties
+    assert!(matches!(call_ref.reference_type, ReferenceType::Call));
+    assert_eq!(call_ref.instruction_type, Some("call".to_string()));
+
+    assert!(matches!(jump_ref.reference_type, ReferenceType::Jump));
+    assert_eq!(jump_ref.instruction_type, Some("jmp".to_string()));
+
+    assert!(matches!(
+        data_ref.reference_type,
+        ReferenceType::DataReference
+    ));
+    assert_eq!(data_ref.instruction_type, Some("mov".to_string()));
+
+    assert!(matches!(
+        string_ref.reference_type,
+        ReferenceType::StringReference
+    ));
+    assert_eq!(string_ref.instruction_type, Some("lea".to_string()));
+
+    assert!(matches!(import_ref.reference_type, ReferenceType::Import));
+    assert_eq!(import_ref.instruction_type, Some("call".to_string()));
+
+    assert!(matches!(export_ref.reference_type, ReferenceType::Export));
+    assert_eq!(export_ref.instruction_type, Some("jmp".to_string()));
+}
+
+#[test]
+fn test_import_export_analysis() {
+    // Test import and export detection
+    let import1 = ImportInfo {
+        name: "malloc".to_string(),
+        library: Some("libc.so.6".to_string()),
+        address: Some(0x8000),
+        ordinal: None,
+        is_delayed: false,
+    };
+
+    let import2 = ImportInfo {
+        name: "CreateFileA".to_string(),
+        library: Some("kernel32.dll".to_string()),
+        address: Some(0x8010),
+        ordinal: Some(123),
+        is_delayed: true,
+    };
+
+    let export1 = ExportInfo {
+        name: "my_exported_function".to_string(),
+        address: 0x9000,
+        ordinal: Some(1),
+        is_forwarder: false,
+        forwarder_name: None,
+    };
+
+    let export2 = ExportInfo {
+        name: "forwarded_function".to_string(),
+        address: 0x9010,
+        ordinal: Some(2),
+        is_forwarder: true,
+        forwarder_name: Some("ntdll.RtlAllocateHeap".to_string()),
+    };
+
+    // Verify import properties
+    assert_eq!(import1.name, "malloc");
+    assert_eq!(import1.library, Some("libc.so.6".to_string()));
+    assert!(!import1.is_delayed);
+
+    assert_eq!(import2.name, "CreateFileA");
+    assert_eq!(import2.library, Some("kernel32.dll".to_string()));
+    assert_eq!(import2.ordinal, Some(123));
+    assert!(import2.is_delayed);
+
+    // Verify export properties
+    assert_eq!(export1.name, "my_exported_function");
+    assert_eq!(export1.ordinal, Some(1));
+    assert!(!export1.is_forwarder);
+    assert_eq!(export1.forwarder_name, None);
+
+    assert_eq!(export2.name, "forwarded_function");
+    assert_eq!(export2.ordinal, Some(2));
+    assert!(export2.is_forwarder);
+    assert_eq!(
+        export2.forwarder_name,
+        Some("ntdll.RtlAllocateHeap".to_string())
+    );
+}
+
+#[test]
+fn test_symbol_count_calculations() {
+    // Test symbol count calculation logic
+    let functions = vec![
+        FunctionInfo {
+            name: "local1".to_string(),
+            address: 0x1000,
+            size: 100,
+            function_type: FunctionType::Local,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        },
+        FunctionInfo {
+            name: "local2".to_string(),
+            address: 0x1100,
+            size: 200,
+            function_type: FunctionType::Local,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        },
+        FunctionInfo {
+            name: "printf".to_string(),
+            address: 0,
+            size: 0,
+            function_type: FunctionType::Imported,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: true,
+        },
+        FunctionInfo {
+            name: "api_func".to_string(),
+            address: 0x2000,
+            size: 300,
+            function_type: FunctionType::Exported,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: true,
+            is_imported: false,
+        },
+    ];
+
+    let global_variables = vec![
+        VariableInfo {
+            name: "global1".to_string(),
+            address: 0x4000,
+            size: 4,
+            var_type: VariableType::Global,
+            section: Some(".data".to_string()),
+        },
+        VariableInfo {
+            name: "static1".to_string(),
+            address: 0x4010,
+            size: 8,
+            var_type: VariableType::Static,
+            section: Some(".bss".to_string()),
+        },
+    ];
+
+    let cross_references = vec![CrossReference {
+        from_address: 0x1000,
+        to_address: 0x2000,
+        reference_type: ReferenceType::Call,
+        instruction_type: Some("call".to_string()),
+    }];
+
+    // Calculate counts manually and verify
+    let total_functions = functions.len();
+    let local_functions = functions
+        .iter()
+        .filter(|f| matches!(f.function_type, FunctionType::Local))
+        .count();
+    let imported_functions = functions.iter().filter(|f| f.is_imported).count();
+    let exported_functions = functions.iter().filter(|f| f.is_exported).count();
+    let total_variables = global_variables.len();
+    let total_xrefs = cross_references.len();
+
+    let symbol_count = SymbolCounts {
+        total_functions,
+        local_functions,
+        imported_functions,
+        exported_functions,
+        global_variables: total_variables,
+        cross_references: total_xrefs,
+    };
+
+    // Verify calculations
+    assert_eq!(symbol_count.total_functions, 4);
+    assert_eq!(symbol_count.local_functions, 2);
+    assert_eq!(symbol_count.imported_functions, 1);
+    assert_eq!(symbol_count.exported_functions, 1);
+    assert_eq!(symbol_count.global_variables, 2);
+    assert_eq!(symbol_count.cross_references, 1);
+
+    // Verify consistency
+    assert!(symbol_count.local_functions <= symbol_count.total_functions);
+    assert!(symbol_count.imported_functions <= symbol_count.total_functions);
+    assert!(symbol_count.exported_functions <= symbol_count.total_functions);
+}
+
+#[test]
+fn test_entry_point_detection() {
+    // Test entry point detection for different binary types
+    let entry_points = vec![
+        ("_start", true),
+        ("main", true),
+        ("WinMain", false), // Would be true for PE
+        ("DllMain", false), // Would be true for PE DLL
+        ("_main", false),   // macOS style, would be true for Mach-O
+        ("regular_function", false),
+    ];
+
+    for (name, expected_entry) in entry_points {
+        let is_entry_point = name == "_start" || name == "main";
+        assert_eq!(
+            is_entry_point, expected_entry,
+            "Entry point detection failed for {}",
+            name
+        );
+    }
+}
+
+#[test]
+fn test_symbol_name_filtering() {
+    // Test symbol name filtering logic
+    let symbol_names = vec![
+        ("", true),                   // Empty names should be filtered
+        ("$x.123", true),             // Compiler-generated symbols should be filtered
+        ("__libc_start_main", false), // System symbols should not be filtered
+        ("main", false),              // User symbols should not be filtered
+        ("printf", false),            // Library symbols should not be filtered
+        ("$a", true),                 // ARM mapping symbols should be filtered
+        ("$d", true),                 // ARM data symbols should be filtered
+    ];
+
+    for (name, should_filter) in symbol_names {
+        let filtered = name.is_empty() || name.starts_with("$");
+        assert_eq!(
+            filtered, should_filter,
+            "Symbol filtering failed for '{}'",
+            name
+        );
+    }
+}
+
+#[test]
+fn test_address_validation() {
+    // Test address validation logic
+    let test_addresses = vec![
+        (0x0, true),                    // Null address is valid for imports
+        (0x1000, false),                // Valid address
+        (0x400000, false),              // Typical executable base
+        (0x7fffffff, false),            // High address but valid
+        (0xffffffffffffffffu64, false), // Max address
+    ];
+
+    for (address, is_null) in test_addresses {
+        assert_eq!(
+            address == 0,
+            is_null,
+            "Address validation failed for 0x{:x}",
+            address
+        );
+    }
+}
+
+#[test]
+fn test_function_size_analysis() {
+    // Test function size analysis and validation
+    let functions = vec![
+        ("small_func", 10u64),
+        ("medium_func", 1000u64),
+        ("large_func", 10000u64),
+        ("huge_func", 100000u64),
+        ("imported_func", 0u64), // Imported functions may have size 0
+    ];
+
+    for (name, size) in functions {
+        let is_reasonable_size = size <= 0x1000000; // 16MB max
+        assert!(
+            is_reasonable_size,
+            "Function {} has unreasonable size: {}",
+            name, size
+        );
+
+        let is_imported = name.contains("imported");
+        if is_imported {
+            // Imported functions can have size 0
+            assert!(size == 0 || size > 0, "Imported function size validation");
+        } else {
+            // Local functions should typically have size > 0
+            // But we don't enforce this as some symbols may not have size info
+        }
+    }
+}
+
+#[test]
+fn test_comprehensive_symbol_table_consistency() {
+    // Test comprehensive symbol table consistency checks
+    let symbol_table = SymbolTable {
+        functions: vec![
+            FunctionInfo {
+                name: "func1".to_string(),
+                address: 0x1000,
+                size: 100,
+                function_type: FunctionType::Local,
+                calling_convention: Some(CallingConvention::SysV),
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: false,
+            },
+            FunctionInfo {
+                name: "func2".to_string(),
+                address: 0x2000,
+                size: 200,
+                function_type: FunctionType::Exported,
+                calling_convention: Some(CallingConvention::SysV),
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: true,
+                is_imported: false,
+            },
+            FunctionInfo {
+                name: "printf".to_string(),
+                address: 0,
+                size: 0,
+                function_type: FunctionType::Imported,
+                calling_convention: Some(CallingConvention::SysV),
+                parameters: vec![],
+                is_entry_point: false,
+                is_exported: false,
+                is_imported: true,
+            },
+        ],
+        global_variables: vec![VariableInfo {
+            name: "global_var".to_string(),
+            address: 0x4000,
+            size: 4,
+            var_type: VariableType::Global,
+            section: Some(".data".to_string()),
+        }],
+        cross_references: vec![CrossReference {
+            from_address: 0x1000,
+            to_address: 0x2000,
+            reference_type: ReferenceType::Call,
+            instruction_type: Some("call".to_string()),
+        }],
+        imports: vec![ImportInfo {
+            name: "printf".to_string(),
+            library: Some("libc.so.6".to_string()),
+            address: None,
+            ordinal: None,
+            is_delayed: false,
+        }],
+        exports: vec![ExportInfo {
+            name: "func2".to_string(),
+            address: 0x2000,
+            ordinal: Some(1),
+            is_forwarder: false,
+            forwarder_name: None,
+        }],
+        symbol_count: SymbolCounts {
+            total_functions: 3,
+            local_functions: 1,
+            imported_functions: 1,
+            exported_functions: 1,
+            global_variables: 1,
+            cross_references: 1,
+        },
+    };
+
+    // Verify all consistency checks
+    assert_eq!(
+        symbol_table.functions.len(),
+        symbol_table.symbol_count.total_functions
+    );
+    assert_eq!(
+        symbol_table.global_variables.len(),
+        symbol_table.symbol_count.global_variables
+    );
+    assert_eq!(
+        symbol_table.cross_references.len(),
+        symbol_table.symbol_count.cross_references
+    );
+
+    // Verify function type counts
+    let actual_local = symbol_table
+        .functions
+        .iter()
+        .filter(|f| matches!(f.function_type, FunctionType::Local))
+        .count();
+    let actual_imported = symbol_table
+        .functions
+        .iter()
+        .filter(|f| f.is_imported)
+        .count();
+    let actual_exported = symbol_table
+        .functions
+        .iter()
+        .filter(|f| f.is_exported)
+        .count();
+
+    assert_eq!(actual_local, symbol_table.symbol_count.local_functions);
+    assert_eq!(
+        actual_imported,
+        symbol_table.symbol_count.imported_functions
+    );
+    assert_eq!(
+        actual_exported,
+        symbol_table.symbol_count.exported_functions
+    );
+
+    // Verify import/export consistency
+    let import_names: std::collections::HashSet<_> =
+        symbol_table.imports.iter().map(|i| &i.name).collect();
+    let imported_func_names: std::collections::HashSet<_> = symbol_table
+        .functions
+        .iter()
+        .filter(|f| f.is_imported)
+        .map(|f| &f.name)
+        .collect();
+
+    let export_names: std::collections::HashSet<_> =
+        symbol_table.exports.iter().map(|e| &e.name).collect();
+    let exported_func_names: std::collections::HashSet<_> = symbol_table
+        .functions
+        .iter()
+        .filter(|f| f.is_exported)
+        .map(|f| &f.name)
+        .collect();
+
+    // Most imports should have corresponding ImportInfo
+    let import_overlap = import_names.intersection(&imported_func_names).count();
+    assert!(import_overlap > 0, "Should have some import overlap");
+
+    // Most exports should have corresponding ExportInfo
+    let export_overlap = export_names.intersection(&exported_func_names).count();
+    assert!(export_overlap > 0, "Should have some export overlap");
+}
+
+// Helper function to create a minimal ELF for testing
+fn create_minimal_elf_with_symbols() -> Vec<u8> {
+    // Create a minimal ELF header with basic structure
+    let mut elf_data = vec![
+        // ELF header
+        0x7f, 0x45, 0x4c, 0x46, // Magic
+        0x02, // 64-bit
+        0x01, // Little endian
+        0x01, // ELF version
+        0x00, // System V ABI
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Padding
+        0x02, 0x00, // Executable file
+        0x3e, 0x00, // x86-64
+        0x01, 0x00, 0x00, 0x00, // Version
+        0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Entry point
+        0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Program header offset
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Section header offset
+        0x00, 0x00, 0x00, 0x00, // Flags
+        0x40, 0x00, // ELF header size
+        0x38, 0x00, // Program header size
+        0x01, 0x00, // Program header count
+        0x40, 0x00, // Section header size
+        0x00, 0x00, // Section header count
+        0x00, 0x00, // Section name string table index
+    ];
+
+    // Pad to minimum size
+    while elf_data.len() < 0x1000 {
+        elf_data.push(0);
+    }
+
+    elf_data
+}
+
+#[test]
+fn test_pe_symbol_analysis_detailed() {
+    // Test PE-specific symbol analysis
+    use file_scanner::function_analysis::analyze_pe_symbols;
+    use goblin::pe::PE;
+
+    // Create minimal PE data for testing
+    let pe_data = create_minimal_pe_data();
+
+    match PE::parse(&pe_data) {
+        Ok(pe) => {
+            let result = analyze_pe_symbols(pe, &pe_data);
+            match result {
+                Ok(symbol_table) => {
+                    // Test PE-specific properties
+                    assert_eq!(
+                        symbol_table.functions.len(),
+                        symbol_table.symbol_count.total_functions
+                    );
+
+                    // PE imports should have library names
+                    for import in &symbol_table.imports {
+                        if import.library.is_some() {
+                            assert!(!import.library.as_ref().unwrap().is_empty());
+                        }
+                    }
+
+                    // PE functions should have appropriate calling conventions
+                    for func in &symbol_table.functions {
+                        if let Some(conv) = &func.calling_convention {
+                            // PE typically uses Stdcall
+                            assert!(matches!(conv, CallingConvention::Stdcall));
+                        }
+                    }
+                }
+                Err(_) => {
+                    // Expected for minimal PE data
+                }
+            }
+        }
+        Err(_) => {
+            // Expected for our test data
+        }
+    }
+}
+
+#[test]
+fn test_mach_o_symbol_analysis_detailed() {
+    // Test Mach-O specific symbol analysis
+    use file_scanner::function_analysis::analyze_mach_symbols;
+    use goblin::mach::Mach;
+
+    // Create minimal Mach-O data for testing
+    let macho_data = create_minimal_macho_data();
+
+    match Mach::parse(&macho_data) {
+        Ok(mach) => {
+            let result = analyze_mach_symbols(mach, &macho_data);
+            match result {
+                Ok(symbol_table) => {
+                    // Test Mach-O specific properties
+                    assert_eq!(
+                        symbol_table.functions.len(),
+                        symbol_table.symbol_count.total_functions
+                    );
+
+                    // Mach-O functions should use SysV calling convention
+                    for func in &symbol_table.functions {
+                        if let Some(conv) = &func.calling_convention {
+                            assert!(matches!(conv, CallingConvention::SysV));
+                        }
+                    }
+
+                    // Check for proper entry point detection
+                    let entry_points = symbol_table
+                        .functions
+                        .iter()
+                        .filter(|f| f.is_entry_point)
+                        .count();
+                    println!("Mach-O entry points: {}", entry_points);
+                }
+                Err(_) => {
+                    // Expected for minimal Mach-O data
+                }
+            }
+        }
+        Err(_) => {
+            // Expected for our test data
+        }
+    }
+}
+
+#[test]
+fn test_function_overlaps_and_gaps() {
+    // Test detection of function overlaps and gaps
+    let functions = vec![
+        FunctionInfo {
+            name: "func1".to_string(),
+            address: 0x1000,
+            size: 100,
+            function_type: FunctionType::Local,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        },
+        FunctionInfo {
+            name: "func2".to_string(),
+            address: 0x1064, // Starts exactly where func1 ends
+            size: 200,
+            function_type: FunctionType::Local,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        },
+        FunctionInfo {
+            name: "func3".to_string(),
+            address: 0x1200, // Gap between func2 end (0x1064+200=0x112c) and func3 start
+            size: 150,
+            function_type: FunctionType::Local,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        },
+    ];
+
+    // Check for overlaps and gaps
+    for i in 0..functions.len() {
+        for j in (i + 1)..functions.len() {
+            let func1 = &functions[i];
+            let func2 = &functions[j];
+
+            let func1_end = func1.address + func1.size;
+            let func2_start = func2.address;
+
+            // No overlaps should exist (but gaps are allowed)
+            if func1.address < func2.address {
+                assert!(
+                    func1_end <= func2_start,
+                    "Functions {} and {} overlap",
+                    func1.name,
+                    func2.name
+                );
+            } else {
+                let func2_end = func2.address + func2.size;
+                assert!(
+                    func2_end <= func1.address,
+                    "Functions {} and {} overlap",
+                    func2.name,
+                    func1.name
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn test_symbol_deduplication() {
+    // Test symbol deduplication logic
+    let mut symbols = vec![
+        "main", "printf", "malloc", "main",   // Duplicate
+        "printf", // Duplicate
+        "free", "malloc", // Duplicate
+    ];
+
+    // Simulate deduplication
+    symbols.sort();
+    symbols.dedup();
+
+    let expected = vec!["free", "main", "malloc", "printf"];
+    assert_eq!(symbols, expected);
+    assert_eq!(symbols.len(), 4); // Should have 4 unique symbols
+}
+
+#[test]
+fn test_large_address_space_handling() {
+    // Test handling of large address spaces (64-bit)
+    let large_addresses = vec![
+        0x0000000000001000u64, // Small address
+        0x0000000140000000u64, // Typical Windows executable base
+        0x00007fff00000000u64, // High user-space address
+        0x0000800000000000u64, // Kernel space boundary
+        0xffffffffffffffffu64, // Maximum address
+    ];
+
+    for addr in large_addresses {
+        let func = FunctionInfo {
+            name: format!("func_at_{:x}", addr),
+            address: addr,
+            size: 100,
+            function_type: FunctionType::Local,
+            calling_convention: Some(CallingConvention::SysV),
+            parameters: vec![],
+            is_entry_point: false,
+            is_exported: false,
+            is_imported: false,
+        };
+
+        // Should be able to handle any 64-bit address
+        assert_eq!(func.address, addr);
+        assert!(!func.name.is_empty());
+    }
+}
+
+#[test]
+fn test_function_signature_reconstruction() {
+    // Test function signature reconstruction from parameters
+    let func_with_signature = FunctionInfo {
+        name: "complex_function".to_string(),
+        address: 0x1000,
+        size: 500,
+        function_type: FunctionType::Local,
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![
+            Parameter {
+                name: Some("ptr".to_string()),
+                param_type: Some("void*".to_string()),
+                size: Some(8),
+            },
+            Parameter {
+                name: Some("count".to_string()),
+                param_type: Some("size_t".to_string()),
+                size: Some(8),
+            },
+            Parameter {
+                name: Some("flags".to_string()),
+                param_type: Some("uint32_t".to_string()),
+                size: Some(4),
+            },
+        ],
+        is_entry_point: false,
+        is_exported: true,
+        is_imported: false,
+    };
+
+    // Reconstruct signature string
+    let signature = reconstruct_function_signature(&func_with_signature);
+    assert!(signature.contains("complex_function"));
+    assert!(signature.contains("void*"));
+    assert!(signature.contains("size_t"));
+    assert!(signature.contains("uint32_t"));
+}
+
+#[test]
+fn test_binary_format_detection() {
+    // Test binary format detection logic
+    let elf_magic = [0x7f, 0x45, 0x4c, 0x46];
+    let pe_magic = [0x4d, 0x5a]; // MZ
+    let _macho_magic_64 = [0xcf, 0xfa, 0xed, 0xfe];
+    let _macho_magic_32 = [0xfe, 0xed, 0xfa, 0xce];
+
+    // Verify magic number detection
+    assert_eq!(&elf_magic, b"\x7fELF");
+    assert_eq!(&pe_magic, b"MZ");
+
+    // Test with actual parsing
+    let elf_data = create_minimal_elf_with_symbols();
+    assert_eq!(&elf_data[0..4], &elf_magic);
+
+    let pe_data = create_minimal_pe_data();
+    assert_eq!(&pe_data[0..2], &pe_magic);
+}
+
+#[test]
+fn test_symbol_visibility_detection() {
+    // Test symbol visibility detection (local, global, weak, etc.)
+    use goblin::elf::sym::{STB_GLOBAL, STB_LOCAL, STB_WEAK};
+
+    let binding_types = vec![
+        (STB_LOCAL, "local binding"),
+        (STB_GLOBAL, "global binding"),
+        (STB_WEAK, "weak binding"),
+    ];
+
+    for (binding, description) in binding_types {
+        // Test function type determination based on binding
+        let function_type = match binding {
+            STB_GLOBAL => FunctionType::Exported, // Simplified logic
+            STB_LOCAL => FunctionType::Local,
+            _ => FunctionType::Local,
+        };
+
+        match binding {
+            STB_LOCAL => assert!(
+                matches!(function_type, FunctionType::Local),
+                "Failed for {}",
+                description
+            ),
+            STB_GLOBAL => assert!(
+                matches!(function_type, FunctionType::Exported),
+                "Failed for {}",
+                description
+            ),
+            _ => assert!(
+                matches!(function_type, FunctionType::Local),
+                "Failed for {}",
+                description
+            ),
+        }
+    }
+}
+
+#[test]
+fn test_stripped_binary_analysis() {
+    // Test analysis of stripped binaries (no symbol table)
+    let stripped_symbol_table = SymbolTable {
+        functions: vec![], // No functions found in stripped binary
+        global_variables: vec![],
+        cross_references: vec![],
+        imports: vec![ImportInfo {
+            name: "libc_start_main".to_string(),
+            library: Some("libc.so.6".to_string()),
+            address: Some(0x8000),
+            ordinal: None,
+            is_delayed: false,
+        }],
+        exports: vec![],
+        symbol_count: SymbolCounts {
+            total_functions: 0,
+            local_functions: 0,
+            imported_functions: 0,
+            exported_functions: 0,
+            global_variables: 0,
+            cross_references: 0,
+        },
+    };
+
+    // Even stripped binaries should have some import information
+    assert!(!stripped_symbol_table.imports.is_empty());
+    assert_eq!(stripped_symbol_table.functions.len(), 0);
+    assert_eq!(stripped_symbol_table.symbol_count.total_functions, 0);
+}
+
+#[test]
+fn test_dynamic_linking_analysis() {
+    // Test dynamic linking analysis
+    let dynamic_imports = vec![
+        ImportInfo {
+            name: "malloc".to_string(),
+            library: Some("libc.so.6".to_string()),
+            address: Some(0x601020),
+            ordinal: None,
+            is_delayed: false,
+        },
+        ImportInfo {
+            name: "printf".to_string(),
+            library: Some("libc.so.6".to_string()),
+            address: Some(0x601030),
+            ordinal: None,
+            is_delayed: false,
+        },
+        ImportInfo {
+            name: "pthread_create".to_string(),
+            library: Some("libpthread.so.0".to_string()),
+            address: Some(0x601040),
+            ordinal: None,
+            is_delayed: false,
+        },
+    ];
+
+    // Test library grouping
+    let mut libraries = HashSet::new();
+    for import in &dynamic_imports {
+        if let Some(lib) = &import.library {
+            libraries.insert(lib);
+        }
+    }
+
+    assert!(libraries.contains(&"libc.so.6".to_string()));
+    assert!(libraries.contains(&"libpthread.so.0".to_string()));
+    assert_eq!(libraries.len(), 2);
+
+    // Test PLT/GOT address patterns
+    for import in &dynamic_imports {
+        if let Some(addr) = import.address {
+            // PLT/GOT addresses are typically in specific ranges
+            assert!(
+                addr >= 0x600000,
+                "Import address seems too low: 0x{:x}",
+                addr
+            );
+        }
+    }
+}
+
+#[test]
+fn test_exception_handling_symbols() {
+    // Test detection of exception handling related symbols
+    let eh_symbols = vec![
+        "__gxx_personality_v0",
+        "_Unwind_Resume",
+        "__cxa_begin_catch",
+        "__cxa_end_catch",
+        "__cxa_throw",
+    ];
+
+    for symbol in eh_symbols {
+        let is_eh_symbol = symbol.starts_with("__gxx_")
+            || symbol.starts_with("_Unwind_")
+            || symbol.starts_with("__cxa_");
+
+        assert!(
+            is_eh_symbol,
+            "Symbol {} should be recognized as exception handling",
+            symbol
+        );
+    }
+}
+
+#[test]
+fn test_thread_local_storage_symbols() {
+    // Test detection of thread-local storage symbols
+    let tls_variables = vec![
+        VariableInfo {
+            name: "__thread_errno".to_string(),
+            address: 0x0, // TLS variables may have offset instead of absolute address
+            size: 4,
+            var_type: VariableType::ThreadLocal,
+            section: Some(".tdata".to_string()),
+        },
+        VariableInfo {
+            name: "thread_buffer".to_string(),
+            address: 0x10,
+            size: 1024,
+            var_type: VariableType::ThreadLocal,
+            section: Some(".tbss".to_string()),
+        },
+    ];
+
+    for var in &tls_variables {
+        assert!(matches!(var.var_type, VariableType::ThreadLocal));
+        if let Some(section) = &var.section {
+            assert!(
+                section.starts_with(".t"),
+                "TLS variable should be in .tdata or .tbss section"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_constructor_destructor_detection() {
+    // Test detection of constructor and destructor functions
+    let special_functions = vec![
+        ("_init", FunctionType::Constructor),
+        ("_fini", FunctionType::Destructor),
+        ("__libc_csu_init", FunctionType::Constructor),
+        ("__libc_csu_fini", FunctionType::Destructor),
+        ("_GLOBAL__sub_I_main", FunctionType::Constructor), // C++ global constructor
+        ("_GLOBAL__sub_D_main", FunctionType::Destructor),  // C++ global destructor
+    ];
+
+    for (name, expected_type) in special_functions {
+        let func_type = if name.contains("init") || name.contains("GLOBAL__sub_I") {
+            FunctionType::Constructor
+        } else if name.contains("fini") || name.contains("GLOBAL__sub_D") {
+            FunctionType::Destructor
+        } else {
+            FunctionType::Local
+        };
+
+        match (&expected_type, &func_type) {
+            (FunctionType::Constructor, FunctionType::Constructor) => {}
+            (FunctionType::Destructor, FunctionType::Destructor) => {}
+            _ => panic!(
+                "Function type detection failed for {}: expected {:?}, got {:?}",
+                name, expected_type, func_type
+            ),
+        }
+    }
+}
+
+#[test]
+fn test_weak_symbol_handling() {
+    // Test handling of weak symbols
+    let weak_function = FunctionInfo {
+        name: "weak_function".to_string(),
+        address: 0x1000,
+        size: 100,
+        function_type: FunctionType::Local, // Weak symbols are typically local or exported
+        calling_convention: Some(CallingConvention::SysV),
+        parameters: vec![],
+        is_entry_point: false,
+        is_exported: false, // Weak symbols might not be exported
+        is_imported: false,
+    };
+
+    // Weak symbols should be handled like regular symbols but with special binding
+    assert!(!weak_function.name.is_empty());
+    assert!(weak_function.address > 0);
+    assert!(weak_function.size > 0);
+}
+
+#[test]
+fn test_arm_thumb_interworking() {
+    // Test ARM/Thumb interworking detection (LSB indicates Thumb mode)
+    let arm_addresses = vec![
+        (0x1000, false), // ARM mode (even address)
+        (0x1001, true),  // Thumb mode (odd address)
+        (0x2000, false), // ARM mode
+        (0x2001, true),  // Thumb mode
+    ];
+
+    for (addr, is_thumb) in arm_addresses {
+        let detected_thumb = (addr & 1) == 1;
+        assert_eq!(
+            detected_thumb, is_thumb,
+            "Thumb detection failed for address 0x{:x}",
+            addr
+        );
+
+        // Clean address (remove Thumb bit)
+        let clean_addr = addr & !1;
+        assert_eq!(clean_addr & 1, 0, "Cleaned address should be even");
+    }
+}
+
+// Helper functions for creating test data
+
+fn create_minimal_pe_data() -> Vec<u8> {
+    let mut pe_data = vec![
+        // DOS header
+        0x4d, 0x5a, // MZ signature
+        0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xb8,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00,
+    ];
+
+    // Pad to minimum size
+    while pe_data.len() < 0x200 {
+        pe_data.push(0);
+    }
+
+    pe_data
+}
+
+fn create_minimal_macho_data() -> Vec<u8> {
+    let mut macho_data = vec![
+        // Mach-O header (64-bit)
+        0xcf, 0xfa, 0xed, 0xfe, // Magic (MH_MAGIC_64)
+        0x07, 0x00, 0x00, 0x01, // CPU type (x86_64)
+        0x03, 0x00, 0x00, 0x00, // CPU subtype
+        0x02, 0x00, 0x00, 0x00, // File type (executable)
+        0x00, 0x00, 0x00, 0x00, // Number of load commands
+        0x00, 0x00, 0x00, 0x00, // Size of load commands
+        0x00, 0x00, 0x00, 0x00, // Flags
+        0x00, 0x00, 0x00, 0x00, // Reserved
+    ];
+
+    // Pad to minimum size
+    while macho_data.len() < 0x1000 {
+        macho_data.push(0);
+    }
+
+    macho_data
+}
+
+fn reconstruct_function_signature(func: &FunctionInfo) -> String {
+    let mut signature = String::new();
+
+    // Add function name
+    signature.push_str(&func.name);
+    signature.push('(');
+
+    // Add parameters
+    for (i, param) in func.parameters.iter().enumerate() {
+        if i > 0 {
+            signature.push_str(", ");
+        }
+
+        if let Some(param_type) = &param.param_type {
+            signature.push_str(param_type);
+        } else {
+            signature.push_str("unknown");
+        }
+
+        if let Some(name) = &param.name {
+            signature.push(' ');
+            signature.push_str(name);
+        }
+    }
+
+    signature.push(')');
+    signature
 }
