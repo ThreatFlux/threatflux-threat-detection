@@ -30,6 +30,10 @@ pub struct FileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
     pub file_path: String,
 
+    // Convenience flag
+    #[schemars(description = "Enable all analysis options (overrides individual flags)")]
+    pub all: Option<bool>,
+
     // Analysis options
     #[schemars(description = "Include file metadata (size, timestamps, permissions)")]
     pub metadata: Option<bool>,
@@ -156,13 +160,69 @@ pub struct LlmFileAnalysisResult {
     pub yara_rule_suggestion: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraScanRequest {
+    #[schemars(description = "Path to the file or directory to scan")]
+    pub path: String,
+
+    #[schemars(description = "YARA rule content to use for scanning")]
+    pub yara_rule: String,
+
+    #[schemars(description = "If true, recursively scan directories (default: true)")]
+    pub recursive: Option<bool>,
+
+    #[schemars(description = "Maximum file size to scan in bytes (default: 100MB)")]
+    pub max_file_size: Option<u64>,
+
+    #[schemars(description = "Include detailed match information (default: true)")]
+    pub detailed_matches: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraScanResult {
+    pub total_files_scanned: usize,
+    pub total_matches: usize,
+    pub scan_duration_ms: u64,
+    pub matches: Vec<YaraFileMatch>,
+    pub errors: Vec<YaraScanError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraFileMatch {
+    pub file_path: String,
+    pub file_size: u64,
+    pub matches: Vec<YaraRuleMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraRuleMatch {
+    pub rule_identifier: String,
+    pub tags: Vec<String>,
+    pub metadata: std::collections::HashMap<String, String>,
+    pub strings: Vec<YaraStringMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraStringMatch {
+    pub identifier: String,
+    pub offset: u64,
+    pub length: usize,
+    pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraScanError {
+    pub file_path: String,
+    pub error: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct FileScannerMcp;
 
 #[tool(tool_box)]
 impl FileScannerMcp {
     #[tool(
-        description = "Comprehensive file analysis tool - use flags to control which analyses to perform (metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, yara_indicators)"
+        description = "Comprehensive file analysis tool - use 'all' flag to enable all analyses, or individual flags to control specific analyses (metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, yara_indicators)"
     )]
     pub async fn analyze_file(
         &self,
@@ -194,8 +254,11 @@ impl FileScannerMcp {
             yara_indicators: None,
         };
 
+        // Check if 'all' flag is set
+        let all = request.all.unwrap_or(false);
+
         // Metadata
-        if request.metadata.unwrap_or(false) {
+        if request.metadata.unwrap_or(false) || all {
             let mut metadata = FileMetadata::new(&path).map_err(|e| e.to_string())?;
             metadata.extract_basic_info().map_err(|e| e.to_string())?;
             metadata
@@ -206,7 +269,7 @@ impl FileScannerMcp {
         }
 
         // Hashes
-        if request.hashes.unwrap_or(false) {
+        if request.hashes.unwrap_or(false) || all {
             let hashes = calculate_all_hashes(&path)
                 .await
                 .map_err(|e| e.to_string())?;
@@ -214,7 +277,7 @@ impl FileScannerMcp {
         }
 
         // Strings
-        if request.strings.unwrap_or(false) {
+        if request.strings.unwrap_or(false) || all {
             let min_len = request.min_string_length.unwrap_or(4);
             let strings = extract_strings(&path, min_len).map_err(|e| e.to_string())?;
             let all_strings = [strings.ascii_strings, strings.unicode_strings].concat();
@@ -222,7 +285,7 @@ impl FileScannerMcp {
         }
 
         // Hex dump
-        if request.hex_dump.unwrap_or(false) {
+        if request.hex_dump.unwrap_or(false) || all {
             let size = request.hex_dump_size.unwrap_or(256);
             let hex_options = HexDumpOptions {
                 offset: request.hex_dump_offset.unwrap_or(0),
@@ -235,14 +298,14 @@ impl FileScannerMcp {
         }
 
         // Binary info
-        if request.binary_info.unwrap_or(false) {
+        if request.binary_info.unwrap_or(false) || all {
             if let Ok(binary_info) = parse_binary(&path) {
                 result.binary_info = Some(binary_info);
             }
         }
 
         // Signatures
-        if request.signatures.unwrap_or(false) {
+        if request.signatures.unwrap_or(false) || all {
             let sig_result = verify_signature(&path);
             // Convert the result to a JSON-serializable format
             let sig_json = match sig_result {
@@ -264,14 +327,14 @@ impl FileScannerMcp {
         }
 
         // Symbols
-        if request.symbols.unwrap_or(false) {
+        if request.symbols.unwrap_or(false) || all {
             if let Ok(symbols) = analyze_symbols(&path) {
                 result.symbols = Some(symbols);
             }
         }
 
         // Control flow
-        if request.control_flow.unwrap_or(false) {
+        if request.control_flow.unwrap_or(false) || all {
             if let Ok(symbols) = analyze_symbols(&path) {
                 if let Ok(control_flow) = analyze_control_flow(&path, &symbols) {
                     result.control_flow = Some(control_flow);
@@ -280,7 +343,7 @@ impl FileScannerMcp {
         }
 
         // Vulnerabilities
-        if request.vulnerabilities.unwrap_or(false) {
+        if request.vulnerabilities.unwrap_or(false) || all {
             if let Ok(symbols) = analyze_symbols(&path) {
                 if let Ok(control_flow) = analyze_control_flow(&path, &symbols) {
                     if let Ok(vulns) = analyze_vulnerabilities(&path, &symbols, &control_flow) {
@@ -291,7 +354,7 @@ impl FileScannerMcp {
         }
 
         // Code quality
-        if request.code_quality.unwrap_or(false) {
+        if request.code_quality.unwrap_or(false) || all {
             if let Ok(symbols) = analyze_symbols(&path) {
                 if let Ok(control_flow) = analyze_control_flow(&path, &symbols) {
                     if let Ok(quality) = analyze_code_quality(&path, &symbols, &control_flow) {
@@ -302,7 +365,7 @@ impl FileScannerMcp {
         }
 
         // Dependencies
-        if request.dependencies.unwrap_or(false) {
+        if request.dependencies.unwrap_or(false) || all {
             if let Ok(symbols) = analyze_symbols(&path) {
                 let strings = extract_strings(&path, 4).ok();
                 if let Ok(deps) = analyze_dependencies(&path, &symbols, strings.as_ref()) {
@@ -312,14 +375,14 @@ impl FileScannerMcp {
         }
 
         // Entropy
-        if request.entropy.unwrap_or(false) {
+        if request.entropy.unwrap_or(false) || all {
             if let Ok(entropy) = analyze_entropy(&path) {
                 result.entropy = Some(entropy);
             }
         }
 
         // Disassembly
-        if request.disassembly.unwrap_or(false) {
+        if request.disassembly.unwrap_or(false) || all {
             if let Ok(symbols) = analyze_symbols(&path) {
                 if let Ok(disassembly) = disassemble_binary(&path, &symbols) {
                     result.disassembly = Some(disassembly);
@@ -328,14 +391,14 @@ impl FileScannerMcp {
         }
 
         // Threats
-        if request.threats.unwrap_or(false) {
+        if request.threats.unwrap_or(false) || all {
             if let Ok(threats) = analyze_threats(&path) {
                 result.threats = Some(threats);
             }
         }
 
         // Behavioral
-        if request.behavioral.unwrap_or(false) {
+        if request.behavioral.unwrap_or(false) || all {
             let strings = extract_strings(&path, 4).ok();
             let symbols = analyze_symbols(&path).ok();
             let disassembly = if let Some(ref syms) = symbols {
@@ -355,7 +418,7 @@ impl FileScannerMcp {
         }
 
         // YARA indicators
-        if request.yara_indicators.unwrap_or(false) {
+        if request.yara_indicators.unwrap_or(false) || all {
             let file_metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
             let file_size = file_metadata.len();
 
@@ -746,6 +809,49 @@ impl FileScannerMcp {
 
         result
     }
+
+    #[tool(
+        description = "Scan files with custom YARA rules - supports single files or directories with recursive scanning"
+    )]
+    pub async fn yara_scan_file(
+        &self,
+        #[tool(aggr)] request: YaraScanRequest,
+    ) -> Result<Json<YaraScanResult>, String> {
+        use std::time::Instant;
+        use crate::threat_detection::scan_with_custom_rule;
+
+        let start_time = Instant::now();
+        let path = PathBuf::from(&request.path);
+
+        if !path.exists() {
+            return Err(format!("Path does not exist: {}", request.path));
+        }
+
+        let recursive = request.recursive.unwrap_or(true);
+        let max_file_size = request.max_file_size.unwrap_or(100 * 1024 * 1024); // 100MB default
+        let detailed_matches = request.detailed_matches.unwrap_or(true);
+
+        // Scan files
+        let scan_result = scan_with_custom_rule(
+            &path,
+            &request.yara_rule,
+            recursive,
+            max_file_size,
+            detailed_matches,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        Ok(Json(YaraScanResult {
+            total_files_scanned: scan_result.total_files_scanned,
+            total_matches: scan_result.total_matches,
+            scan_duration_ms: duration_ms,
+            matches: scan_result.matches,
+            errors: scan_result.errors,
+        }))
+    }
 }
 
 #[tool(tool_box)]
@@ -757,7 +863,7 @@ impl ServerHandler for FileScannerMcp {
                 name: "file-scanner".into(),
                 version: "0.1.0".into(),
             },
-            instructions: Some("A comprehensive file scanner with a single analyze_file tool that supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators.".into()),
+            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, and yara_scan_file tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules.".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
         }
     }
@@ -798,6 +904,7 @@ mod tests {
     fn test_file_analysis_request_serialization() {
         let request = FileAnalysisRequest {
             file_path: "/test/file.bin".to_string(),
+            all: Some(false),
             metadata: Some(true),
             hashes: Some(true),
             strings: Some(true),
@@ -824,6 +931,7 @@ mod tests {
         let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.file_path, request.file_path);
+        assert_eq!(deserialized.all, request.all);
         assert_eq!(deserialized.metadata, request.metadata);
         assert_eq!(deserialized.hashes, request.hashes);
         assert_eq!(deserialized.min_string_length, request.min_string_length);
@@ -878,6 +986,7 @@ mod tests {
     async fn test_analyze_file_nonexistent() {
         let mcp = FileScannerMcp;
         let request = FileAnalysisRequest {
+            all: None,
             file_path: "/nonexistent/file.bin".to_string(),
             metadata: Some(true),
             hashes: None,
@@ -915,6 +1024,7 @@ mod tests {
 
         let mcp = FileScannerMcp;
         let request = FileAnalysisRequest {
+            all: None,
             file_path: file_path.to_string_lossy().to_string(),
             metadata: Some(true),
             hashes: None,
@@ -953,6 +1063,7 @@ mod tests {
 
         let mcp = FileScannerMcp;
         let request = FileAnalysisRequest {
+            all: None,
             file_path: file_path.to_string_lossy().to_string(),
             metadata: None,
             hashes: Some(true),
@@ -993,6 +1104,7 @@ mod tests {
 
         let mcp = FileScannerMcp;
         let request = FileAnalysisRequest {
+            all: None,
             file_path: file_path.to_string_lossy().to_string(),
             metadata: None,
             hashes: None,
@@ -1031,6 +1143,7 @@ mod tests {
 
         let mcp = FileScannerMcp;
         let request = FileAnalysisRequest {
+            all: None,
             file_path: file_path.to_string_lossy().to_string(),
             metadata: None,
             hashes: None,
@@ -1069,6 +1182,7 @@ mod tests {
 
         let mcp = FileScannerMcp;
         let request = FileAnalysisRequest {
+            all: None,
             file_path: file_path.to_string_lossy().to_string(),
             metadata: Some(true),
             hashes: Some(true),
@@ -1340,5 +1454,319 @@ mod tests {
         assert_eq!(deserialized.md5, result.md5);
         assert_eq!(deserialized.file_size, result.file_size);
         assert_eq!(deserialized.entropy, result.entropy);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_all_flag_enables_everything() {
+        let test_content = b"Test content for all flag verification";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            all: Some(true),
+            // Set all individual flags to false to verify 'all' overrides them
+            metadata: Some(false),
+            hashes: Some(false),
+            strings: Some(false),
+            min_string_length: Some(6),
+            hex_dump: Some(false),
+            hex_dump_size: Some(32),
+            hex_dump_offset: Some(0),
+            binary_info: Some(false),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(false),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(false),
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap().0;
+
+        // Verify that 'all: true' enables all analysis types despite individual flags being false
+        assert!(response.metadata.is_some(), "metadata should be present with all=true");
+        assert!(response.hashes.is_some(), "hashes should be present with all=true");
+        assert!(response.strings.is_some(), "strings should be present with all=true");
+        assert!(response.hex_dump.is_some(), "hex_dump should be present with all=true");
+        assert!(response.entropy.is_some(), "entropy should be present with all=true");
+        assert!(response.yara_indicators.is_some(), "yara_indicators should be present with all=true");
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_all_flag_false_respects_individual_flags() {
+        let test_content = b"Test content for individual flag verification";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            all: Some(false),
+            metadata: Some(true),
+            hashes: Some(false),
+            strings: Some(true),
+            min_string_length: Some(4),
+            hex_dump: Some(false),
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: Some(false),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(false),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(false),
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap().0;
+
+        // Verify only the explicitly enabled analyses are present
+        assert!(response.metadata.is_some(), "metadata should be present when explicitly enabled");
+        assert!(response.hashes.is_none(), "hashes should be absent when explicitly disabled");
+        assert!(response.strings.is_some(), "strings should be present when explicitly enabled");
+        assert!(response.hex_dump.is_none(), "hex_dump should be absent when explicitly disabled");
+        assert!(response.entropy.is_none(), "entropy should be absent when explicitly disabled");
+        assert!(response.yara_indicators.is_none(), "yara_indicators should be absent when explicitly disabled");
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_all_flag_none_uses_individual_flags() {
+        let test_content = b"Test content for default behavior verification";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        let request = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            all: None, // Default behavior
+            metadata: Some(true),
+            hashes: Some(true),
+            strings: Some(false),
+            min_string_length: None,
+            hex_dump: Some(false),
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: Some(false),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(false),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(false),
+        };
+
+        let result = mcp.analyze_file(request).await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap().0;
+
+        // Verify behavior matches individual flags when 'all' is None
+        assert!(response.metadata.is_some(), "metadata should be present when enabled");
+        assert!(response.hashes.is_some(), "hashes should be present when enabled");
+        assert!(response.strings.is_none(), "strings should be absent when disabled");
+        assert!(response.hex_dump.is_none(), "hex_dump should be absent when disabled");
+        assert!(response.entropy.is_none(), "entropy should be absent when disabled");
+    }
+
+    #[test]
+    fn test_file_analysis_request_serialization_with_all_flag() {
+        // Test with all flag set to true
+        let request_all_true = FileAnalysisRequest {
+            file_path: "/test/file.bin".to_string(),
+            all: Some(true),
+            metadata: Some(false),
+            hashes: Some(false),
+            strings: Some(false),
+            min_string_length: Some(8),
+            hex_dump: Some(false),
+            hex_dump_size: Some(512),
+            hex_dump_offset: Some(0),
+            binary_info: Some(false),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(false),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(false),
+        };
+
+        let json = serde_json::to_string(&request_all_true).unwrap();
+        let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.all, Some(true));
+        assert_eq!(deserialized.file_path, request_all_true.file_path);
+
+        // Test with all flag set to false
+        let request_all_false = FileAnalysisRequest {
+            file_path: "/test/file2.bin".to_string(),
+            all: Some(false),
+            metadata: Some(true),
+            hashes: Some(true),
+            strings: Some(true),
+            min_string_length: Some(4),
+            hex_dump: Some(true),
+            hex_dump_size: Some(256),
+            hex_dump_offset: Some(0),
+            binary_info: Some(true),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(true),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(true),
+        };
+
+        let json = serde_json::to_string(&request_all_false).unwrap();
+        let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.all, Some(false));
+        assert_eq!(deserialized.metadata, Some(true));
+        assert_eq!(deserialized.entropy, Some(true));
+
+        // Test with all flag as None (default)
+        let request_all_none = FileAnalysisRequest {
+            file_path: "/test/file3.bin".to_string(),
+            all: None,
+            metadata: Some(true),
+            hashes: Some(false),
+            strings: Some(true),
+            min_string_length: Some(6),
+            hex_dump: Some(false),
+            hex_dump_size: None,
+            hex_dump_offset: None,
+            binary_info: Some(false),
+            signatures: Some(false),
+            symbols: Some(false),
+            control_flow: Some(false),
+            vulnerabilities: Some(false),
+            code_quality: Some(false),
+            dependencies: Some(false),
+            entropy: Some(false),
+            disassembly: Some(false),
+            threats: Some(false),
+            behavioral: Some(false),
+            yara_indicators: Some(false),
+        };
+
+        let json = serde_json::to_string(&request_all_none).unwrap();
+        let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.all, None);
+        assert_eq!(deserialized.metadata, Some(true));
+        assert_eq!(deserialized.hashes, Some(false));
+        assert_eq!(deserialized.strings, Some(true));
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_all_flag_comprehensive_verification() {
+        let test_content = b"Comprehensive test content with various features for all flag testing";
+        let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
+
+        let mcp = FileScannerMcp;
+        
+        // Test 1: Verify 'all: true' enables more analyses than individual flags
+        let request_all = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            all: Some(true),
+            metadata: None,
+            hashes: None,
+            strings: None,
+            min_string_length: Some(4),
+            hex_dump: None,
+            hex_dump_size: Some(64),
+            hex_dump_offset: Some(0),
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result_all = mcp.analyze_file(request_all).await;
+        assert!(result_all.is_ok());
+        let response_all = result_all.unwrap().0;
+
+        // Test 2: Compare with selective analysis
+        let request_selective = FileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            all: Some(false),
+            metadata: Some(true),
+            hashes: Some(true),
+            strings: None,
+            min_string_length: Some(4),
+            hex_dump: None,
+            hex_dump_size: Some(64),
+            hex_dump_offset: Some(0),
+            binary_info: None,
+            signatures: None,
+            symbols: None,
+            control_flow: None,
+            vulnerabilities: None,
+            code_quality: None,
+            dependencies: None,
+            entropy: None,
+            disassembly: None,
+            threats: None,
+            behavioral: None,
+            yara_indicators: None,
+        };
+
+        let result_selective = mcp.analyze_file(request_selective).await;
+        assert!(result_selective.is_ok());
+        let response_selective = result_selective.unwrap().0;
+
+        // Verify 'all: true' provides more complete analysis
+        assert!(response_all.metadata.is_some() && response_selective.metadata.is_some());
+        assert!(response_all.hashes.is_some() && response_selective.hashes.is_some());
+        
+        // These should be present with 'all: true' but not with selective analysis
+        assert!(response_all.strings.is_some());
+        assert!(response_selective.strings.is_none());
+        
+        assert!(response_all.hex_dump.is_some());
+        assert!(response_selective.hex_dump.is_none());
+        
+        assert!(response_all.entropy.is_some());
+        assert!(response_selective.entropy.is_none());
+        
+        assert!(response_all.yara_indicators.is_some());
+        assert!(response_selective.yara_indicators.is_none());
     }
 }

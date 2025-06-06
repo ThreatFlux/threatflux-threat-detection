@@ -174,7 +174,7 @@ documentation!**
 
 ### Available MCP Tools
 
-The file scanner provides two powerful tools through the MCP interface:
+The file scanner provides three powerful tools through the MCP interface:
 
 #### 1. `analyze_file` - Comprehensive Analysis Tool
 
@@ -185,6 +185,7 @@ A unified tool that allows you to specify exactly which analyses to perform usin
 **Parameters:**
 
 - `file_path` (required): Path to the file to analyze
+- `all`: Enable all analysis options (overrides individual flags)
 - `metadata`: Include file metadata (size, timestamps, permissions)
 - `hashes`: Calculate cryptographic hashes (MD5, SHA256, SHA512, BLAKE3)
 - `strings`: Extract ASCII and Unicode strings
@@ -214,6 +215,15 @@ A unified tool that allows you to specify exactly which analyses to perform usin
   "hashes": true,
   "strings": true,
   "binary_info": true
+}
+```
+
+**Example with 'all' flag:**
+
+```json
+{
+  "file_path": "/bin/ls",
+  "all": true
 }
 ```
 
@@ -286,6 +296,78 @@ the most relevant information within a controlled token limit.
 }
 ```
 
+#### 3. `yara_scan_file` - Custom YARA Rule Scanner
+
+A powerful tool for scanning files or directories with custom YARA rules. Supports recursive directory scanning and concurrent file processing.
+
+**Tool Name:** `yara_scan_file`
+
+**Parameters:**
+
+- `path` (required): Path to the file or directory to scan
+- `yara_rule` (required): The YARA rule content to use for scanning
+- `recursive`: Recursively scan subdirectories (default: true)
+- `max_file_size`: Maximum file size to scan in bytes (default: 100MB)
+- `detailed_matches`: Include detailed match information (default: true)
+
+**Example Usage:**
+
+```json
+{
+  "path": "/suspicious/files",
+  "yara_rule": "rule detect_malware {\n    strings:\n        $api1 = \"VirtualAlloc\"\n        $api2 = \"WriteProcessMemory\"\n        $api3 = \"CreateRemoteThread\"\n    condition:\n        2 of them\n}",
+  "recursive": true,
+  "max_file_size": 104857600,
+  "detailed_matches": true
+}
+```
+
+**Example Output:**
+
+```json
+{
+  "total_files_scanned": 42,
+  "total_matches": 3,
+  "scan_duration_ms": 1523,
+  "matches": [
+    {
+      "file_path": "/suspicious/files/malware.exe",
+      "file_size": 65536,
+      "matches": [
+        {
+          "rule_identifier": "detect_malware",
+          "tags": [],
+          "metadata": {},
+          "strings": [
+            {
+              "identifier": "$api1",
+              "offset": 4096,
+              "length": 12,
+              "value": "VirtualAlloc"
+            },
+            {
+              "identifier": "$api3",
+              "offset": 8192,
+              "length": 18,
+              "value": "CreateRemoteThread"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
+```
+
+**Use Cases:**
+
+- Scan entire directories for specific malware patterns
+- Hunt for IOCs across multiple files
+- Validate YARA rules against sample sets
+- Perform incident response file sweeps
+- Search for specific code patterns or strings
+
 ### MCP Configuration for Claude Code
 
 **STDIO Transport (Recommended):**
@@ -335,6 +417,7 @@ the most relevant information within a controlled token limit.
 ✅ **VERIFIED**: Tool calls return proper formatted responses
 ✅ **CACHING**: Automatic result caching with persistence across sessions
 ✅ **COMPLIANT**: Now under 15-tool MCP limit with comprehensive functionality
+✅ **ENHANCED**: Added `yara_scan_file` tool for custom YARA rule scanning
 
 **Known Working Commands:**
 
@@ -343,10 +426,20 @@ the most relevant information within a controlled token limit.
 npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
   mcp-stdio --method tools/list
 
-# Test file metadata extraction
+# Test analyze_file tool with individual flags
 npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
-  mcp-stdio --method tools/call --tool-name get_file_metadata \
-  --tool-arg file_path=/bin/ls
+  mcp-stdio --method tools/call --tool-name analyze_file \
+  --tool-arg file_path=/bin/ls --tool-arg metadata=true --tool-arg hashes=true
+
+# Test analyze_file tool with 'all' flag
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name analyze_file \
+  --tool-arg file_path=/bin/ls --tool-arg all=true
+
+# Test yara_scan_file tool
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name yara_scan_file \
+  --tool-arg path=/bin --tool-arg yara_rule="rule test { strings: \$a = \"ELF\" condition: \$a }"
 
 # Interactive UI testing
 npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio

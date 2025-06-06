@@ -21,6 +21,7 @@ async fn test_analyze_file_metadata_only() {
     let test_file = create_test_file(&temp_dir, "test.txt", b"Hello, World!");
 
     let params = FileAnalysisRequest {
+        all: None,
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: None,
@@ -61,6 +62,7 @@ async fn test_analyze_file_with_hashes() {
     let test_file = create_test_file(&temp_dir, "test.bin", b"Test content");
 
     let params = FileAnalysisRequest {
+        all: None,
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -103,6 +105,7 @@ async fn test_analyze_file_with_strings() {
     let test_file = create_test_file(&temp_dir, "strings.bin", content);
 
     let params = FileAnalysisRequest {
+        all: None,
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: None,
         hashes: None,
@@ -141,6 +144,7 @@ async fn test_analyze_file_with_hex_dump() {
     let test_file = create_test_file(&temp_dir, "hex.bin", b"ABCDEFGHIJKLMNOP");
 
     let params = FileAnalysisRequest {
+        all: None,
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: None,
         hashes: None,
@@ -178,6 +182,7 @@ async fn test_analyze_file_nonexistent() {
     let server = create_test_server().await;
 
     let params = FileAnalysisRequest {
+        all: None,
         file_path: "/nonexistent/file/path".to_string(),
         metadata: Some(true),
         hashes: None,
@@ -312,6 +317,7 @@ async fn test_analyze_file_all_options() {
     let test_file = create_test_file(&temp_dir, "test.elf", &content);
 
     let params = FileAnalysisRequest {
+        all: None,
         file_path: test_file.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -356,6 +362,7 @@ async fn test_analyze_file_all_options() {
 #[test]
 fn test_analyze_file_params_defaults() {
     let params = FileAnalysisRequest {
+        all: None,
         file_path: "/test/path".to_string(),
         metadata: None,
         hashes: None,

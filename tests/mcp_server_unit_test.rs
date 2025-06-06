@@ -55,6 +55,7 @@ async fn test_file_analysis_request_validation() {
 
     // Test valid request
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -86,6 +87,7 @@ async fn test_file_analysis_request_invalid_path() {
     let mcp = FileScannerMcp;
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: "/nonexistent/file/path".to_string(),
         metadata: Some(true),
         hashes: None,
@@ -168,6 +170,7 @@ async fn test_file_analysis_metadata_only() {
     let (_temp_dir, file_path) = create_test_file(b"metadata test content").unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: None,
@@ -207,6 +210,7 @@ async fn test_file_analysis_hashes_only() {
     let (_temp_dir, file_path) = create_test_file(b"hash test content").unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: None,
         hashes: Some(true),
@@ -250,6 +254,7 @@ async fn test_file_analysis_strings_with_parameters() {
     let (_temp_dir, file_path) = create_test_file(content).unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: None,
         hashes: None,
@@ -292,6 +297,7 @@ async fn test_file_analysis_hex_dump_with_parameters() {
     let (_temp_dir, file_path) = create_test_file(content).unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: None,
         hashes: None,
@@ -333,6 +339,7 @@ async fn test_file_analysis_request_all_options_false() {
     let (_temp_dir, file_path) = create_test_file(b"test").unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: Some(false),
         hashes: Some(false),
@@ -379,6 +386,7 @@ async fn test_file_analysis_binary_file() {
     let (_temp_dir, file_path) = create_test_file(&content).unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -460,6 +468,7 @@ async fn test_llm_analysis_token_limit_enforcement() {
 #[test]
 fn test_file_analysis_request_structure() {
     let request = FileAnalysisRequest {
+        all: None,
         file_path: "/test/path".to_string(),
         metadata: None,
         hashes: None,
@@ -524,6 +533,7 @@ async fn test_file_analysis_empty_file() {
     let (_temp_dir, file_path) = create_test_file(b"").unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),
@@ -605,6 +615,7 @@ async fn test_file_analysis_permission_error() {
 
     // Try to analyze a system file that might not be readable
     let request = FileAnalysisRequest {
+        all: None,
         file_path: "/root/.ssh/id_rsa".to_string(), // Typically not readable
         metadata: Some(true),
         hashes: None,
@@ -638,6 +649,7 @@ async fn test_file_analysis_response_structure() {
     let (_temp_dir, file_path) = create_test_file(b"response structure test").unwrap();
 
     let request = FileAnalysisRequest {
+        all: None,
         file_path: file_path.to_str().unwrap().to_string(),
         metadata: Some(true),
         hashes: Some(true),

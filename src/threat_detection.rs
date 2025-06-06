@@ -2,8 +2,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreatAnalysis {
@@ -606,6 +607,221 @@ pub fn generate_recommendations(
     }
 
     recommendations
+}
+
+// Custom YARA scanning support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomYaraScanResult {
+    pub total_files_scanned: usize,
+    pub total_matches: usize,
+    pub matches: Vec<crate::mcp_server::YaraFileMatch>,
+    pub errors: Vec<crate::mcp_server::YaraScanError>,
+}
+
+pub async fn scan_with_custom_rule(
+    path: &Path,
+    yara_rule: &str,
+    recursive: bool,
+    max_file_size: u64,
+    detailed_matches: bool,
+) -> Result<CustomYaraScanResult> {
+    use tokio::task;
+
+    let mut result = CustomYaraScanResult {
+        total_files_scanned: 0,
+        total_matches: 0,
+        matches: Vec::new(),
+        errors: Vec::new(),
+    };
+
+    // Compile the custom YARA rule and serialize it before spawning tasks
+    let rules_bytes = {
+        let mut compiler = yara_x::Compiler::new();
+        compiler
+            .add_source(yara_rule)
+            .context("Failed to compile YARA rule")?;
+        let rules = compiler.build();
+        rules.serialize()?
+    };
+
+    // Collect files to scan
+    let files_to_scan = collect_files_to_scan(path, recursive, max_file_size)?;
+
+    // Process files concurrently
+    let mut handles = Vec::new();
+    
+    for file_path in files_to_scan {
+        let file_path_clone = file_path.clone();
+        let rules_bytes_clone = rules_bytes.clone();
+        
+        let handle = task::spawn_blocking(move || {
+            scan_single_file(&file_path_clone, &rules_bytes_clone, detailed_matches)
+        });
+        
+        handles.push((file_path, handle));
+    }
+
+    // Collect results
+    for (file_path, handle) in handles {
+        result.total_files_scanned += 1;
+        
+        match handle.await {
+            Ok(Ok(file_result)) => {
+                if !file_result.matches.is_empty() {
+                    result.total_matches += file_result.matches.len();
+                    result.matches.push(file_result);
+                }
+            }
+            Ok(Err(e)) => {
+                result.errors.push(crate::mcp_server::YaraScanError {
+                    file_path: file_path.display().to_string(),
+                    error: e.to_string(),
+                });
+            }
+            Err(e) => {
+                result.errors.push(crate::mcp_server::YaraScanError {
+                    file_path: file_path.display().to_string(),
+                    error: format!("Task error: {}", e),
+                });
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+fn collect_files_to_scan(
+    path: &Path,
+    recursive: bool,
+    max_file_size: u64,
+) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+
+    if path.is_file() {
+        // Single file
+        if let Ok(metadata) = fs::metadata(path) {
+            if metadata.len() <= max_file_size {
+                files.push(path.to_path_buf());
+            }
+        }
+    } else if path.is_dir() {
+        // Directory
+        if recursive {
+            for entry in WalkDir::new(path)
+                .follow_links(false)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                if entry.file_type().is_file() {
+                    if let Ok(metadata) = entry.metadata() {
+                        if metadata.len() <= max_file_size {
+                            files.push(entry.path().to_path_buf());
+                        }
+                    }
+                }
+            }
+        } else {
+            // Non-recursive directory scan
+            if let Ok(entries) = fs::read_dir(path) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Ok(metadata) = entry.metadata() {
+                            if metadata.len() <= max_file_size {
+                                files.push(path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(files)
+}
+
+fn scan_single_file(
+    file_path: &Path,
+    rules_bytes: &[u8],
+    detailed_matches: bool,
+) -> Result<crate::mcp_server::YaraFileMatch> {
+    // Read file
+    let file_data = fs::read(file_path)?;
+    let file_size = file_data.len() as u64;
+
+    // Deserialize rules
+    let rules = yara_x::Rules::deserialize(rules_bytes)?;
+    
+    // Create scanner and scan
+    let mut scanner = yara_x::Scanner::new(&rules);
+    let scan_results = scanner.scan(&file_data)?;
+
+    let mut matches = Vec::new();
+
+    // Process matches - scan_results is the actual result object
+    // In yara-x, we need to check if there are matching rules
+    let matching_rules = scan_results.matching_rules();
+    
+    for matching_rule in matching_rules {
+        let mut rule_match = crate::mcp_server::YaraRuleMatch {
+            rule_identifier: matching_rule.identifier().to_string(),
+            tags: Vec::new(),
+            metadata: HashMap::new(),
+            strings: Vec::new(),
+        };
+
+        // Extract rule metadata if available
+        for (key, value) in matching_rule.metadata() {
+            rule_match.metadata.insert(
+                key.to_string(),
+                match value {
+                    yara_x::MetaValue::Bool(b) => b.to_string(),
+                    yara_x::MetaValue::Integer(i) => i.to_string(),
+                    yara_x::MetaValue::Float(f) => f.to_string(),
+                    yara_x::MetaValue::String(s) => s.to_string(),
+                    yara_x::MetaValue::Bytes(b) => format!("{:?}", b),
+                },
+            );
+        }
+
+        // Extract string matches if detailed matches requested
+        if detailed_matches {
+            for pattern in matching_rule.patterns() {
+                for pattern_match in pattern.matches() {
+                    let offset = pattern_match.range().start as u64;
+                    let length = pattern_match.range().len();
+                    
+                    // Extract matched value (limited to 100 bytes for safety)
+                    let value = if length <= 100 {
+                        let start = pattern_match.range().start;
+                        let end = pattern_match.range().end.min(file_data.len());
+                        if start < end {
+                            Some(String::from_utf8_lossy(&file_data[start..end]).to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    rule_match.strings.push(crate::mcp_server::YaraStringMatch {
+                        identifier: pattern.identifier().to_string(),
+                        offset,
+                        length,
+                        value,
+                    });
+                }
+            }
+        }
+
+        matches.push(rule_match);
+    }
+
+    Ok(crate::mcp_server::YaraFileMatch {
+        file_path: file_path.display().to_string(),
+        file_size,
+        matches,
+    })
 }
 
 #[cfg(test)]
