@@ -20,6 +20,8 @@ with modern async capabilities and multiple output formats.
 - **Analysis Caching**: Automatic caching of analysis results with persistence for improved performance
 - **String Tracking & Statistics**: Advanced string analysis with usage statistics, categorization,
   and filtering
+- **NPM Package Analysis**: Comprehensive security analysis of npm packages including vulnerability
+  detection, malicious code patterns, typosquatting detection, and supply chain risk assessment
 
 ## Build and Test Commands
 
@@ -76,6 +78,8 @@ src/
 ├── hexdump.rs           # Hex dump generation and formatting
 ├── cache.rs             # Analysis cache with persistence support
 ├── string_tracker.rs    # String tracking and statistics engine
+├── npm_analysis.rs      # NPM package security analysis
+├── npm_vuln_db.rs       # NPM vulnerability database and patterns
 ├── mcp_server.rs        # MCP server implementation with file scanner tools
 └── mcp_transport.rs     # MCP transport implementations (STDIO, HTTP, SSE)
 ```
@@ -587,6 +591,88 @@ The OpenAPI specification includes schemas for:
 
 This enables seamless integration with API development tools, client SDK generation, and automated
 testing frameworks.
+
+## NPM Package Analysis
+
+The file scanner includes comprehensive npm package security analysis capabilities to detect vulnerabilities,
+malicious code patterns, and supply chain attacks.
+
+### Features
+
+- **Vulnerability Detection**: Checks dependencies against a built-in vulnerability database
+- **Malicious Pattern Detection**: Identifies suspicious code patterns including:
+  - Installation script hooks (preinstall/postinstall) with external downloads
+  - Obfuscated code and dynamic code execution
+  - Environment variable exfiltration
+  - Cryptocurrency mining indicators
+  - Reverse shell patterns
+  - Data exfiltration attempts
+- **Typosquatting Detection**: Identifies packages with names similar to popular packages
+- **Dependency Confusion**: Detects potential dependency confusion attacks
+- **Supply Chain Risk Assessment**: Calculates risk scores based on various security indicators
+- **Script Analysis**: Analyzes npm scripts for dangerous commands and patterns
+
+### Usage
+
+The npm analysis can be used in two ways:
+
+1. **As a library function**:
+```rust
+use file_scanner::npm_analysis::analyze_npm_package;
+use std::path::Path;
+
+let analysis = analyze_npm_package(Path::new("path/to/package"))?;
+```
+
+2. **Via MCP tool** (when available):
+```bash
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name analyze_npm_package \
+  --tool-arg package_path=/path/to/package
+```
+
+### Analysis Results
+
+The analysis provides comprehensive information including:
+
+- Package metadata (name, version, license, author)
+- Dependency analysis with vulnerability information
+- Security analysis of scripts and code patterns
+- Malicious indicators and risk scoring
+- Quality metrics (documentation, tests, CI/CD)
+
+### Built-in Vulnerability Database
+
+The scanner includes known vulnerabilities for packages like:
+- event-stream (cryptocurrency wallet theft)
+- ua-parser-js (crypto mining malware)
+- node-ipc (protestware)
+- lodash (prototype pollution)
+- minimist (prototype pollution)
+
+### Example Analysis Output
+
+```json
+{
+  "package_info": {
+    "name": "suspicious-package",
+    "version": "1.0.0"
+  },
+  "malicious_indicators": {
+    "overall_risk_score": 75.5,
+    "risk_level": "High",
+    "typosquatting_risk": {
+      "is_potential_typosquatting": true,
+      "similar_packages": ["express"]
+    }
+  },
+  "security_analysis": {
+    "has_preinstall_script": true,
+    "crypto_mining_indicators": false,
+    "supply_chain_risk_score": 40.0
+  }
+}
+```
 
 ## Future Enhancement Ideas
 

@@ -15,6 +15,8 @@ pub mod java_analysis;
 pub mod mcp_server;
 pub mod mcp_transport;
 pub mod metadata;
+pub mod npm_analysis;
+pub mod npm_vuln_db;
 pub mod ole_vba_analysis;
 pub mod pdf_analysis;
 pub mod rar_analysis;

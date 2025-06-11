@@ -20,6 +20,7 @@ use crate::{
     hexdump::{format_hex_dump_text, generate_hex_dump, HexDumpOptions},
     java_analysis::{analyze_java_archive, analyze_class_file, JavaAnalysisResult},
     metadata::FileMetadata,
+    npm_analysis::{analyze_npm_package, NpmPackageAnalysis},
     signature::verify_signature,
     strings::extract_strings,
     threat_detection::{analyze_threats, ThreatAnalysis},
@@ -221,6 +222,12 @@ pub struct YaraScanError {
 pub struct JavaAnalysisRequest {
     #[schemars(description = "Path to the Java file to analyze (JAR/WAR/EAR/APK/AAR/CLASS)")]
     pub file_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct NpmAnalysisRequest {
+    #[schemars(description = "Path to npm package (can be .tgz file or directory with package.json)")]
+    pub package_path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -898,6 +905,24 @@ impl FileScannerMcp {
 
         Ok(Json(analysis_result))
     }
+
+    #[tool(
+        description = "Analyze npm packages for vulnerabilities and malicious code - detects typosquatting, supply chain attacks, malware patterns, and known vulnerabilities. Works with .tgz files or directories containing package.json"
+    )]
+    pub async fn analyze_npm_package(
+        &self,
+        #[tool(aggr)] request: NpmAnalysisRequest,
+    ) -> Result<Json<NpmPackageAnalysis>, String> {
+        let path = PathBuf::from(&request.package_path);
+
+        if !path.exists() {
+            return Err(format!("Path does not exist: {}", request.package_path));
+        }
+
+        let analysis_result = analyze_npm_package(&path).map_err(|e| e.to_string())?;
+
+        Ok(Json(analysis_result))
+    }
 }
 
 #[tool(tool_box)]
@@ -909,7 +934,7 @@ impl ServerHandler for FileScannerMcp {
                 name: "file-scanner".into(),
                 version: "0.1.0".into(),
             },
-            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, yara_scan_file, and analyze_java_file tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules. The analyze_java_file tool provides specialized analysis for Java archives (JAR/WAR/EAR/APK/AAR) and class files.".into()),
+            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, yara_scan_file, analyze_java_file, and analyze_npm_package tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules. The analyze_java_file tool provides specialized analysis for Java archives (JAR/WAR/EAR/APK/AAR) and class files. The analyze_npm_package tool analyzes npm packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks.".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
         }
     }

@@ -19,6 +19,8 @@ mod java_analysis;
 mod mcp_server;
 mod mcp_transport;
 mod metadata;
+mod npm_analysis;
+mod npm_vuln_db;
 mod ole_vba_analysis;
 mod pdf_analysis;
 mod rar_analysis;

@@ -700,11 +700,11 @@ mod tests {
         let mut zip = zip::ZipWriter::new(file);
         
         // Add manifest
-        zip.start_file("META-INF/MANIFEST.MF", zip::write::FileOptions::default())?;
+        zip.start_file("META-INF/MANIFEST.MF", zip::write::SimpleFileOptions::default())?;
         zip.write_all(b"Manifest-Version: 1.0\nMain-Class: com.example.Main\n")?;
         
         // Add a dummy class file
-        zip.start_file("com/example/Main.class", zip::write::FileOptions::default())?;
+        zip.start_file("com/example/Main.class", zip::write::SimpleFileOptions::default())?;
         zip.write_all(&[0xCA, 0xFE, 0xBA, 0xBE, 0x00, 0x00, 0x00, 0x37])?; // Java 7 class file header
         
         zip.finish()?;
