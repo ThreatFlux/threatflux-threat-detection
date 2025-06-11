@@ -153,6 +153,7 @@ fn test_binary_info_structure() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     assert_eq!(info.format, "ELF");
@@ -198,6 +199,7 @@ fn test_binary_info_serialization() {
         entry_point: Some(0x1000),
         is_stripped: true,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     // Test JSON serialization
@@ -227,6 +229,7 @@ fn test_binary_info_defaults() {
         entry_point: None,
         is_stripped: false,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     assert_eq!(info.format, "Unknown");
@@ -254,6 +257,7 @@ fn test_binary_info_debug_format() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     let debug_string = format!("{:?}", info);
@@ -295,6 +299,7 @@ fn test_binary_info_with_multiple_sections() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     assert_eq!(info.sections.len(), 3);
@@ -324,6 +329,7 @@ fn test_binary_info_edge_cases() {
         entry_point: Some(u64::MAX),
         is_stripped: true,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     assert_eq!(info.sections[0].size, u64::MAX);
@@ -349,6 +355,7 @@ fn test_binary_info_empty_strings() {
         entry_point: Some(0),
         is_stripped: false,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     assert!(info.format.is_empty());
@@ -379,6 +386,7 @@ fn test_binary_info_unicode_strings() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     assert!(info.compiler.unwrap().contains("🦀"));
@@ -408,6 +416,7 @@ fn test_binary_info_long_strings() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     assert_eq!(info.format.len(), 1000);
@@ -439,6 +448,7 @@ fn test_binary_info_many_sections() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     assert_eq!(info.sections.len(), 1000);
@@ -469,6 +479,7 @@ fn test_binary_info_many_imports_exports() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     assert_eq!(info.imports.len(), 500);
@@ -516,6 +527,7 @@ fn test_binary_info_clone() {
         entry_point: Some(0x1000),
         is_stripped: true,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     // This test verifies that BinaryInfo derives Debug and Clone (if it does)
@@ -536,6 +548,7 @@ fn test_binary_info_partial_eq() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     let info2 = BinaryInfo {
@@ -549,6 +562,7 @@ fn test_binary_info_partial_eq() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     let info3 = BinaryInfo {
@@ -562,6 +576,7 @@ fn test_binary_info_partial_eq() {
         entry_point: Some(0x1000),
         is_stripped: false,
         has_debug_info: true,
+        java_analysis: None,
     };
 
     // Test serialization equality
