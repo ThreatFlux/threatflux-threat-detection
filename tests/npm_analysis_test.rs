@@ -2,6 +2,7 @@ use file_scanner::npm_analysis::analyze_npm_package;
 use std::path::Path;
 
 #[test]
+#[ignore = "Requires test npm package data - placeholder test"]
 fn test_npm_package_analysis() {
     let path = Path::new("test_npm_package");
 
