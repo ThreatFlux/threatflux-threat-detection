@@ -568,7 +568,7 @@ fn parse_class_file(class_data: &[u8]) -> Result<ClassInfo> {
     }
 
     // Check magic number (0xCAFEBABE)
-    if &class_data[0..4] != &[0xCA, 0xFE, 0xBA, 0xBE] {
+    if class_data[0..4] != [0xCA, 0xFE, 0xBA, 0xBE] {
         return Err(anyhow!("Invalid class file: bad magic number"));
     }
 
@@ -605,9 +605,7 @@ fn classify_resource(name: &str) -> ResourceType {
         "so" | "dll" | "dylib" => ResourceType::Library,
         "properties" | "xml" | "json" => ResourceType::Configuration,
         _ => {
-            if name.starts_with("res/") {
-                ResourceType::Asset
-            } else if name.starts_with("assets/") {
+            if name.starts_with("res/") || name.starts_with("assets/") {
                 ResourceType::Asset
             } else if name.starts_with("raw/") {
                 ResourceType::Raw

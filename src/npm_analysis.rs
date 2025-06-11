@@ -480,8 +480,8 @@ fn extract_repository_info(repo_value: Option<&Value>) -> Option<RepositoryInfo>
                 url: s.to_string(),
                 directory: None,
             })
-        } else if let Some(obj) = v.as_object() {
-            Some(RepositoryInfo {
+        } else {
+            v.as_object().map(|obj| RepositoryInfo {
                 repo_type: obj
                     .get("type")
                     .and_then(|v| v.as_str())
@@ -497,8 +497,6 @@ fn extract_repository_info(repo_value: Option<&Value>) -> Option<RepositoryInfo>
                     .and_then(|v| v.as_str())
                     .map(String::from),
             })
-        } else {
-            None
         }
     })
 }
@@ -509,8 +507,6 @@ fn analyze_dependencies(package_json: &Value) -> Result<NpmDependencyAnalysis> {
         .ok_or_else(|| anyhow::anyhow!("package.json is not an object"))?;
 
     let _all_deps: HashMap<String, DependencyDetails> = HashMap::new();
-    let dependency_count;
-
     // Extract different dependency types
     let dependencies = extract_dependency_map(obj.get("dependencies"));
     let dev_dependencies = extract_dependency_map(obj.get("devDependencies"));
@@ -521,7 +517,7 @@ fn analyze_dependencies(package_json: &Value) -> Result<NpmDependencyAnalysis> {
             .or_else(|| obj.get("bundleDependencies")),
     );
 
-    dependency_count = dependencies.len()
+    let dependency_count = dependencies.len()
         + dev_dependencies.len()
         + peer_dependencies.len()
         + optional_dependencies.len();
@@ -649,14 +645,14 @@ fn analyze_scripts(package_json: &Value) -> Result<ScriptsAnalysis> {
 
     for (name, content) in &scripts {
         // Categorize scripts
-        if is_npm_hook(&name) {
+        if is_npm_hook(name) {
             script_hooks.insert(name.clone(), content.clone());
         } else {
             custom_scripts.insert(name.clone(), content.clone());
         }
 
         // Check for dangerous patterns
-        if let Some(dangerous) = check_dangerous_command(&content) {
+        if let Some(dangerous) = check_dangerous_command(content) {
             dangerous_commands.push(DangerousCommand {
                 command: content.clone(),
                 script_name: name.clone(),
@@ -1340,21 +1336,17 @@ fn analyze_maintainers(package_json: &Value) -> Result<MaintainerAnalysis> {
         .map(|arr| {
             arr.iter()
                 .filter_map(|v| {
-                    if let Some(obj) = v.as_object() {
-                        Some(MaintainerInfo {
-                            name: obj
-                                .get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("")
-                                .to_string(),
-                            email: obj.get("email").and_then(|e| e.as_str()).map(String::from),
-                            npm_username: None,
-                            first_publish_date: None,
-                            package_count: None,
-                        })
-                    } else {
-                        None
-                    }
+                    v.as_object().map(|obj| MaintainerInfo {
+                        name: obj
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        email: obj.get("email").and_then(|e| e.as_str()).map(String::from),
+                        npm_username: None,
+                        first_publish_date: None,
+                        package_count: None,
+                    })
                 })
                 .collect()
         })
