@@ -20,13 +20,13 @@ pub struct JavaAnalysisResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum JavaArchiveType {
-    Jar,        // Java Archive
-    War,        // Web Application Archive
-    Ear,        // Enterprise Application Archive
-    Apk,        // Android Application Package
-    Aar,        // Android Archive
-    ClassFile,  // Single Java class file
-    Dex,        // Android Dalvik Executable
+    Jar,       // Java Archive
+    War,       // Web Application Archive
+    Ear,       // Enterprise Application Archive
+    Apk,       // Android Application Package
+    Aar,       // Android Archive
+    ClassFile, // Single Java class file
+    Dex,       // Android Dalvik Executable
     Unknown,
 }
 
@@ -228,7 +228,7 @@ pub fn analyze_java_archive(file_path: &Path) -> Result<JavaAnalysisResult> {
     let mut archive = ZipArchive::new(file)?;
 
     let archive_type = detect_archive_type(file_path, &mut archive)?;
-    
+
     let mut result = JavaAnalysisResult {
         archive_type: archive_type.clone(),
         manifest: None,
@@ -262,10 +262,10 @@ pub fn analyze_java_archive(file_path: &Path) -> Result<JavaAnalysisResult> {
 
     // Parse archive contents
     parse_archive_contents(&mut archive, &mut result)?;
-    
+
     // Perform security analysis
     perform_security_analysis(&mut result);
-    
+
     // Calculate metadata
     calculate_metadata(&mut result);
 
@@ -276,7 +276,7 @@ pub fn analyze_java_archive(file_path: &Path) -> Result<JavaAnalysisResult> {
 pub fn analyze_class_file(file_path: &Path) -> Result<JavaAnalysisResult> {
     let class_data = std::fs::read(file_path)?;
     let class_info = parse_class_file(&class_data)?;
-    
+
     let mut result = JavaAnalysisResult {
         archive_type: JavaArchiveType::ClassFile,
         manifest: None,
@@ -302,18 +302,24 @@ pub fn analyze_class_file(file_path: &Path) -> Result<JavaAnalysisResult> {
             compressed_size: class_data.len() as u64,
             compression_ratio: 1.0,
             entry_count_by_type: HashMap::from([("class".to_string(), 1)]),
-            largest_entries: vec![(file_path.file_name().unwrap().to_string_lossy().to_string(), class_data.len() as u64)],
+            largest_entries: vec![(
+                file_path.file_name().unwrap().to_string_lossy().to_string(),
+                class_data.len() as u64,
+            )],
             creation_time: None,
             modification_time: None,
         },
     };
 
     perform_security_analysis(&mut result);
-    
+
     Ok(result)
 }
 
-fn detect_archive_type(file_path: &Path, archive: &mut ZipArchive<std::fs::File>) -> Result<JavaArchiveType> {
+fn detect_archive_type(
+    file_path: &Path,
+    archive: &mut ZipArchive<std::fs::File>,
+) -> Result<JavaArchiveType> {
     // Check file extension first
     if let Some(extension) = file_path.extension() {
         match extension.to_str().unwrap_or("").to_lowercase().as_str() {
@@ -344,17 +350,17 @@ fn detect_archive_type(file_path: &Path, archive: &mut ZipArchive<std::fs::File>
         if name == "classes.dex" {
             return Ok(JavaArchiveType::Apk);
         }
-        
+
         // Web application files
         if name.starts_with("WEB-INF/") {
             return Ok(JavaArchiveType::War);
         }
-        
+
         // Enterprise application files
         if name.starts_with("META-INF/application.xml") {
             return Ok(JavaArchiveType::Ear);
         }
-        
+
         // Android Archive Library files - check name pattern
         if name == "classes.jar" && file_names.iter().any(|f| f == "R.txt") {
             return Ok(JavaArchiveType::Aar);
@@ -371,7 +377,10 @@ fn detect_archive_type(file_path: &Path, archive: &mut ZipArchive<std::fs::File>
     Ok(JavaArchiveType::Unknown)
 }
 
-fn parse_archive_contents(archive: &mut ZipArchive<std::fs::File>, result: &mut JavaAnalysisResult) -> Result<()> {
+fn parse_archive_contents(
+    archive: &mut ZipArchive<std::fs::File>,
+    result: &mut JavaAnalysisResult,
+) -> Result<()> {
     let mut total_size = 0u64;
     let mut compressed_size = 0u64;
     let mut entry_sizes = Vec::new();
@@ -379,17 +388,22 @@ fn parse_archive_contents(archive: &mut ZipArchive<std::fs::File>, result: &mut 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
         let name = file.name().to_string();
-        
+
         total_size += file.size();
         compressed_size += file.compressed_size();
         entry_sizes.push((name.clone(), file.size()));
 
         // Count by type
-        let extension = Path::new(&name).extension()
+        let extension = Path::new(&name)
+            .extension()
             .and_then(|ext| ext.to_str())
             .unwrap_or("unknown")
             .to_lowercase();
-        *result.metadata.entry_count_by_type.entry(extension).or_insert(0) += 1;
+        *result
+            .metadata
+            .entry_count_by_type
+            .entry(extension)
+            .or_insert(0) += 1;
 
         // Parse specific files
         match name.as_str() {
@@ -405,14 +419,16 @@ fn parse_archive_contents(archive: &mut ZipArchive<std::fs::File>, result: &mut 
             }
             _ => {
                 // Handle certificates
-                if name.starts_with("META-INF/") && (name.ends_with(".RSA") || name.ends_with(".DSA") || name.ends_with(".EC")) {
+                if name.starts_with("META-INF/")
+                    && (name.ends_with(".RSA") || name.ends_with(".DSA") || name.ends_with(".EC"))
+                {
                     let mut cert_data = Vec::new();
                     file.read_to_end(&mut cert_data)?;
                     if let Ok(cert) = parse_certificate(&cert_data) {
                         result.certificates.push(cert);
                     }
                 }
-                
+
                 // Handle class files
                 if name.ends_with(".class") {
                     let mut class_data = Vec::new();
@@ -421,7 +437,7 @@ fn parse_archive_contents(archive: &mut ZipArchive<std::fs::File>, result: &mut 
                         result.classes.push(class_info);
                     }
                 }
-                
+
                 // Handle resources
                 let resource_type = classify_resource(&name);
                 result.resources.push(ResourceInfo {
@@ -484,7 +500,9 @@ fn parse_java_manifest(contents: &str) -> Result<JavaManifest> {
 
         match key {
             "Main-Class" => manifest.main_class = Some(value.to_string()),
-            "Class-Path" => manifest.class_path = value.split_whitespace().map(|s| s.to_string()).collect(),
+            "Class-Path" => {
+                manifest.class_path = value.split_whitespace().map(|s| s.to_string()).collect()
+            }
             "Implementation-Title" => manifest.implementation_title = Some(value.to_string()),
             "Implementation-Version" => manifest.implementation_version = Some(value.to_string()),
             "Implementation-Vendor" => manifest.implementation_vendor = Some(value.to_string()),
@@ -495,7 +513,9 @@ fn parse_java_manifest(contents: &str) -> Result<JavaManifest> {
             "Build-Jdk" => manifest.build_jdk = Some(value.to_string()),
             "Created-By" => manifest.created_by = Some(value.to_string()),
             _ => {
-                manifest.custom_attributes.insert(key.to_string(), value.to_string());
+                manifest
+                    .custom_attributes
+                    .insert(key.to_string(), value.to_string());
             }
         }
     }
@@ -577,7 +597,7 @@ fn parse_class_file(class_data: &[u8]) -> Result<ClassInfo> {
 fn classify_resource(name: &str) -> ResourceType {
     let path = Path::new(name);
     let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
-    
+
     match extension.to_lowercase().as_str() {
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" => ResourceType::Image,
         "xml" if name.contains("layout") => ResourceType::Layout,
@@ -605,7 +625,10 @@ fn perform_security_analysis(result: &mut JavaAnalysisResult) {
     if let Some(android_manifest) = &result.android_manifest {
         for permission in &android_manifest.permissions {
             if is_dangerous_permission(permission) {
-                result.security_analysis.suspicious_permissions.push(permission.clone());
+                result
+                    .security_analysis
+                    .suspicious_permissions
+                    .push(permission.clone());
                 if threat_level == SecurityThreatLevel::Low {
                     threat_level = SecurityThreatLevel::Medium;
                 }
@@ -617,7 +640,10 @@ fn perform_security_analysis(result: &mut JavaAnalysisResult) {
     for class in &result.classes {
         for method in &class.methods {
             if is_dangerous_api(&method.name) {
-                result.security_analysis.dangerous_apis.push(format!("{}.{}", class.name, method.name));
+                result
+                    .security_analysis
+                    .dangerous_apis
+                    .push(format!("{}.{}", class.name, method.name));
                 if threat_level == SecurityThreatLevel::Low {
                     threat_level = SecurityThreatLevel::Medium;
                 }
@@ -628,12 +654,18 @@ fn perform_security_analysis(result: &mut JavaAnalysisResult) {
     // Analyze certificate status
     if result.certificates.is_empty() {
         result.security_analysis.code_signing_status = CodeSigningStatus::Unsigned;
-        result.security_analysis.certificate_issues.push("Application is not signed".to_string());
+        result
+            .security_analysis
+            .certificate_issues
+            .push("Application is not signed".to_string());
     } else {
         result.security_analysis.code_signing_status = CodeSigningStatus::Signed;
         for cert in &result.certificates {
             if cert.is_self_signed {
-                result.security_analysis.certificate_issues.push("Self-signed certificate detected".to_string());
+                result
+                    .security_analysis
+                    .certificate_issues
+                    .push("Self-signed certificate detected".to_string());
                 result.security_analysis.code_signing_status = CodeSigningStatus::SelfSigned;
             }
         }
@@ -654,35 +686,48 @@ fn calculate_metadata(result: &mut JavaAnalysisResult) {
 
 fn is_dangerous_permission(permission: &str) -> bool {
     match permission {
-        "android.permission.SEND_SMS" |
-        "android.permission.CALL_PHONE" |
-        "android.permission.READ_CONTACTS" |
-        "android.permission.ACCESS_FINE_LOCATION" |
-        "android.permission.CAMERA" |
-        "android.permission.RECORD_AUDIO" |
-        "android.permission.READ_EXTERNAL_STORAGE" |
-        "android.permission.WRITE_EXTERNAL_STORAGE" |
-        "android.permission.INSTALL_PACKAGES" |
-        "android.permission.DELETE_PACKAGES" |
-        "android.permission.SYSTEM_ALERT_WINDOW" |
-        "android.permission.DEVICE_ADMIN" => true,
-        _ => permission.contains("ADMIN") || permission.contains("ROOT")
+        "android.permission.SEND_SMS"
+        | "android.permission.CALL_PHONE"
+        | "android.permission.READ_CONTACTS"
+        | "android.permission.ACCESS_FINE_LOCATION"
+        | "android.permission.CAMERA"
+        | "android.permission.RECORD_AUDIO"
+        | "android.permission.READ_EXTERNAL_STORAGE"
+        | "android.permission.WRITE_EXTERNAL_STORAGE"
+        | "android.permission.INSTALL_PACKAGES"
+        | "android.permission.DELETE_PACKAGES"
+        | "android.permission.SYSTEM_ALERT_WINDOW"
+        | "android.permission.DEVICE_ADMIN" => true,
+        _ => permission.contains("ADMIN") || permission.contains("ROOT"),
     }
 }
 
 fn is_dangerous_api(method_name: &str) -> bool {
     match method_name {
-        "exec" | "getRuntime" | "loadLibrary" | "load" |
-        "createClassLoader" | "defineClass" | "setSecurityManager" |
-        "getSystemProperty" | "setSystemProperty" |
-        "openFileOutput" | "openFileInput" |
-        "getExternalStorageDirectory" | "getExternalFilesDir" |
-        "sendTextMessage" | "sendMultipartTextMessage" |
-        "startActivity" | "startService" | "sendBroadcast" => true,
-        _ => method_name.contains("reflect") || 
-             method_name.contains("invoke") ||
-             method_name.contains("crypto") ||
-             method_name.contains("cipher")
+        "exec"
+        | "getRuntime"
+        | "loadLibrary"
+        | "load"
+        | "createClassLoader"
+        | "defineClass"
+        | "setSecurityManager"
+        | "getSystemProperty"
+        | "setSystemProperty"
+        | "openFileOutput"
+        | "openFileInput"
+        | "getExternalStorageDirectory"
+        | "getExternalFilesDir"
+        | "sendTextMessage"
+        | "sendMultipartTextMessage"
+        | "startActivity"
+        | "startService"
+        | "sendBroadcast" => true,
+        _ => {
+            method_name.contains("reflect")
+                || method_name.contains("invoke")
+                || method_name.contains("crypto")
+                || method_name.contains("cipher")
+        }
     }
 }
 
@@ -695,37 +740,44 @@ mod tests {
     fn create_test_jar() -> Result<(TempDir, std::path::PathBuf)> {
         let temp_dir = TempDir::new()?;
         let jar_path = temp_dir.path().join("test.jar");
-        
+
         let file = std::fs::File::create(&jar_path)?;
         let mut zip = zip::ZipWriter::new(file);
-        
+
         // Add manifest
-        zip.start_file("META-INF/MANIFEST.MF", zip::write::SimpleFileOptions::default())?;
+        zip.start_file(
+            "META-INF/MANIFEST.MF",
+            zip::write::SimpleFileOptions::default(),
+        )?;
         zip.write_all(b"Manifest-Version: 1.0\nMain-Class: com.example.Main\n")?;
-        
+
         // Add a dummy class file
-        zip.start_file("com/example/Main.class", zip::write::SimpleFileOptions::default())?;
+        zip.start_file(
+            "com/example/Main.class",
+            zip::write::SimpleFileOptions::default(),
+        )?;
         zip.write_all(&[0xCA, 0xFE, 0xBA, 0xBE, 0x00, 0x00, 0x00, 0x37])?; // Java 7 class file header
-        
+
         zip.finish()?;
         Ok((temp_dir, jar_path))
     }
 
     #[test]
     fn test_detect_archive_type_jar() {
-        let (temp_dir, jar_path) = create_test_jar().unwrap();
+        let (_temp_dir, jar_path) = create_test_jar().unwrap();
         let file = std::fs::File::open(&jar_path).unwrap();
         let mut archive = ZipArchive::new(file).unwrap();
-        
+
         let archive_type = detect_archive_type(&jar_path, &mut archive).unwrap();
         assert_eq!(archive_type, JavaArchiveType::Jar);
     }
 
     #[test]
     fn test_parse_java_manifest() {
-        let manifest_content = "Manifest-Version: 1.0\nMain-Class: com.example.Main\nImplementation-Title: Test App\n";
+        let manifest_content =
+            "Manifest-Version: 1.0\nMain-Class: com.example.Main\nImplementation-Title: Test App\n";
         let manifest = parse_java_manifest(manifest_content).unwrap();
-        
+
         assert_eq!(manifest.main_class, Some("com.example.Main".to_string()));
         assert_eq!(manifest.implementation_title, Some("Test App".to_string()));
     }
@@ -735,7 +787,10 @@ mod tests {
         assert_eq!(classify_resource("icon.png"), ResourceType::Image);
         assert_eq!(classify_resource("layout/main.xml"), ResourceType::Layout);
         assert_eq!(classify_resource("lib/native.so"), ResourceType::Library);
-        assert_eq!(classify_resource("config.properties"), ResourceType::Configuration);
+        assert_eq!(
+            classify_resource("config.properties"),
+            ResourceType::Configuration
+        );
         assert_eq!(classify_resource("assets/data.txt"), ResourceType::Asset);
     }
 

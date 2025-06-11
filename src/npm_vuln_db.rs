@@ -43,7 +43,8 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             vulnerability: KnownVulnerability {
                 cve_id: "NPM-MALWARE-2018-001".to_string(),
                 severity: VulnerabilitySeverity::Critical,
-                description: "Malicious code injection that steals cryptocurrency wallets".to_string(),
+                description: "Malicious code injection that steals cryptocurrency wallets"
+                    .to_string(),
                 affected_versions: vec!["3.3.6".to_string()],
                 fixed_in: Some("4.0.0".to_string()),
                 cvss_score: Some(9.8),
@@ -57,7 +58,8 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             }],
             patched_versions: vec!["4.0.0".to_string()],
             references: vec![
-                "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident".to_string()
+                "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident"
+                    .to_string(),
             ],
             disclosure_date: Some("2018-11-26".to_string()),
             exploit_available: true,
@@ -76,8 +78,14 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             vulnerability: KnownVulnerability {
                 cve_id: "CVE-2021-41265".to_string(),
                 severity: VulnerabilitySeverity::Critical,
-                description: "Compromised versions contain crypto mining and password stealing malware".to_string(),
-                affected_versions: vec!["0.7.29".to_string(), "0.8.0".to_string(), "1.0.0".to_string()],
+                description:
+                    "Compromised versions contain crypto mining and password stealing malware"
+                        .to_string(),
+                affected_versions: vec![
+                    "0.7.29".to_string(),
+                    "0.8.0".to_string(),
+                    "1.0.0".to_string(),
+                ],
                 fixed_in: Some("0.7.30".to_string()),
                 cvss_score: Some(9.8),
                 published_date: Some("2021-10-22".to_string()),
@@ -102,10 +110,12 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
                     includes_max: true,
                 },
             ],
-            patched_versions: vec!["0.7.30".to_string(), "0.8.1".to_string(), "1.0.1".to_string()],
-            references: vec![
-                "https://github.com/faisalman/ua-parser-js/issues/536".to_string()
+            patched_versions: vec![
+                "0.7.30".to_string(),
+                "0.8.1".to_string(),
+                "1.0.1".to_string(),
             ],
+            references: vec!["https://github.com/faisalman/ua-parser-js/issues/536".to_string()],
             disclosure_date: Some("2021-10-22".to_string()),
             exploit_available: true,
             malware_indicators: vec![
@@ -124,7 +134,9 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             vulnerability: KnownVulnerability {
                 cve_id: "CVE-2022-23812".to_string(),
                 severity: VulnerabilitySeverity::Critical,
-                description: "Malicious code that overwrites files with specific geographic IP addresses".to_string(),
+                description:
+                    "Malicious code that overwrites files with specific geographic IP addresses"
+                        .to_string(),
                 affected_versions: vec!["10.1.1".to_string(), "10.1.2".to_string()],
                 fixed_in: Some("10.1.3".to_string()),
                 cvss_score: Some(9.8),
@@ -137,9 +149,7 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
                 includes_max: true,
             }],
             patched_versions: vec!["10.1.3".to_string()],
-            references: vec![
-                "https://snyk.io/vuln/SNYK-JS-NODEIPC-2426370".to_string()
-            ],
+            references: vec!["https://snyk.io/vuln/SNYK-JS-NODEIPC-2426370".to_string()],
             disclosure_date: Some("2022-03-16".to_string()),
             exploit_available: true,
             malware_indicators: vec![
@@ -171,15 +181,10 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
                 includes_max: true,
             }],
             patched_versions: vec!["1.4.0".to_string()],
-            references: vec![
-                "https://github.com/advisories/GHSA-2pr3-vjfc-gx2g".to_string()
-            ],
+            references: vec!["https://github.com/advisories/GHSA-2pr3-vjfc-gx2g".to_string()],
             disclosure_date: Some("2022-01-08".to_string()),
             exploit_available: true,
-            malware_indicators: vec![
-                "infinite loop".to_string(),
-                "protestware".to_string(),
-            ],
+            malware_indicators: vec!["infinite loop".to_string(), "protestware".to_string()],
         }],
     );
 
@@ -191,7 +196,9 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             vulnerability: KnownVulnerability {
                 cve_id: "PATTERN-001".to_string(),
                 severity: VulnerabilitySeverity::High,
-                description: "Typosquatting attack pattern - packages with names similar to popular packages".to_string(),
+                description:
+                    "Typosquatting attack pattern - packages with names similar to popular packages"
+                        .to_string(),
                 affected_versions: vec!["*".to_string()],
                 fixed_in: None,
                 cvss_score: Some(8.0),
@@ -202,10 +209,7 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             references: vec![],
             disclosure_date: None,
             exploit_available: true,
-            malware_indicators: vec![
-                "typosquatting".to_string(),
-                "similar name".to_string(),
-            ],
+            malware_indicators: vec!["typosquatting".to_string(), "similar name".to_string()],
         }],
     );
 
@@ -217,7 +221,8 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             vulnerability: KnownVulnerability {
                 cve_id: "CVE-2019-10744".to_string(),
                 severity: VulnerabilitySeverity::High,
-                description: "Prototype pollution vulnerability in defaultsDeep function".to_string(),
+                description: "Prototype pollution vulnerability in defaultsDeep function"
+                    .to_string(),
                 affected_versions: vec!["< 4.17.12".to_string()],
                 fixed_in: Some("4.17.12".to_string()),
                 cvss_score: Some(7.5),
@@ -230,9 +235,7 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
                 includes_max: true,
             }],
             patched_versions: vec!["4.17.12".to_string()],
-            references: vec![
-                "https://nvd.nist.gov/vuln/detail/CVE-2019-10744".to_string()
-            ],
+            references: vec!["https://nvd.nist.gov/vuln/detail/CVE-2019-10744".to_string()],
             disclosure_date: Some("2019-07-26".to_string()),
             exploit_available: true,
             malware_indicators: vec![],
@@ -247,7 +250,9 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
             vulnerability: KnownVulnerability {
                 cve_id: "CVE-2020-7598".to_string(),
                 severity: VulnerabilitySeverity::Medium,
-                description: "Prototype pollution vulnerability allowing modification of Object prototype".to_string(),
+                description:
+                    "Prototype pollution vulnerability allowing modification of Object prototype"
+                        .to_string(),
                 affected_versions: vec!["< 1.2.2".to_string()],
                 fixed_in: Some("1.2.2".to_string()),
                 cvss_score: Some(5.3),
@@ -260,9 +265,7 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
                 includes_max: true,
             }],
             patched_versions: vec!["1.2.2".to_string()],
-            references: vec![
-                "https://nvd.nist.gov/vuln/detail/CVE-2020-7598".to_string()
-            ],
+            references: vec!["https://nvd.nist.gov/vuln/detail/CVE-2020-7598".to_string()],
             disclosure_date: Some("2020-03-11".to_string()),
             exploit_available: false,
             malware_indicators: vec![],
@@ -277,10 +280,7 @@ pub fn create_npm_vulnerability_database() -> NpmVulnerabilityDatabase {
 }
 
 /// Check if a package has known vulnerabilities
-pub fn check_package_vulnerabilities(
-    package_name: &str,
-    version: &str,
-) -> Vec<KnownVulnerability> {
+pub fn check_package_vulnerabilities(package_name: &str, version: &str) -> Vec<KnownVulnerability> {
     let db = create_npm_vulnerability_database();
     let mut found_vulnerabilities = vec![];
 
@@ -305,7 +305,7 @@ fn is_version_affected(version: &str, ranges: &[VersionRange]) -> bool {
                 return true;
             }
         }
-        
+
         // TODO: Implement proper semver range checking
         // For now, do simple string comparison
         if version.contains('-') || version.contains('+') {
@@ -313,7 +313,7 @@ fn is_version_affected(version: &str, ranges: &[VersionRange]) -> bool {
             return true; // Conservative approach
         }
     }
-    
+
     false
 }
 
@@ -322,7 +322,8 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
     vec![
         MaliciousPackagePattern {
             pattern_name: "Install script with external download".to_string(),
-            description: "Package downloads and executes external code during installation".to_string(),
+            description: "Package downloads and executes external code during installation"
+                .to_string(),
             indicators: vec![
                 "curl|wget.*http".to_string(),
                 "exec.*http".to_string(),
@@ -332,7 +333,8 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
         },
         MaliciousPackagePattern {
             pattern_name: "Obfuscated code execution".to_string(),
-            description: "Package contains heavily obfuscated code that executes dynamically".to_string(),
+            description: "Package contains heavily obfuscated code that executes dynamically"
+                .to_string(),
             indicators: vec![
                 r"eval\s*\(".to_string(),
                 r"Function\s*\(".to_string(),
@@ -353,7 +355,8 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
         },
         MaliciousPackagePattern {
             pattern_name: "Cryptocurrency theft".to_string(),
-            description: "Package contains patterns associated with cryptocurrency wallet theft".to_string(),
+            description: "Package contains patterns associated with cryptocurrency wallet theft"
+                .to_string(),
             indicators: vec![
                 "wallet".to_string(),
                 "bitcoin".to_string(),
@@ -438,7 +441,6 @@ pub fn get_known_malicious_packages() -> Vec<&'static str> {
         "sqliter",
         "sqlserver",
         "tkinter",
-        
         // Typosquatting attempts
         "babelcli",
         "babel-preset-es2015",
@@ -457,27 +459,63 @@ pub fn get_known_malicious_packages() -> Vec<&'static str> {
 /// Check if a package name is suspiciously similar to a popular package
 pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>> {
     let popular_packages = vec![
-        "react", "express", "lodash", "axios", "moment", "webpack", "babel",
-        "typescript", "jest", "eslint", "prettier", "redux", "next", "vue",
-        "angular", "jquery", "bootstrap", "material-ui", "styled-components",
-        "react-router", "react-redux", "react-dom", "prop-types", "classnames",
-        "commander", "chalk", "debug", "request", "async", "underscore",
-        "body-parser", "cookie-parser", "cors", "dotenv", "jsonwebtoken",
-        "mongoose", "mysql", "passport", "socket.io", "validator",
+        "react",
+        "express",
+        "lodash",
+        "axios",
+        "moment",
+        "webpack",
+        "babel",
+        "typescript",
+        "jest",
+        "eslint",
+        "prettier",
+        "redux",
+        "next",
+        "vue",
+        "angular",
+        "jquery",
+        "bootstrap",
+        "material-ui",
+        "styled-components",
+        "react-router",
+        "react-redux",
+        "react-dom",
+        "prop-types",
+        "classnames",
+        "commander",
+        "chalk",
+        "debug",
+        "request",
+        "async",
+        "underscore",
+        "body-parser",
+        "cookie-parser",
+        "cors",
+        "dotenv",
+        "jsonwebtoken",
+        "mongoose",
+        "mysql",
+        "passport",
+        "socket.io",
+        "validator",
     ];
 
     let mut similar_packages = vec![];
-    
+
     for popular in &popular_packages {
         let distance = levenshtein_distance(package_name, popular);
         if distance > 0 && distance <= 2 {
             similar_packages.push(popular.to_string());
         }
-        
+
         // Check for common typosquatting patterns
         if package_name.starts_with(popular) && package_name.len() > popular.len() {
             let suffix = &package_name[popular.len()..];
-            if matches!(suffix, "-dev" | "-test" | "js" | ".js" | "-js" | "2" | "-cli") {
+            if matches!(
+                suffix,
+                "-dev" | "-test" | "js" | ".js" | "-js" | "2" | "-cli"
+            ) {
                 similar_packages.push(format!("{} (suspicious suffix: {})", popular, suffix));
             }
         }

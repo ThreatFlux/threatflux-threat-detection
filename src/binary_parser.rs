@@ -1,9 +1,11 @@
+use crate::java_analysis::{
+    analyze_class_file, analyze_java_archive, JavaAnalysisResult, JavaArchiveType,
+};
 use anyhow::Result;
 use goblin::{elf, pe, Object};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use crate::java_analysis::{analyze_java_archive, analyze_class_file, JavaAnalysisResult, JavaArchiveType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BinaryInfo {
@@ -52,7 +54,7 @@ pub fn parse_binary(path: &Path) -> Result<BinaryInfo> {
     }
 
     // Check for Java class file magic
-    if buffer.len() >= 4 && &buffer[0..4] == &[0xCA, 0xFE, 0xBA, 0xBE] {
+    if buffer.len() >= 4 && buffer[0..4] == [0xCA, 0xFE, 0xBA, 0xBE] {
         return parse_java_class(path);
     }
 
@@ -251,10 +253,10 @@ fn parse_mach(mach: goblin::mach::Mach) -> Result<BinaryInfo> {
 
 fn parse_java_archive(path: &Path) -> Result<BinaryInfo> {
     let java_analysis = analyze_java_archive(path)?;
-    
+
     let format = match java_analysis.archive_type {
         JavaArchiveType::Jar => "JAR",
-        JavaArchiveType::War => "WAR", 
+        JavaArchiveType::War => "WAR",
         JavaArchiveType::Ear => "EAR",
         JavaArchiveType::Apk => "APK",
         JavaArchiveType::Aar => "AAR",
@@ -264,22 +266,32 @@ fn parse_java_archive(path: &Path) -> Result<BinaryInfo> {
     Ok(BinaryInfo {
         format: format.to_string(),
         architecture: "Java Bytecode".to_string(),
-        compiler: java_analysis.manifest.as_ref()
+        compiler: java_analysis
+            .manifest
+            .as_ref()
             .and_then(|m| m.created_by.clone())
             .or_else(|| Some("Unknown Java Compiler".to_string())),
-        linker: java_analysis.manifest.as_ref()
+        linker: java_analysis
+            .manifest
+            .as_ref()
             .and_then(|m| m.build_jdk.clone()),
         sections: Vec::new(),
-        imports: java_analysis.classes.iter()
+        imports: java_analysis
+            .classes
+            .iter()
             .flat_map(|c| c.interfaces.iter().cloned())
             .collect(),
-        exports: java_analysis.classes.iter()
+        exports: java_analysis
+            .classes
+            .iter()
             .filter(|c| c.is_public)
             .map(|c| c.name.clone())
             .collect(),
         entry_point: None,
         is_stripped: false,
-        has_debug_info: java_analysis.classes.iter()
+        has_debug_info: java_analysis
+            .classes
+            .iter()
             .any(|c| c.source_file.is_some()),
         java_analysis: Some(java_analysis),
     })
@@ -287,23 +299,29 @@ fn parse_java_archive(path: &Path) -> Result<BinaryInfo> {
 
 fn parse_java_class(path: &Path) -> Result<BinaryInfo> {
     let java_analysis = analyze_class_file(path)?;
-    
+
     Ok(BinaryInfo {
         format: "Java Class".to_string(),
         architecture: "Java Bytecode".to_string(),
         compiler: Some("Unknown Java Compiler".to_string()),
         linker: None,
         sections: Vec::new(),
-        imports: java_analysis.classes.first()
+        imports: java_analysis
+            .classes
+            .first()
             .map(|c| c.interfaces.clone())
             .unwrap_or_default(),
-        exports: java_analysis.classes.first()
+        exports: java_analysis
+            .classes
+            .first()
             .filter(|c| c.is_public)
             .map(|c| vec![c.name.clone()])
             .unwrap_or_default(),
         entry_point: None,
         is_stripped: false,
-        has_debug_info: java_analysis.classes.first()
+        has_debug_info: java_analysis
+            .classes
+            .first()
             .map(|c| c.source_file.is_some())
             .unwrap_or(false),
         java_analysis: Some(java_analysis),
@@ -318,11 +336,12 @@ fn is_java_archive(path: &Path) -> bool {
                 if let Ok(file) = archive.by_index(i) {
                     let name = file.name();
                     // Look for Java-specific indicators
-                    if name == "META-INF/MANIFEST.MF" ||
-                       name.ends_with(".class") ||
-                       name == "AndroidManifest.xml" ||
-                       name == "classes.dex" ||
-                       name.starts_with("WEB-INF/") {
+                    if name == "META-INF/MANIFEST.MF"
+                        || name.ends_with(".class")
+                        || name == "AndroidManifest.xml"
+                        || name == "classes.dex"
+                        || name.starts_with("WEB-INF/")
+                    {
                         return true;
                     }
                 }

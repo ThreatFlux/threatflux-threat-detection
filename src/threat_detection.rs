@@ -649,22 +649,22 @@ pub async fn scan_with_custom_rule(
 
     // Process files concurrently
     let mut handles = Vec::new();
-    
+
     for file_path in files_to_scan {
         let file_path_clone = file_path.clone();
         let rules_bytes_clone = rules_bytes.clone();
-        
+
         let handle = task::spawn_blocking(move || {
             scan_single_file(&file_path_clone, &rules_bytes_clone, detailed_matches)
         });
-        
+
         handles.push((file_path, handle));
     }
 
     // Collect results
     for (file_path, handle) in handles {
         result.total_files_scanned += 1;
-        
+
         match handle.await {
             Ok(Ok(file_result)) => {
                 if !file_result.matches.is_empty() {
@@ -690,11 +690,7 @@ pub async fn scan_with_custom_rule(
     Ok(result)
 }
 
-fn collect_files_to_scan(
-    path: &Path,
-    recursive: bool,
-    max_file_size: u64,
-) -> Result<Vec<PathBuf>> {
+fn collect_files_to_scan(path: &Path, recursive: bool, max_file_size: u64) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     if path.is_file() {
@@ -751,7 +747,7 @@ fn scan_single_file(
 
     // Deserialize rules
     let rules = yara_x::Rules::deserialize(rules_bytes)?;
-    
+
     // Create scanner and scan
     let mut scanner = yara_x::Scanner::new(&rules);
     let scan_results = scanner.scan(&file_data)?;
@@ -761,7 +757,7 @@ fn scan_single_file(
     // Process matches - scan_results is the actual result object
     // In yara-x, we need to check if there are matching rules
     let matching_rules = scan_results.matching_rules();
-    
+
     for matching_rule in matching_rules {
         let mut rule_match = crate::mcp_server::YaraRuleMatch {
             rule_identifier: matching_rule.identifier().to_string(),
@@ -790,7 +786,7 @@ fn scan_single_file(
                 for pattern_match in pattern.matches() {
                     let offset = pattern_match.range().start as u64;
                     let length = pattern_match.range().len();
-                    
+
                     // Extract matched value (limited to 100 bytes for safety)
                     let value = if length <= 100 {
                         let start = pattern_match.range().start;
@@ -1612,7 +1608,6 @@ rule test_rule {
             Err(_) => {
                 // Expected in test environment without proper YARA setup
                 // The important thing is that the function doesn't panic
-                assert!(true);
             }
         }
     }
@@ -1637,7 +1632,6 @@ rule test_rule {
             }
             Err(_) => {
                 // Expected in test environment without proper YARA setup
-                assert!(true);
             }
         }
     }
@@ -1659,11 +1653,9 @@ rule test_rule {
         match result {
             Ok(_rules) => {
                 // Rules compiled successfully
-                assert!(true);
             }
             Err(_e) => {
                 // Expected in test environment without proper yara-x setup
-                assert!(true);
             }
         }
     }

@@ -22,6 +22,8 @@ with modern async capabilities and multiple output formats.
   and filtering
 - **NPM Package Analysis**: Comprehensive security analysis of npm packages including vulnerability
   detection, malicious code patterns, typosquatting detection, and supply chain risk assessment
+- **Python Package Analysis**: Security analysis of Python packages (wheel, tar.gz, zip) with vulnerability
+  detection, setup.py risk assessment, typosquatting detection, and malicious pattern identification
 
 ## Build and Test Commands
 
@@ -80,6 +82,8 @@ src/
 ├── string_tracker.rs    # String tracking and statistics engine
 ├── npm_analysis.rs      # NPM package security analysis
 ├── npm_vuln_db.rs       # NPM vulnerability database and patterns
+├── python_analysis.rs   # Python package security analysis
+├── python_vuln_db.rs    # Python vulnerability database and patterns
 ├── mcp_server.rs        # MCP server implementation with file scanner tools
 └── mcp_transport.rs     # MCP transport implementations (STDIO, HTTP, SSE)
 ```
@@ -674,6 +678,121 @@ The scanner includes known vulnerabilities for packages like:
 }
 ```
 
+## Python Package Analysis
+
+The file scanner includes comprehensive Python package security analysis capabilities to detect vulnerabilities,
+malicious code patterns, and supply chain attacks. Supports multiple package formats including wheel (.whl),
+source distributions (.tar.gz), zip archives, and source directories.
+
+### Features
+
+- **Multiple Package Format Support**:
+  - Wheel packages (.whl)
+  - Source distributions (.tar.gz)
+  - Zip archives (.zip)
+  - Source directories with setup.py/pyproject.toml
+- **Vulnerability Detection**: Checks dependencies against a built-in vulnerability database with CVEs
+- **Malicious Pattern Detection**: Identifies suspicious patterns including:
+  - Setup.py code execution during installation
+  - Obfuscated code and eval/exec usage
+  - Network backdoors and reverse shells
+  - Credential theft attempts
+  - Cryptocurrency mining
+  - File system manipulation
+- **Typosquatting Detection**: Advanced detection of packages with names similar to popular packages
+- **Dependency Confusion**: Detects internal package name patterns used in attacks
+- **Supply Chain Risk Assessment**: Comprehensive risk scoring based on multiple factors
+- **Setup Script Analysis**: Deep analysis of setup.py for dangerous operations
+- **Quality Metrics**: Assesses package quality including documentation, tests, and CI/CD
+
+### Usage
+
+The Python analysis can be used in two ways:
+
+1. **As a library function**:
+```rust
+use file_scanner::python_analysis::analyze_python_package;
+use std::path::Path;
+
+let analysis = analyze_python_package(Path::new("path/to/package.whl"))?;
+```
+
+2. **Via MCP tool**:
+```bash
+npx @modelcontextprotocol/inspector --cli ./target/release/file-scanner \
+  mcp-stdio --method tools/call --tool-name analyze_python_package \
+  --tool-arg package_path=/path/to/package.whl
+```
+
+### Analysis Results
+
+The analysis provides detailed information including:
+
+- Package metadata from multiple sources (setup.py, pyproject.toml, METADATA)
+- Comprehensive dependency analysis with vulnerability information
+- Security analysis of setup scripts and import patterns
+- Malicious indicators with detailed risk scoring
+- Maintainer information and trust scoring
+- Quality metrics for code and documentation
+
+### Built-in Vulnerability Database
+
+The scanner includes known vulnerabilities for packages like:
+- Django (multiple CVEs for various versions)
+- Flask (security header vulnerabilities)
+- requests (proxy header leakage)
+- Pillow (uncontrolled resource consumption)
+- PyYAML (arbitrary code execution)
+- NumPy (NULL pointer dereference)
+- urllib3 (cookie header leakage)
+
+### Known Malicious Packages
+
+The scanner maintains a database of known malicious packages including typosquatting attempts like:
+- colourama (typosquatting colorama)
+- python-sqlite, python-mysql (fake database packages)
+- pytorch (should be torch)
+- sklearn (should be scikit-learn)
+- beautifulsoup (should be beautifulsoup4)
+
+### Example Analysis Output
+
+```json
+{
+  "package_info": {
+    "name": "suspicious-package",
+    "version": "1.0.0",
+    "package_format": "Wheel"
+  },
+  "dependencies": {
+    "vulnerability_summary": {
+      "critical_count": 1,
+      "high_count": 2,
+      "total_count": 3
+    }
+  },
+  "security_analysis": {
+    "has_setup_script": true,
+    "supply_chain_risk_score": 65.0,
+    "suspicious_imports": [
+      {
+        "module_name": "subprocess",
+        "risk_level": "High",
+        "reason": "Process execution"
+      }
+    ]
+  },
+  "malicious_indicators": {
+    "overall_risk_score": 78.5,
+    "risk_level": "High",
+    "typosquatting_risk": {
+      "is_potential_typosquatting": true,
+      "similar_packages": ["requests"]
+    }
+  }
+}
+```
+
 ## Future Enhancement Ideas
 
 - Support for additional binary formats (Java class files, .NET assemblies)
@@ -682,3 +801,6 @@ The scanner includes known vulnerabilities for packages like:
 - Batch processing capabilities
 - Plugin architecture for custom analyzers
 - Enhanced MCP features (resources, prompts)
+- Ruby gem security analysis
+- Java/Maven package analysis
+- Container image scanning

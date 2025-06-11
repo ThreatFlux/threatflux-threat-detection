@@ -8,9 +8,7 @@ use std::io::Read;
 use std::path::Path;
 use tar::Archive;
 
-use crate::dependency_analysis::{
-    KnownVulnerability, VulnerabilitySeverity,
-};
+use crate::dependency_analysis::{KnownVulnerability, VulnerabilitySeverity};
 use crate::npm_vuln_db::{
     check_package_vulnerabilities, check_typosquatting_similarity, get_known_malicious_packages,
     get_malicious_patterns,
@@ -330,8 +328,8 @@ fn analyze_npm_tarball(tarball_path: &Path) -> Result<NpmPackageAnalysis> {
         });
     }
 
-    let package_json = package_json_content
-        .ok_or_else(|| anyhow::anyhow!("No package.json found in tarball"))?;
+    let package_json =
+        package_json_content.ok_or_else(|| anyhow::anyhow!("No package.json found in tarball"))?;
 
     analyze_package_json(&package_json, files)
 }
@@ -343,8 +341,8 @@ fn analyze_npm_directory(dir_path: &Path) -> Result<NpmPackageAnalysis> {
         anyhow::bail!("No package.json found in directory");
     }
 
-    let package_json_content = std::fs::read_to_string(&package_json_path)
-        .context("Failed to read package.json")?;
+    let package_json_content =
+        std::fs::read_to_string(&package_json_path).context("Failed to read package.json")?;
 
     // TODO: Scan directory for files
     let files = vec![];
@@ -357,14 +355,15 @@ fn analyze_package_json(
     package_json: &str,
     files: Vec<NpmFileAnalysis>,
 ) -> Result<NpmPackageAnalysis> {
-    let parsed: Value = serde_json::from_str(package_json)
-        .context("Failed to parse package.json")?;
+    let parsed: Value =
+        serde_json::from_str(package_json).context("Failed to parse package.json")?;
 
     let package_info = extract_package_info(&parsed)?;
     let dependencies = analyze_dependencies(&parsed)?;
     let scripts_analysis = analyze_scripts(&parsed)?;
     let security_analysis = perform_security_analysis(&parsed, &scripts_analysis, &files)?;
-    let malicious_indicators = detect_malicious_indicators(&package_info, &dependencies, &security_analysis)?;
+    let malicious_indicators =
+        detect_malicious_indicators(&package_info, &dependencies, &security_analysis)?;
     let maintainer_analysis = analyze_maintainers(&parsed)?;
     let quality_metrics = calculate_quality_metrics(&parsed, &files)?;
 
@@ -382,48 +381,67 @@ fn analyze_package_json(
 
 /// Extract basic package information from package.json
 fn extract_package_info(package_json: &Value) -> Result<PackageJsonInfo> {
-    let obj = package_json.as_object()
+    let obj = package_json
+        .as_object()
         .ok_or_else(|| anyhow::anyhow!("package.json is not an object"))?;
 
     Ok(PackageJsonInfo {
-        name: obj.get("name")
+        name: obj
+            .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing package name"))?
             .to_string(),
-        version: obj.get("version")
+        version: obj
+            .get("version")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing package version"))?
             .to_string(),
-        description: obj.get("description").and_then(|v| v.as_str()).map(String::from),
+        description: obj
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         main: obj.get("main").and_then(|v| v.as_str()).map(String::from),
         author: extract_author_info(obj.get("author")),
-        license: obj.get("license").and_then(|v| v.as_str()).map(String::from),
+        license: obj
+            .get("license")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         repository: extract_repository_info(obj.get("repository")),
-        keywords: obj.get("keywords")
+        keywords: obj
+            .get("keywords")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default(),
-        homepage: obj.get("homepage").and_then(|v| v.as_str()).map(String::from),
+        homepage: obj
+            .get("homepage")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         bugs: obj.get("bugs").and_then(|v| v.as_str()).map(String::from),
-        engines: obj.get("engines")
-            .and_then(|v| v.as_object())
-            .map(|o| o.iter()
+        engines: obj.get("engines").and_then(|v| v.as_object()).map(|o| {
+            o.iter()
                 .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_string()))
-                .collect()),
-        os: obj.get("os")
-            .and_then(|v| v.as_array())
-            .map(|arr| arr.iter()
+                .collect()
+        }),
+        os: obj.get("os").and_then(|v| v.as_array()).map(|arr| {
+            arr.iter()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect()),
-        cpu: obj.get("cpu")
-            .and_then(|v| v.as_array())
-            .map(|arr| arr.iter()
+                .collect()
+        }),
+        cpu: obj.get("cpu").and_then(|v| v.as_array()).map(|arr| {
+            arr.iter()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect()),
-        private: obj.get("private").and_then(|v| v.as_bool()).unwrap_or(false),
-        publish_config: obj.get("publishConfig")
+                .collect()
+        }),
+        private: obj
+            .get("private")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        publish_config: obj
+            .get("publishConfig")
             .and_then(|v| v.as_object())
             .map(|o| o.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
     })
@@ -464,15 +482,18 @@ fn extract_repository_info(repo_value: Option<&Value>) -> Option<RepositoryInfo>
             })
         } else if let Some(obj) = v.as_object() {
             Some(RepositoryInfo {
-                repo_type: obj.get("type")
+                repo_type: obj
+                    .get("type")
                     .and_then(|v| v.as_str())
                     .unwrap_or("git")
                     .to_string(),
-                url: obj.get("url")
+                url: obj
+                    .get("url")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string(),
-                directory: obj.get("directory")
+                directory: obj
+                    .get("directory")
                     .and_then(|v| v.as_str())
                     .map(String::from),
             })
@@ -483,7 +504,8 @@ fn extract_repository_info(repo_value: Option<&Value>) -> Option<RepositoryInfo>
 }
 
 fn analyze_dependencies(package_json: &Value) -> Result<NpmDependencyAnalysis> {
-    let obj = package_json.as_object()
+    let obj = package_json
+        .as_object()
         .ok_or_else(|| anyhow::anyhow!("package.json is not an object"))?;
 
     let _all_deps: HashMap<String, DependencyDetails> = HashMap::new();
@@ -494,11 +516,15 @@ fn analyze_dependencies(package_json: &Value) -> Result<NpmDependencyAnalysis> {
     let dev_dependencies = extract_dependency_map(obj.get("devDependencies"));
     let peer_dependencies = extract_dependency_map(obj.get("peerDependencies"));
     let optional_dependencies = extract_dependency_map(obj.get("optionalDependencies"));
-    let bundled_dependencies = extract_bundled_dependencies(obj.get("bundledDependencies")
-        .or_else(|| obj.get("bundleDependencies")));
+    let bundled_dependencies = extract_bundled_dependencies(
+        obj.get("bundledDependencies")
+            .or_else(|| obj.get("bundleDependencies")),
+    );
 
-    dependency_count = dependencies.len() + dev_dependencies.len() + 
-                      peer_dependencies.len() + optional_dependencies.len();
+    dependency_count = dependencies.len()
+        + dev_dependencies.len()
+        + peer_dependencies.len()
+        + optional_dependencies.len();
 
     // Calculate vulnerability summary
     let mut vulnerability_summary = VulnerabilitySummary {
@@ -511,22 +537,23 @@ fn analyze_dependencies(package_json: &Value) -> Result<NpmDependencyAnalysis> {
     };
 
     // Count vulnerabilities across all dependency types
-    for (name, details) in dependencies.iter()
+    for (name, details) in dependencies
+        .iter()
         .chain(dev_dependencies.iter())
         .chain(peer_dependencies.iter())
-        .chain(optional_dependencies.iter()) {
-        
+        .chain(optional_dependencies.iter())
+    {
         if !details.vulnerabilities.is_empty() {
             vulnerability_summary.vulnerable_packages.push(name.clone());
             vulnerability_summary.total_count += details.vulnerabilities.len();
-            
+
             for vuln in &details.vulnerabilities {
                 match vuln.severity {
                     VulnerabilitySeverity::Critical => vulnerability_summary.critical_count += 1,
                     VulnerabilitySeverity::High => vulnerability_summary.high_count += 1,
                     VulnerabilitySeverity::Medium => vulnerability_summary.medium_count += 1,
                     VulnerabilitySeverity::Low => vulnerability_summary.low_count += 1,
-                    VulnerabilitySeverity::None => {},
+                    VulnerabilitySeverity::None => {}
                 }
             }
         }
@@ -551,16 +578,17 @@ fn extract_dependency_map(deps_value: Option<&Value>) -> HashMap<String, Depende
             obj.iter()
                 .map(|(name, version)| {
                     let version_str = version.as_str().unwrap_or("");
-                    
+
                     // Check for vulnerabilities
-                    let vulnerabilities = if !version_str.starts_with("file:") && !version_str.starts_with("http") {
-                        // Extract version number from version spec (simple approach)
-                        let version_num = extract_version_number(version_str);
-                        check_package_vulnerabilities(name, &version_num)
-                    } else {
-                        vec![]
-                    };
-                    
+                    let vulnerabilities =
+                        if !version_str.starts_with("file:") && !version_str.starts_with("http") {
+                            // Extract version number from version spec (simple approach)
+                            let version_num = extract_version_number(version_str);
+                            check_package_vulnerabilities(name, &version_num)
+                        } else {
+                            vec![]
+                        };
+
                     let details = DependencyDetails {
                         version_spec: version_str.to_string(),
                         resolved_version: None,
@@ -603,7 +631,8 @@ fn extract_bundled_dependencies(bundled_value: Option<&Value>) -> Vec<String> {
 }
 
 fn analyze_scripts(package_json: &Value) -> Result<ScriptsAnalysis> {
-    let scripts: HashMap<String, String> = package_json.get("scripts")
+    let scripts: HashMap<String, String> = package_json
+        .get("scripts")
         .and_then(|v| v.as_object())
         .map(|obj| {
             obj.iter()
@@ -658,12 +687,37 @@ fn analyze_scripts(package_json: &Value) -> Result<ScriptsAnalysis> {
 fn is_npm_hook(script_name: &str) -> bool {
     matches!(
         script_name,
-        "preinstall" | "install" | "postinstall" | "preuninstall" | "uninstall" | "postuninstall" |
-        "prepublish" | "prepare" | "prepublishOnly" | "prepack" | "postpack" |
-        "publish" | "postpublish" | "preversion" | "version" | "postversion" |
-        "preshrinkwrap" | "shrinkwrap" | "postshrinkwrap" | "pretest" | "test" | "posttest" |
-        "prestop" | "stop" | "poststop" | "prestart" | "start" | "poststart" |
-        "prerestart" | "restart" | "postrestart"
+        "preinstall"
+            | "install"
+            | "postinstall"
+            | "preuninstall"
+            | "uninstall"
+            | "postuninstall"
+            | "prepublish"
+            | "prepare"
+            | "prepublishOnly"
+            | "prepack"
+            | "postpack"
+            | "publish"
+            | "postpublish"
+            | "preversion"
+            | "version"
+            | "postversion"
+            | "preshrinkwrap"
+            | "shrinkwrap"
+            | "postshrinkwrap"
+            | "pretest"
+            | "test"
+            | "posttest"
+            | "prestop"
+            | "stop"
+            | "poststop"
+            | "prestart"
+            | "start"
+            | "poststart"
+            | "prerestart"
+            | "restart"
+            | "postrestart"
     )
 }
 
@@ -703,16 +757,13 @@ fn perform_security_analysis(
     let network_access_patterns = detect_network_patterns(scripts, _files);
     let file_system_access = detect_filesystem_patterns(scripts, _files);
     let process_execution = detect_process_execution(scripts, _files);
-    
+
     let obfuscation_detected = detect_obfuscation(scripts, _files);
     let crypto_mining_indicators = detect_crypto_mining(scripts, _files);
     let data_exfiltration_risk = detect_data_exfiltration(&network_access_patterns);
-    
-    let supply_chain_risk_score = calculate_supply_chain_risk(
-        package_json,
-        scripts,
-        &network_access_patterns,
-    );
+
+    let supply_chain_risk_score =
+        calculate_supply_chain_risk(package_json, scripts, &network_access_patterns);
 
     Ok(NpmSecurityAnalysis {
         has_preinstall_script,
@@ -770,16 +821,30 @@ fn detect_script_obfuscation(script: &str) -> ObfuscationLevel {
     let mut score = 0;
 
     // Check various obfuscation indicators
-    if script.contains("eval") { score += 2; }
-    if script.contains("atob") || script.contains("btoa") { score += 2; }
-    if script.contains("\\x") || script.contains("\\u") { score += 1; }
-    if script.contains("fromCharCode") { score += 2; }
-    if script.contains("String.prototype") { score += 1; }
-    if script.len() > 500 && script.matches(' ').count() < 10 { score += 3; }
-    
+    if script.contains("eval") {
+        score += 2;
+    }
+    if script.contains("atob") || script.contains("btoa") {
+        score += 2;
+    }
+    if script.contains("\\x") || script.contains("\\u") {
+        score += 1;
+    }
+    if script.contains("fromCharCode") {
+        score += 2;
+    }
+    if script.contains("String.prototype") {
+        score += 1;
+    }
+    if script.len() > 500 && script.matches(' ').count() < 10 {
+        score += 3;
+    }
+
     // Check for suspicious variable names
     let suspicious_vars = regex::Regex::new(r"\b[a-zA-Z_]\w{0,2}\b").unwrap();
-    if suspicious_vars.find_iter(script).count() > 20 { score += 2; }
+    if suspicious_vars.find_iter(script).count() > 20 {
+        score += 2;
+    }
 
     match score {
         0 => ObfuscationLevel::None,
@@ -792,7 +857,7 @@ fn detect_script_obfuscation(script: &str) -> ObfuscationLevel {
 
 fn extract_external_commands(script: &str) -> Vec<String> {
     let mut commands = vec![];
-    
+
     let command_patterns = [
         r"(?:^|\s)(curl|wget|fetch|nc|netcat|telnet|ssh|scp)\s+[^\s]+",
         r"(?:^|\s)(node|npm|npx|yarn|pnpm)\s+[^\s]+",
@@ -826,7 +891,12 @@ fn detect_network_patterns(
             let url = mat.as_str().to_string();
             patterns.push(NetworkAccessPattern {
                 url: url.clone(),
-                protocol: if url.starts_with("https") { "https" } else { "http" }.to_string(),
+                protocol: if url.starts_with("https") {
+                    "https"
+                } else {
+                    "http"
+                }
+                .to_string(),
                 is_suspicious: is_suspicious_url(&url),
                 reputation_score: None, // TODO: Implement reputation checking
                 found_in: format!("script:{}", name),
@@ -852,7 +922,9 @@ fn is_suspicious_url(url: &str) -> bool {
         "ngrok.io",
     ];
 
-    suspicious_patterns.iter().any(|pattern| url.contains(pattern))
+    suspicious_patterns
+        .iter()
+        .any(|pattern| url.contains(pattern))
 }
 
 fn detect_filesystem_patterns(
@@ -864,7 +936,10 @@ fn detect_filesystem_patterns(
     let fs_patterns = [
         (r#"fs\.\w+\s*\(['"]([^'"]+)"#, "Node.js fs operation"),
         (r#"require\s*\(\s*['"]fs['"]\s*\)"#, "fs module import"),
-        (r"writeFile|readFile|mkdir|rmdir|unlink", "File system operation"),
+        (
+            r"writeFile|readFile|mkdir|rmdir|unlink",
+            "File system operation",
+        ),
         (r"/etc/passwd|/etc/shadow|~/.ssh", "Sensitive file access"),
         (r"process\.env|\.env", "Environment variable access"),
     ];
@@ -897,7 +972,7 @@ fn detect_process_execution(
         (r"child_process|exec|spawn|fork", "high"),
         (r#"require\s*\(\s*['"]child_process"#, "high"),
         (r"process\.kill|process\.exit", "medium"),
-        (r"`[^`]+`", "medium"), // Backticks
+        (r"`[^`]+`", "medium"),     // Backticks
         (r"\$\([^)]+\)", "medium"), // Command substitution
     ];
 
@@ -922,7 +997,10 @@ fn detect_process_execution(
 fn detect_obfuscation(scripts: &ScriptsAnalysis, _files: &[NpmFileAnalysis]) -> bool {
     // Check scripts for obfuscation
     for (_, content) in scripts.script_hooks.iter().chain(&scripts.custom_scripts) {
-        if matches!(detect_script_obfuscation(content), ObfuscationLevel::High | ObfuscationLevel::Extreme) {
+        if matches!(
+            detect_script_obfuscation(content),
+            ObfuscationLevel::High | ObfuscationLevel::Extreme
+        ) {
             return true;
         }
     }
@@ -948,7 +1026,10 @@ fn detect_crypto_mining(scripts: &ScriptsAnalysis, _files: &[NpmFileAnalysis]) -
 
     for (_, content) in scripts.script_hooks.iter().chain(&scripts.custom_scripts) {
         let content_lower = content.to_lowercase();
-        if mining_indicators.iter().any(|indicator| content_lower.contains(indicator)) {
+        if mining_indicators
+            .iter()
+            .any(|indicator| content_lower.contains(indicator))
+        {
             return true;
         }
     }
@@ -959,10 +1040,10 @@ fn detect_crypto_mining(scripts: &ScriptsAnalysis, _files: &[NpmFileAnalysis]) -
 fn detect_data_exfiltration(network_patterns: &[NetworkAccessPattern]) -> bool {
     // Check for suspicious data exfiltration patterns
     network_patterns.iter().any(|pattern| {
-        pattern.is_suspicious || 
-        pattern.url.contains("webhook") ||
-        pattern.url.contains("discord.com/api/webhooks") ||
-        pattern.url.contains("telegram.org/bot")
+        pattern.is_suspicious
+            || pattern.url.contains("webhook")
+            || pattern.url.contains("discord.com/api/webhooks")
+            || pattern.url.contains("telegram.org/bot")
     })
 }
 
@@ -974,19 +1055,33 @@ fn calculate_supply_chain_risk(
     let mut risk_score: f32 = 0.0;
 
     // Installation scripts are high risk
-    if scripts.script_hooks.contains_key("preinstall") { risk_score += 20.0; }
-    if scripts.script_hooks.contains_key("postinstall") { risk_score += 20.0; }
-    if scripts.script_hooks.contains_key("install") { risk_score += 15.0; }
+    if scripts.script_hooks.contains_key("preinstall") {
+        risk_score += 20.0;
+    }
+    if scripts.script_hooks.contains_key("postinstall") {
+        risk_score += 20.0;
+    }
+    if scripts.script_hooks.contains_key("install") {
+        risk_score += 15.0;
+    }
 
     // Network access in scripts
-    if !network_patterns.is_empty() { risk_score += 10.0; }
-    if network_patterns.iter().any(|p| p.is_suspicious) { risk_score += 20.0; }
+    if !network_patterns.is_empty() {
+        risk_score += 10.0;
+    }
+    if network_patterns.iter().any(|p| p.is_suspicious) {
+        risk_score += 20.0;
+    }
 
     // Shell injection risk
-    if scripts.shell_injection_risk { risk_score += 15.0; }
+    if scripts.shell_injection_risk {
+        risk_score += 15.0;
+    }
 
     // External downloads
-    if !scripts.external_downloads.is_empty() { risk_score += 10.0; }
+    if !scripts.external_downloads.is_empty() {
+        risk_score += 10.0;
+    }
 
     risk_score.min(100.0)
 }
@@ -1005,12 +1100,22 @@ fn detect_malicious_indicators(
 
     let mut overall_risk_score = 0.0;
 
-    if typosquatting_risk.is_potential_typosquatting { overall_risk_score += 30.0; }
-    if dependency_confusion_risk { overall_risk_score += 25.0; }
-    if !known_malicious_patterns.is_empty() { overall_risk_score += 40.0; }
-    if !code_injection_patterns.is_empty() { overall_risk_score += 35.0; }
-    if !backdoor_indicators.is_empty() { overall_risk_score += 45.0; }
-    
+    if typosquatting_risk.is_potential_typosquatting {
+        overall_risk_score += 30.0;
+    }
+    if dependency_confusion_risk {
+        overall_risk_score += 25.0;
+    }
+    if !known_malicious_patterns.is_empty() {
+        overall_risk_score += 40.0;
+    }
+    if !code_injection_patterns.is_empty() {
+        overall_risk_score += 35.0;
+    }
+    if !backdoor_indicators.is_empty() {
+        overall_risk_score += 45.0;
+    }
+
     overall_risk_score += security.supply_chain_risk_score * 0.5;
 
     let risk_level = match overall_risk_score {
@@ -1062,7 +1167,7 @@ fn analyze_typosquatting(package_name: &str) -> TyposquattingAnalysis {
         for sim_name in similar {
             similar_packages.push(SimilarPackage {
                 name: sim_name,
-                download_count: None, // TODO: Fetch from npm registry
+                download_count: None,  // TODO: Fetch from npm registry
                 similarity_score: 0.8, // Default high similarity
             });
         }
@@ -1081,7 +1186,6 @@ fn analyze_typosquatting(package_name: &str) -> TyposquattingAnalysis {
         suspicious_name_patterns,
     }
 }
-
 
 fn check_dependency_confusion(
     package_info: &PackageJsonInfo,
@@ -1121,7 +1225,7 @@ fn detect_known_malicious_patterns(
 
     // Check for known malicious patterns from database
     let db_patterns = get_malicious_patterns();
-    
+
     // Check scripts for malicious patterns
     for script in &security.suspicious_scripts {
         for db_pattern in &db_patterns {
@@ -1190,7 +1294,11 @@ fn detect_code_injection_patterns(security: &NpmSecurityAnalysis) -> Vec<CodeInj
     let mut patterns = vec![];
 
     for script in &security.suspicious_scripts {
-        if script.risk_indicators.iter().any(|r| r.contains("Dynamic code execution")) {
+        if script
+            .risk_indicators
+            .iter()
+            .any(|r| r.contains("Dynamic code execution"))
+        {
             patterns.push(CodeInjectionPattern {
                 injection_type: "Dynamic code execution".to_string(),
                 location: script.script_name.clone(),
@@ -1207,13 +1315,7 @@ fn detect_backdoor_indicators(security: &NpmSecurityAnalysis) -> Vec<BackdoorInd
     let mut indicators = vec![];
 
     // Check for reverse shell patterns
-    let reverse_shell_patterns = [
-        "nc -e",
-        "bash -i",
-        "/dev/tcp",
-        "telnet",
-        "socat",
-    ];
+    let reverse_shell_patterns = ["nc -e", "bash -i", "/dev/tcp", "telnet", "socat"];
 
     for pattern in &reverse_shell_patterns {
         for script in &security.suspicious_scripts {
@@ -1232,14 +1334,19 @@ fn detect_backdoor_indicators(security: &NpmSecurityAnalysis) -> Vec<BackdoorInd
 }
 
 fn analyze_maintainers(package_json: &Value) -> Result<MaintainerAnalysis> {
-    let maintainers = package_json.get("maintainers")
+    let maintainers = package_json
+        .get("maintainers")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
                 .filter_map(|v| {
                     if let Some(obj) = v.as_object() {
                         Some(MaintainerInfo {
-                            name: obj.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                            name: obj
+                                .get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("")
+                                .to_string(),
                             email: obj.get("email").and_then(|e| e.as_str()).map(String::from),
                             npm_username: None,
                             first_publish_date: None,
@@ -1266,30 +1373,43 @@ fn calculate_quality_metrics(
     package_json: &Value,
     _files: &[NpmFileAnalysis],
 ) -> Result<PackageQualityMetrics> {
-    let has_readme = _files.iter().any(|f| f.file_path.to_lowercase().contains("readme"));
+    let has_readme = _files
+        .iter()
+        .any(|f| f.file_path.to_lowercase().contains("readme"));
     let has_changelog = _files.iter().any(|f| {
         let path = f.file_path.to_lowercase();
         path.contains("changelog") || path.contains("history")
     });
-    let has_tests = _files.iter().any(|f| {
-        f.file_path.contains("test") || f.file_path.contains("spec")
-    });
+    let has_tests = _files
+        .iter()
+        .any(|f| f.file_path.contains("test") || f.file_path.contains("spec"));
     let has_ci_config = _files.iter().any(|f| {
-        f.file_path.contains(".travis") || 
-        f.file_path.contains(".github/workflows") ||
-        f.file_path.contains(".circleci")
+        f.file_path.contains(".travis")
+            || f.file_path.contains(".github/workflows")
+            || f.file_path.contains(".circleci")
     });
 
     let mut documentation_score = 0.0;
-    if has_readme { documentation_score += 40.0; }
-    if has_changelog { documentation_score += 20.0; }
-    if package_json.get("description").is_some() { documentation_score += 20.0; }
-    if package_json.get("keywords").and_then(|v| v.as_array()).map(|a| !a.is_empty()).unwrap_or(false) {
+    if has_readme {
+        documentation_score += 40.0;
+    }
+    if has_changelog {
+        documentation_score += 20.0;
+    }
+    if package_json.get("description").is_some() {
+        documentation_score += 20.0;
+    }
+    if package_json
+        .get("keywords")
+        .and_then(|v| v.as_array())
+        .map(|a| !a.is_empty())
+        .unwrap_or(false)
+    {
         documentation_score += 20.0;
     }
 
-    let maintenance_score = if has_tests { 50.0 } else { 0.0 } +
-                          if has_ci_config { 50.0 } else { 0.0 };
+    let maintenance_score =
+        if has_tests { 50.0 } else { 0.0 } + if has_ci_config { 50.0 } else { 0.0 };
 
     let overall_quality_score = (documentation_score + maintenance_score) / 2.0;
 
@@ -1319,5 +1439,6 @@ fn detect_file_type(path: &str) -> String {
         "txt" => "Text",
         "yml" | "yaml" => "YAML",
         _ => "Unknown",
-    }.to_string()
+    }
+    .to_string()
 }

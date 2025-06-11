@@ -23,6 +23,8 @@ mod npm_analysis;
 mod npm_vuln_db;
 mod ole_vba_analysis;
 mod pdf_analysis;
+mod python_analysis;
+mod python_vuln_db;
 mod rar_analysis;
 mod script_analysis;
 mod sevenz_analysis;

@@ -18,9 +18,10 @@ use crate::{
     function_analysis::{analyze_symbols, SymbolTable},
     hash::{calculate_all_hashes, Hashes},
     hexdump::{format_hex_dump_text, generate_hex_dump, HexDumpOptions},
-    java_analysis::{analyze_java_archive, analyze_class_file, JavaAnalysisResult},
+    java_analysis::{analyze_class_file, analyze_java_archive, JavaAnalysisResult},
     metadata::FileMetadata,
     npm_analysis::{analyze_npm_package, NpmPackageAnalysis},
+    python_analysis::{analyze_python_package, PythonPackageAnalysis},
     signature::verify_signature,
     strings::extract_strings,
     threat_detection::{analyze_threats, ThreatAnalysis},
@@ -47,7 +48,9 @@ pub struct FileAnalysisRequest {
     pub min_string_length: Option<usize>,
     #[schemars(description = "Generate hex dump")]
     pub hex_dump: Option<bool>,
-    #[schemars(description = "Hex dump size in bytes (default: 256, or entire file up to 100MB when 'all' is true)")]
+    #[schemars(
+        description = "Hex dump size in bytes (default: 256, or entire file up to 100MB when 'all' is true)"
+    )]
     pub hex_dump_size: Option<usize>,
     #[schemars(description = "Hex dump offset from start")]
     pub hex_dump_offset: Option<u64>,
@@ -226,7 +229,17 @@ pub struct JavaAnalysisRequest {
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct NpmAnalysisRequest {
-    #[schemars(description = "Path to npm package (can be .tgz file or directory with package.json)")]
+    #[schemars(
+        description = "Path to npm package (can be .tgz file or directory with package.json)"
+    )]
+    pub package_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct PythonAnalysisRequest {
+    #[schemars(
+        description = "Path to Python package (can be .whl, .tar.gz, .zip file or directory with setup.py/pyproject.toml)"
+    )]
     pub package_path: String,
 }
 
@@ -303,14 +316,14 @@ impl FileScannerMcp {
             // When 'all' is selected, show the ENTIRE file (with a reasonable safety limit)
             let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
             let max_allowed = 100 * 1024 * 1024; // 100MB safety limit
-            
-            let default_size = if all { 
+
+            let default_size = if all {
                 // Show entire file up to safety limit
                 std::cmp::min(file_size as usize, max_allowed)
-            } else { 
-                256 
+            } else {
+                256
             };
-            
+
             let size = request.hex_dump_size.unwrap_or(default_size);
             let hex_options = HexDumpOptions {
                 offset: request.hex_dump_offset.unwrap_or(0),
@@ -842,8 +855,8 @@ impl FileScannerMcp {
         &self,
         #[tool(aggr)] request: YaraScanRequest,
     ) -> Result<Json<YaraScanResult>, String> {
-        use std::time::Instant;
         use crate::threat_detection::scan_with_custom_rule;
+        use std::time::Instant;
 
         let start_time = Instant::now();
         let path = PathBuf::from(&request.path);
@@ -892,7 +905,8 @@ impl FileScannerMcp {
         }
 
         // Determine if it's a Java archive or class file
-        let is_class_file = path.extension()
+        let is_class_file = path
+            .extension()
             .and_then(|ext| ext.to_str())
             .map(|ext| ext.to_lowercase() == "class")
             .unwrap_or(false);
@@ -923,6 +937,24 @@ impl FileScannerMcp {
 
         Ok(Json(analysis_result))
     }
+
+    #[tool(
+        description = "Analyze Python packages for vulnerabilities and malicious code - detects typosquatting, supply chain attacks, malware patterns, and known vulnerabilities. Works with .whl, .tar.gz, .zip files or directories containing setup.py/pyproject.toml"
+    )]
+    pub async fn analyze_python_package(
+        &self,
+        #[tool(aggr)] request: PythonAnalysisRequest,
+    ) -> Result<Json<PythonPackageAnalysis>, String> {
+        let path = PathBuf::from(&request.package_path);
+
+        if !path.exists() {
+            return Err(format!("Path does not exist: {}", request.package_path));
+        }
+
+        let analysis_result = analyze_python_package(&path).map_err(|e| e.to_string())?;
+
+        Ok(Json(analysis_result))
+    }
 }
 
 #[tool(tool_box)]
@@ -934,7 +966,7 @@ impl ServerHandler for FileScannerMcp {
                 name: "file-scanner".into(),
                 version: "0.1.0".into(),
             },
-            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, yara_scan_file, analyze_java_file, and analyze_npm_package tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules. The analyze_java_file tool provides specialized analysis for Java archives (JAR/WAR/EAR/APK/AAR) and class files. The analyze_npm_package tool analyzes npm packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks.".into()),
+            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, yara_scan_file, analyze_java_file, analyze_npm_package, and analyze_python_package tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules. The analyze_java_file tool provides specialized analysis for Java archives (JAR/WAR/EAR/APK/AAR) and class files. The analyze_npm_package tool analyzes npm packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks. The analyze_python_package tool provides similar analysis for Python packages including .whl, .tar.gz, and source distributions.".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
         }
     }
@@ -1564,12 +1596,30 @@ mod tests {
         let response = result.unwrap().0;
 
         // Verify that 'all: true' enables all analysis types despite individual flags being false
-        assert!(response.metadata.is_some(), "metadata should be present with all=true");
-        assert!(response.hashes.is_some(), "hashes should be present with all=true");
-        assert!(response.strings.is_some(), "strings should be present with all=true");
-        assert!(response.hex_dump.is_some(), "hex_dump should be present with all=true");
-        assert!(response.entropy.is_some(), "entropy should be present with all=true");
-        assert!(response.yara_indicators.is_some(), "yara_indicators should be present with all=true");
+        assert!(
+            response.metadata.is_some(),
+            "metadata should be present with all=true"
+        );
+        assert!(
+            response.hashes.is_some(),
+            "hashes should be present with all=true"
+        );
+        assert!(
+            response.strings.is_some(),
+            "strings should be present with all=true"
+        );
+        assert!(
+            response.hex_dump.is_some(),
+            "hex_dump should be present with all=true"
+        );
+        assert!(
+            response.entropy.is_some(),
+            "entropy should be present with all=true"
+        );
+        assert!(
+            response.yara_indicators.is_some(),
+            "yara_indicators should be present with all=true"
+        );
     }
 
     #[tokio::test]
@@ -1608,12 +1658,30 @@ mod tests {
         let response = result.unwrap().0;
 
         // Verify only the explicitly enabled analyses are present
-        assert!(response.metadata.is_some(), "metadata should be present when explicitly enabled");
-        assert!(response.hashes.is_none(), "hashes should be absent when explicitly disabled");
-        assert!(response.strings.is_some(), "strings should be present when explicitly enabled");
-        assert!(response.hex_dump.is_none(), "hex_dump should be absent when explicitly disabled");
-        assert!(response.entropy.is_none(), "entropy should be absent when explicitly disabled");
-        assert!(response.yara_indicators.is_none(), "yara_indicators should be absent when explicitly disabled");
+        assert!(
+            response.metadata.is_some(),
+            "metadata should be present when explicitly enabled"
+        );
+        assert!(
+            response.hashes.is_none(),
+            "hashes should be absent when explicitly disabled"
+        );
+        assert!(
+            response.strings.is_some(),
+            "strings should be present when explicitly enabled"
+        );
+        assert!(
+            response.hex_dump.is_none(),
+            "hex_dump should be absent when explicitly disabled"
+        );
+        assert!(
+            response.entropy.is_none(),
+            "entropy should be absent when explicitly disabled"
+        );
+        assert!(
+            response.yara_indicators.is_none(),
+            "yara_indicators should be absent when explicitly disabled"
+        );
     }
 
     #[tokio::test]
@@ -1652,11 +1720,26 @@ mod tests {
         let response = result.unwrap().0;
 
         // Verify behavior matches individual flags when 'all' is None
-        assert!(response.metadata.is_some(), "metadata should be present when enabled");
-        assert!(response.hashes.is_some(), "hashes should be present when enabled");
-        assert!(response.strings.is_none(), "strings should be absent when disabled");
-        assert!(response.hex_dump.is_none(), "hex_dump should be absent when disabled");
-        assert!(response.entropy.is_none(), "entropy should be absent when disabled");
+        assert!(
+            response.metadata.is_some(),
+            "metadata should be present when enabled"
+        );
+        assert!(
+            response.hashes.is_some(),
+            "hashes should be present when enabled"
+        );
+        assert!(
+            response.strings.is_none(),
+            "strings should be absent when disabled"
+        );
+        assert!(
+            response.hex_dump.is_none(),
+            "hex_dump should be absent when disabled"
+        );
+        assert!(
+            response.entropy.is_none(),
+            "entropy should be absent when disabled"
+        );
     }
 
     #[test]
@@ -1688,7 +1771,7 @@ mod tests {
 
         let json = serde_json::to_string(&request_all_true).unwrap();
         let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.all, Some(true));
         assert_eq!(deserialized.file_path, request_all_true.file_path);
 
@@ -1719,7 +1802,7 @@ mod tests {
 
         let json = serde_json::to_string(&request_all_false).unwrap();
         let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.all, Some(false));
         assert_eq!(deserialized.metadata, Some(true));
         assert_eq!(deserialized.entropy, Some(true));
@@ -1751,7 +1834,7 @@ mod tests {
 
         let json = serde_json::to_string(&request_all_none).unwrap();
         let deserialized: FileAnalysisRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.all, None);
         assert_eq!(deserialized.metadata, Some(true));
         assert_eq!(deserialized.hashes, Some(false));
@@ -1764,7 +1847,7 @@ mod tests {
         let (_temp_dir, file_path) = create_test_file(test_content).unwrap();
 
         let mcp = FileScannerMcp;
-        
+
         // Test 1: Verify 'all: true' enables more analyses than individual flags
         let request_all = FileAnalysisRequest {
             file_path: file_path.to_string_lossy().to_string(),
@@ -1826,17 +1909,17 @@ mod tests {
         // Verify 'all: true' provides more complete analysis
         assert!(response_all.metadata.is_some() && response_selective.metadata.is_some());
         assert!(response_all.hashes.is_some() && response_selective.hashes.is_some());
-        
+
         // These should be present with 'all: true' but not with selective analysis
         assert!(response_all.strings.is_some());
         assert!(response_selective.strings.is_none());
-        
+
         assert!(response_all.hex_dump.is_some());
         assert!(response_selective.hex_dump.is_none());
-        
+
         assert!(response_all.entropy.is_some());
         assert!(response_selective.entropy.is_none());
-        
+
         assert!(response_all.yara_indicators.is_some());
         assert!(response_selective.yara_indicators.is_none());
     }

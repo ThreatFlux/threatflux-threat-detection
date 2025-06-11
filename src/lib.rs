@@ -19,6 +19,8 @@ pub mod npm_analysis;
 pub mod npm_vuln_db;
 pub mod ole_vba_analysis;
 pub mod pdf_analysis;
+pub mod python_analysis;
+pub mod python_vuln_db;
 pub mod rar_analysis;
 pub mod script_analysis;
 pub mod sevenz_analysis;

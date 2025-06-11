@@ -894,7 +894,7 @@ fn test_serialization_roundtrip() {
         }],
         categories: ["import"].iter().map(|s| s.to_string()).collect(),
         is_suspicious: false,
-        entropy: 3.141592653589793,
+        entropy: std::f64::consts::PI,
     };
 
     // JSON roundtrip

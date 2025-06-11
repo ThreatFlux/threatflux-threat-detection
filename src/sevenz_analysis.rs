@@ -246,10 +246,10 @@ mod tests {
 
     #[test]
     fn test_7z_risk_levels() {
-        let mut indicators = SuspiciousArchiveIndicators::default();
-
-        // Low risk
-        indicators.risk_score = 10;
+        let mut indicators = SuspiciousArchiveIndicators {
+            risk_score: 10,
+            ..Default::default()
+        };
         assert!(matches!(determine_7z_risk(&indicators), RiskLevel::Low));
 
         // Medium risk
