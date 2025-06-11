@@ -191,7 +191,7 @@ A unified tool that allows you to specify exactly which analyses to perform usin
 - `strings`: Extract ASCII and Unicode strings
 - `min_string_length`: Minimum string length (default: 4)
 - `hex_dump`: Generate hex dump
-- `hex_dump_size`: Hex dump size in bytes (default: 256)
+- `hex_dump_size`: Hex dump size in bytes (default: 256, or entire file up to 100MB when 'all' is true)
 - `hex_dump_offset`: Hex dump offset from start
 - `binary_info`: Analyze binary format (PE/ELF/Mach-O)
 - `signatures`: Verify digital signatures

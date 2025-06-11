@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+mod archive_analysis;
 mod behavioral_analysis;
 mod binary_parser;
 mod cache;
@@ -14,12 +15,19 @@ mod entropy_analysis;
 mod function_analysis;
 mod hash;
 mod hexdump;
+mod java_analysis;
 mod mcp_server;
 mod mcp_transport;
 mod metadata;
+mod ole_vba_analysis;
+mod pdf_analysis;
+mod rar_analysis;
+mod script_analysis;
+mod sevenz_analysis;
 mod signature;
 mod string_tracker;
 mod strings;
+mod tar_analysis;
 mod threat_detection;
 mod vulnerability_detection;
 

@@ -18,6 +18,7 @@ use crate::{
     function_analysis::{analyze_symbols, SymbolTable},
     hash::{calculate_all_hashes, Hashes},
     hexdump::{format_hex_dump_text, generate_hex_dump, HexDumpOptions},
+    java_analysis::{analyze_java_archive, analyze_class_file, JavaAnalysisResult},
     metadata::FileMetadata,
     signature::verify_signature,
     strings::extract_strings,
@@ -45,7 +46,7 @@ pub struct FileAnalysisRequest {
     pub min_string_length: Option<usize>,
     #[schemars(description = "Generate hex dump")]
     pub hex_dump: Option<bool>,
-    #[schemars(description = "Hex dump size in bytes (default: 256)")]
+    #[schemars(description = "Hex dump size in bytes (default: 256, or entire file up to 100MB when 'all' is true)")]
     pub hex_dump_size: Option<usize>,
     #[schemars(description = "Hex dump offset from start")]
     pub hex_dump_offset: Option<u64>,
@@ -216,6 +217,12 @@ pub struct YaraScanError {
     pub error: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct JavaAnalysisRequest {
+    #[schemars(description = "Path to the Java file to analyze (JAR/WAR/EAR/APK/AAR/CLASS)")]
+    pub file_path: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct FileScannerMcp;
 
@@ -286,7 +293,18 @@ impl FileScannerMcp {
 
         // Hex dump
         if request.hex_dump.unwrap_or(false) || all {
-            let size = request.hex_dump_size.unwrap_or(256);
+            // When 'all' is selected, show the ENTIRE file (with a reasonable safety limit)
+            let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            let max_allowed = 100 * 1024 * 1024; // 100MB safety limit
+            
+            let default_size = if all { 
+                // Show entire file up to safety limit
+                std::cmp::min(file_size as usize, max_allowed)
+            } else { 
+                256 
+            };
+            
+            let size = request.hex_dump_size.unwrap_or(default_size);
             let hex_options = HexDumpOptions {
                 offset: request.hex_dump_offset.unwrap_or(0),
                 length: Some(size),
@@ -852,6 +870,34 @@ impl FileScannerMcp {
             errors: scan_result.errors,
         }))
     }
+
+    #[tool(
+        description = "Analyze Java archives (JAR/WAR/EAR/APK/AAR) and class files - provides detailed Java/Android specific analysis including manifests, certificates, classes, and security assessment"
+    )]
+    pub async fn analyze_java_file(
+        &self,
+        #[tool(aggr)] request: JavaAnalysisRequest,
+    ) -> Result<Json<JavaAnalysisResult>, String> {
+        let path = PathBuf::from(&request.file_path);
+
+        if !path.exists() {
+            return Err(format!("File does not exist: {}", request.file_path));
+        }
+
+        // Determine if it's a Java archive or class file
+        let is_class_file = path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_lowercase() == "class")
+            .unwrap_or(false);
+
+        let analysis_result = if is_class_file {
+            analyze_class_file(&path).map_err(|e| e.to_string())?
+        } else {
+            analyze_java_archive(&path).map_err(|e| e.to_string())?
+        };
+
+        Ok(Json(analysis_result))
+    }
 }
 
 #[tool(tool_box)]
@@ -863,7 +909,7 @@ impl ServerHandler for FileScannerMcp {
                 name: "file-scanner".into(),
                 version: "0.1.0".into(),
             },
-            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, and yara_scan_file tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules.".into()),
+            instructions: Some("A comprehensive file scanner with analyze_file, llm_analyze_file, yara_scan_file, and analyze_java_file tools. The analyze_file tool supports multiple analysis types via flags: metadata, hashes, strings, hex_dump, binary_info, signatures, symbols, control_flow, vulnerabilities, code_quality, dependencies, entropy, disassembly, threats, behavioral, and yara_indicators. The yara_scan_file tool allows scanning files or directories with custom YARA rules. The analyze_java_file tool provides specialized analysis for Java archives (JAR/WAR/EAR/APK/AAR) and class files.".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
         }
     }

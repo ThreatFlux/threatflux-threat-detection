@@ -3,6 +3,7 @@ use goblin::{elf, pe, Object};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use crate::java_analysis::{analyze_java_archive, analyze_class_file, JavaAnalysisResult, JavaArchiveType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BinaryInfo {
@@ -16,6 +17,7 @@ pub struct BinaryInfo {
     pub entry_point: Option<u64>,
     pub is_stripped: bool,
     pub has_debug_info: bool,
+    pub java_analysis: Option<JavaAnalysisResult>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,8 +29,34 @@ pub struct SectionInfo {
 }
 
 pub fn parse_binary(path: &Path) -> Result<BinaryInfo> {
-    let buffer = fs::read(path)?;
+    // First check if it's a Java-related file
+    if let Some(extension) = path.extension() {
+        match extension.to_str().unwrap_or("").to_lowercase().as_str() {
+            "jar" | "war" | "ear" | "apk" | "aar" => {
+                return parse_java_archive(path);
+            }
+            "class" => {
+                return parse_java_class(path);
+            }
+            _ => {}
+        }
+    }
 
+    // Check magic bytes for ZIP files that might be Java archives
+    let buffer = fs::read(path)?;
+    if buffer.len() >= 4 && &buffer[0..4] == b"PK\x03\x04" {
+        // This is a ZIP file, check if it's a Java archive
+        if is_java_archive(path) {
+            return parse_java_archive(path);
+        }
+    }
+
+    // Check for Java class file magic
+    if buffer.len() >= 4 && &buffer[0..4] == &[0xCA, 0xFE, 0xBA, 0xBE] {
+        return parse_java_class(path);
+    }
+
+    // Parse native binaries
     match Object::parse(&buffer)? {
         Object::Elf(elf) => parse_elf(elf, &buffer),
         Object::PE(pe) => parse_pe(pe, &buffer),
@@ -56,6 +84,7 @@ fn parse_elf(elf: elf::Elf, _buffer: &[u8]) -> Result<BinaryInfo> {
         entry_point: Some(elf.header.e_entry),
         is_stripped: elf.syms.is_empty(),
         has_debug_info: false,
+        java_analysis: None,
     };
 
     for section in &elf.section_headers {
@@ -117,6 +146,7 @@ fn parse_pe(pe: pe::PE, _buffer: &[u8]) -> Result<BinaryInfo> {
         entry_point: Some(pe.entry as u64),
         is_stripped: pe.debug_data.is_none(),
         has_debug_info: pe.debug_data.is_some(),
+        java_analysis: None,
     };
 
     for section in &pe.sections {
@@ -180,6 +210,7 @@ fn parse_mach(mach: goblin::mach::Mach) -> Result<BinaryInfo> {
         entry_point: None,
         is_stripped: false,
         has_debug_info: false,
+        java_analysis: None,
     };
 
     match mach {
@@ -216,6 +247,89 @@ fn parse_mach(mach: goblin::mach::Mach) -> Result<BinaryInfo> {
     }
 
     Ok(info)
+}
+
+fn parse_java_archive(path: &Path) -> Result<BinaryInfo> {
+    let java_analysis = analyze_java_archive(path)?;
+    
+    let format = match java_analysis.archive_type {
+        JavaArchiveType::Jar => "JAR",
+        JavaArchiveType::War => "WAR", 
+        JavaArchiveType::Ear => "EAR",
+        JavaArchiveType::Apk => "APK",
+        JavaArchiveType::Aar => "AAR",
+        _ => "Java Archive",
+    };
+
+    Ok(BinaryInfo {
+        format: format.to_string(),
+        architecture: "Java Bytecode".to_string(),
+        compiler: java_analysis.manifest.as_ref()
+            .and_then(|m| m.created_by.clone())
+            .or_else(|| Some("Unknown Java Compiler".to_string())),
+        linker: java_analysis.manifest.as_ref()
+            .and_then(|m| m.build_jdk.clone()),
+        sections: Vec::new(),
+        imports: java_analysis.classes.iter()
+            .flat_map(|c| c.interfaces.iter().cloned())
+            .collect(),
+        exports: java_analysis.classes.iter()
+            .filter(|c| c.is_public)
+            .map(|c| c.name.clone())
+            .collect(),
+        entry_point: None,
+        is_stripped: false,
+        has_debug_info: java_analysis.classes.iter()
+            .any(|c| c.source_file.is_some()),
+        java_analysis: Some(java_analysis),
+    })
+}
+
+fn parse_java_class(path: &Path) -> Result<BinaryInfo> {
+    let java_analysis = analyze_class_file(path)?;
+    
+    Ok(BinaryInfo {
+        format: "Java Class".to_string(),
+        architecture: "Java Bytecode".to_string(),
+        compiler: Some("Unknown Java Compiler".to_string()),
+        linker: None,
+        sections: Vec::new(),
+        imports: java_analysis.classes.first()
+            .map(|c| c.interfaces.clone())
+            .unwrap_or_default(),
+        exports: java_analysis.classes.first()
+            .filter(|c| c.is_public)
+            .map(|c| vec![c.name.clone()])
+            .unwrap_or_default(),
+        entry_point: None,
+        is_stripped: false,
+        has_debug_info: java_analysis.classes.first()
+            .map(|c| c.source_file.is_some())
+            .unwrap_or(false),
+        java_analysis: Some(java_analysis),
+    })
+}
+
+fn is_java_archive(path: &Path) -> bool {
+    // Try to open as ZIP and look for Java-specific files
+    if let Ok(file) = std::fs::File::open(path) {
+        if let Ok(mut archive) = zip::ZipArchive::new(file) {
+            for i in 0..archive.len() {
+                if let Ok(file) = archive.by_index(i) {
+                    let name = file.name();
+                    // Look for Java-specific indicators
+                    if name == "META-INF/MANIFEST.MF" ||
+                       name.ends_with(".class") ||
+                       name == "AndroidManifest.xml" ||
+                       name == "classes.dex" ||
+                       name.starts_with("WEB-INF/") {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -394,6 +508,7 @@ mod tests {
             entry_point: Some(0x1000),
             is_stripped: false,
             has_debug_info: true,
+            java_analysis: None,
         };
 
         // Test JSON serialization
@@ -462,6 +577,7 @@ mod tests {
             entry_point: None,
             is_stripped: true,
             has_debug_info: false,
+            java_analysis: None,
         };
 
         assert!(info.compiler.is_none());

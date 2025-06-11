@@ -67,7 +67,11 @@ walkdir = "2.4"
 
 # OLE and VBA parsing
 cfb = "0.9"  # Compound File Binary format (OLE storage)
-zip = "2.1"  # For OOXML format support
+zip = "2.1"  # For OOXML format support and Java archives
+
+# Java/Android analysis
+quick-xml = "0.36"  # For Android manifest parsing
+base64 = "0.22"     # For certificate decoding
 
 # PDF analysis - using basic implementation for now
 # pdf = "0.9"  # Complex API, may use in future
