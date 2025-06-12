@@ -6,15 +6,14 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Shared test fixtures to dramatically reduce file I/O overhead in tests
-/// 
+///
 /// This module provides cached, reusable test files and directories that persist
 /// for the duration of the test run, eliminating the need for each test to create
 /// its own temporary files.
-/// 
+///
 /// Shared temporary directory for all tests
-pub static SHARED_TEST_DIR: Lazy<Arc<TempDir>> = Lazy::new(|| {
-    Arc::new(TempDir::new().expect("Failed to create shared test directory"))
-});
+pub static SHARED_TEST_DIR: Lazy<Arc<TempDir>> =
+    Lazy::new(|| Arc::new(TempDir::new().expect("Failed to create shared test directory")));
 
 /// Small test file (1KB) for basic operations
 pub static SMALL_TEST_FILE: Lazy<PathBuf> = Lazy::new(|| {
@@ -88,28 +87,32 @@ pub static HIGH_ENTROPY_FILE: Lazy<PathBuf> = Lazy::new(|| {
 pub mod known_hashes {
     use file_scanner::hash::Hashes;
     use once_cell::sync::Lazy;
-    
+
     /// Hashes for SMALL_TEST_FILE (1KB of 'x' characters)
-    pub static SMALL_FILE_HASHES: Lazy<Hashes> = Lazy::new(|| Hashes {
+    pub static SMALL_FILE_HASHES: Lazy<Hashes> = Lazy::new(|| {
+        Hashes {
         md5: "b2f5ff47436671b6e533d8dc3614845d".to_string(),
         sha256: "cb33b2c7e6f4e7b8f8ad4a2d4c6b7c5c8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a".to_string(),
         sha512: "8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a".to_string(),
         blake3: "a7f8b9c6d5e8f7a9b8c7d6e9f8a7b9c6d5e8f7a9b8c7d6e9f8a7b9c6d5e8f7a9".to_string(),
+    }
     });
-    
+
     /// Empty file hashes
-    pub static EMPTY_FILE_HASHES: Lazy<Hashes> = Lazy::new(|| Hashes {
+    pub static EMPTY_FILE_HASHES: Lazy<Hashes> = Lazy::new(|| {
+        Hashes {
         md5: "d41d8cd98f00b204e9800998ecf8427e".to_string(),
         sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
         sha512: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e".to_string(),
         blake3: "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262".to_string(),
+    }
     });
 }
 
 /// Helper functions for creating test data
 fn create_minimal_elf() -> Vec<u8> {
     let mut elf = vec![0u8; 64]; // Minimal ELF header size
-    
+
     // ELF magic number
     elf[0..4].copy_from_slice(&[0x7f, 0x45, 0x4c, 0x46]);
     // 64-bit
@@ -124,23 +127,23 @@ fn create_minimal_elf() -> Vec<u8> {
     elf[16..18].copy_from_slice(&[2u8, 0]);
     // x86-64 machine type
     elf[18..20].copy_from_slice(&[0x3e, 0]);
-    
+
     elf
 }
 
 fn create_minimal_pe() -> Vec<u8> {
     let mut pe = vec![0u8; 1024]; // Minimal PE size
-    
+
     // DOS header signature
     pe[0..2].copy_from_slice(b"MZ");
     // PE offset (at byte 60)
     pe[60..64].copy_from_slice(&[0x80, 0x00, 0x00, 0x00]);
-    
+
     // PE signature at offset 0x80
     pe[0x80..0x84].copy_from_slice(b"PE\0\0");
     // Machine type (x64)
     pe[0x84..0x86].copy_from_slice(&[0x64, 0x86]);
-    
+
     pe
 }
 
@@ -159,8 +162,7 @@ fn create_minimal_zip() -> Vec<u8> {
         0x04, 0x00, // File name length
         0x00, 0x00, // Extra field length
         // File name "test"
-        0x74, 0x65, 0x73, 0x74,
-        // Central directory file header
+        0x74, 0x65, 0x73, 0x74, // Central directory file header
         0x50, 0x4b, 0x01, 0x02, // Central file header signature
         0x14, 0x00, // Version made by
         0x14, 0x00, // Version needed to extract
@@ -179,8 +181,7 @@ fn create_minimal_zip() -> Vec<u8> {
         0x00, 0x00, 0x00, 0x00, // External file attributes
         0x00, 0x00, 0x00, 0x00, // Relative offset of local header
         // File name "test"
-        0x74, 0x65, 0x73, 0x74,
-        // End of central directory record
+        0x74, 0x65, 0x73, 0x74, // End of central directory record
         0x50, 0x4b, 0x05, 0x06, // End of central dir signature
         0x00, 0x00, // Number of this disk
         0x00, 0x00, // Number of the disk with the start of the central directory
@@ -232,10 +233,13 @@ mod tests {
         assert!(JSON_TEST_FILE.exists());
         assert!(ZIP_TEST_FILE.exists());
         assert!(HIGH_ENTROPY_FILE.exists());
-        
+
         // Verify sizes
         assert_eq!(std::fs::metadata(&*SMALL_TEST_FILE).unwrap().len(), 1024);
-        assert_eq!(std::fs::metadata(&*MEDIUM_TEST_FILE).unwrap().len(), 64 * 1024);
+        assert_eq!(
+            std::fs::metadata(&*MEDIUM_TEST_FILE).unwrap().len(),
+            64 * 1024
+        );
         assert_eq!(std::fs::metadata(&*EMPTY_FILE).unwrap().len(), 0);
         assert!(std::fs::metadata(&*ELF_BINARY_FILE).unwrap().len() >= 64);
         assert!(std::fs::metadata(&*PE_BINARY_FILE).unwrap().len() >= 1024);

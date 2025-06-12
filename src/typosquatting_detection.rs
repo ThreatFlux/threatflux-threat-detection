@@ -745,11 +745,11 @@ pub fn is_potential_typosquatting(package_name: &str, ecosystem: &str) -> bool {
 pub fn calculate_package_similarity(name1: &str, name2: &str) -> f32 {
     let levenshtein_dist = levenshtein(name1, name2);
     let max_len = name1.len().max(name2.len()) as f32;
-    
+
     // Handle edge case where both strings are empty
     if max_len == 0.0 {
         return 1.0; // Two empty strings are identical
     }
-    
+
     1.0 - (levenshtein_dist as f32 / max_len)
 }

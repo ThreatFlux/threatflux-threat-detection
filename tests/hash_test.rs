@@ -37,13 +37,13 @@ async fn test_calculate_all_hashes_basic() -> Result<()> {
 async fn test_calculate_all_hashes_optimized() -> Result<()> {
     // Use shared empty file fixture instead of creating new temp file
     let hashes = calculate_all_hashes(&EMPTY_FILE).await?;
-    
+
     // Use pre-computed known hashes for empty file
     assert_eq!(hashes.md5, known_hashes::EMPTY_FILE_HASHES.md5);
     assert_eq!(hashes.sha256, known_hashes::EMPTY_FILE_HASHES.sha256);
     assert_eq!(hashes.sha512, known_hashes::EMPTY_FILE_HASHES.sha512);
     assert_eq!(hashes.blake3, known_hashes::EMPTY_FILE_HASHES.blake3);
-    
+
     Ok(())
 }
 
@@ -51,18 +51,18 @@ async fn test_calculate_all_hashes_optimized() -> Result<()> {
 async fn test_calculate_hashes_small_file_optimized() -> Result<()> {
     // Use shared small file fixture (1KB) instead of creating 1MB file
     let hashes = calculate_all_hashes(&SMALL_TEST_FILE).await?;
-    
+
     // Verify hash format without creating large files
     assert_eq!(hashes.md5.len(), 32);
     assert_eq!(hashes.sha256.len(), 64);
     assert_eq!(hashes.sha512.len(), 128);
     assert_eq!(hashes.blake3.len(), 64);
-    
+
     // All should be valid hex
     for hash in [&hashes.md5, &hashes.sha256, &hashes.sha512, &hashes.blake3] {
         assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
     }
-    
+
     Ok(())
 }
 
