@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use file_scanner::metadata::FileMetadata;
 
+pub mod fixtures;
+
 /// Common test utilities
 #[allow(dead_code)]
 pub mod utils {

@@ -1382,6 +1382,7 @@ dependencies = [
  "memmap2",
  "mockall",
  "object",
+ "once_cell",
  "petgraph",
  "predicates",
  "pretty_assertions",
