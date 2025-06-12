@@ -1,6 +1,6 @@
 use file_scanner::typosquatting_detection::{
-    TyposquattingDetector, analyze_typosquatting, is_potential_typosquatting,
-    calculate_package_similarity, SimilarityType, RiskLevel
+    analyze_typosquatting, calculate_package_similarity, is_potential_typosquatting, RiskLevel,
+    SimilarityType, TyposquattingDetector,
 };
 
 #[test]
@@ -20,7 +20,7 @@ fn test_typosquatting_detector_default() {
 #[test]
 fn test_analyze_typosquatting_function() {
     let result = analyze_typosquatting("react", "npm");
-    
+
     match result {
         Ok(analysis) => {
             // "react" is a legitimate package, should not be flagged as typosquatting
@@ -39,7 +39,7 @@ fn test_is_potential_typosquatting_function() {
     // Test with a legitimate package
     let is_typosquatting = is_potential_typosquatting("react", "npm");
     assert!(!is_typosquatting);
-    
+
     // Test with a suspicious package name
     let is_typosquatting = is_potential_typosquatting("reakt", "npm");
     // Function should not panic and return a boolean
@@ -51,16 +51,16 @@ fn test_calculate_package_similarity_function() {
     // Test identical names
     let similarity = calculate_package_similarity("react", "react");
     assert_eq!(similarity, 1.0);
-    
+
     // Test completely different names
     let similarity = calculate_package_similarity("react", "django");
     assert!(similarity < 0.5);
-    
+
     // Test similar names
     let similarity = calculate_package_similarity("react", "reakt");
     assert!(similarity > 0.5);
     assert!(similarity < 1.0);
-    
+
     // Test with empty strings
     let similarity = calculate_package_similarity("", "");
     assert!(similarity >= 0.0 && similarity <= 1.0);
@@ -69,20 +69,21 @@ fn test_calculate_package_similarity_function() {
 #[test]
 fn test_detect_character_substitution() {
     let result = analyze_typosquatting("reakt", "npm");
-    
+
     match result {
         Ok(analysis) => {
             // Should detect similarity to "react"
-            let has_react_similarity = analysis.similar_packages.iter()
-                .any(|p| p.name == "react");
-            
+            let has_react_similarity = analysis.similar_packages.iter().any(|p| p.name == "react");
+
             if has_react_similarity {
                 assert!(analysis.is_potential_typosquatting);
-                
+
                 // Should detect character substitution technique
-                let has_char_substitution = analysis.attack_techniques.iter()
+                let has_char_substitution = analysis
+                    .attack_techniques
+                    .iter()
                     .any(|t| t.technique_name == "Character Substitution" && t.detected);
-                
+
                 assert!(has_char_substitution);
             }
         }
@@ -95,14 +96,16 @@ fn test_detect_character_substitution() {
 #[test]
 fn test_detect_keyboard_proximity() {
     let result = analyze_typosquatting("rwact", "npm"); // 'e' -> 'w' (adjacent keys)
-    
+
     match result {
         Ok(analysis) => {
             if analysis.is_potential_typosquatting {
                 // Should potentially detect keyboard proximity
-                let has_keyboard_proximity = analysis.attack_techniques.iter()
+                let has_keyboard_proximity = analysis
+                    .attack_techniques
+                    .iter()
                     .any(|t| t.technique_name == "Keyboard Proximity");
-                
+
                 // Keyboard proximity technique should exist (detected or not)
                 assert!(has_keyboard_proximity);
             }
@@ -116,13 +119,15 @@ fn test_detect_keyboard_proximity() {
 #[test]
 fn test_detect_visual_similarity() {
     let result = analyze_typosquatting("react", "npm"); // Using numbers that look like letters
-    
+
     match result {
         Ok(analysis) => {
             // Should have visual similarity technique defined
-            let has_visual_similarity = analysis.attack_techniques.iter()
+            let has_visual_similarity = analysis
+                .attack_techniques
+                .iter()
                 .any(|t| t.technique_name == "Visual Similarity");
-            
+
             assert!(has_visual_similarity);
         }
         Err(_) => {
@@ -134,13 +139,15 @@ fn test_detect_visual_similarity() {
 #[test]
 fn test_detect_hyphenation_variations() {
     let result = analyze_typosquatting("vue-router", "npm");
-    
+
     match result {
         Ok(analysis) => {
             // Should have hyphenation technique defined
-            let has_hyphenation = analysis.attack_techniques.iter()
+            let has_hyphenation = analysis
+                .attack_techniques
+                .iter()
                 .any(|t| t.technique_name == "Hyphenation/Underscore");
-            
+
             assert!(has_hyphenation);
         }
         Err(_) => {
@@ -153,42 +160,48 @@ fn test_detect_hyphenation_variations() {
 fn test_detect_suspicious_patterns() {
     // Test development suffix
     let result = analyze_typosquatting("react-dev", "npm");
-    
+
     match result {
         Ok(analysis) => {
-            let has_dev_suffix = analysis.suspicious_patterns.iter()
+            let has_dev_suffix = analysis
+                .suspicious_patterns
+                .iter()
                 .any(|p| p.pattern_type == "Development Suffix");
-            
+
             assert!(has_dev_suffix);
         }
         Err(_) => {
             // Analysis might fail, which is acceptable
         }
     }
-    
+
     // Test test prefix
     let result = analyze_typosquatting("test-package", "npm");
-    
+
     match result {
         Ok(analysis) => {
-            let has_test_prefix = analysis.suspicious_patterns.iter()
+            let has_test_prefix = analysis
+                .suspicious_patterns
+                .iter()
                 .any(|p| p.pattern_type == "Test Prefix");
-            
+
             assert!(has_test_prefix);
         }
         Err(_) => {
             // Analysis might fail, which is acceptable
         }
     }
-    
+
     // Test numeric suffix
     let result = analyze_typosquatting("package1", "npm");
-    
+
     match result {
         Ok(analysis) => {
-            let has_numeric_suffix = analysis.suspicious_patterns.iter()
+            let has_numeric_suffix = analysis
+                .suspicious_patterns
+                .iter()
                 .any(|p| p.pattern_type == "Numeric Suffix");
-            
+
             assert!(has_numeric_suffix);
         }
         Err(_) => {
@@ -201,10 +214,10 @@ fn test_detect_suspicious_patterns() {
 fn test_npm_popular_packages() {
     // Test against known popular npm packages
     let popular_packages = ["react", "lodash", "express", "axios", "moment", "webpack"];
-    
+
     for package in &popular_packages {
         let result = analyze_typosquatting(package, "npm");
-        
+
         match result {
             Ok(analysis) => {
                 // Popular packages themselves should not be flagged as typosquatting
@@ -222,10 +235,10 @@ fn test_npm_popular_packages() {
 fn test_pypi_popular_packages() {
     // Test against known popular PyPI packages
     let popular_packages = ["requests", "numpy", "pandas", "django", "flask"];
-    
+
     for package in &popular_packages {
         let result = analyze_typosquatting(package, "pypi");
-        
+
         match result {
             Ok(analysis) => {
                 // Popular packages themselves should not be flagged as typosquatting
@@ -243,23 +256,23 @@ fn test_pypi_popular_packages() {
 fn test_high_risk_typosquatting() {
     // Test with packages very similar to popular ones
     let suspicious_packages = [
-        ("reqeusts", "pypi"),   // requests typo
-        ("expresss", "npm"),    // express typo
-        ("reactt", "npm"),      // react typo
+        ("reqeusts", "pypi"), // requests typo
+        ("expresss", "npm"),  // express typo
+        ("reactt", "npm"),    // react typo
     ];
-    
+
     for (package, ecosystem) in &suspicious_packages {
         let result = analyze_typosquatting(package, ecosystem);
-        
+
         match result {
             Ok(analysis) => {
                 if analysis.is_potential_typosquatting {
                     // Should have high typosquatting score
                     assert!(analysis.typosquatting_score > 0.5);
-                    
+
                     // Should have similar packages detected
                     assert!(!analysis.similar_packages.is_empty());
-                    
+
                     // Should have recommendations
                     assert!(!analysis.recommendations.is_empty());
                 }
@@ -297,7 +310,7 @@ fn test_risk_level_variants() {
 #[test]
 fn test_distance_metrics() {
     let result = analyze_typosquatting("reakt", "npm");
-    
+
     match result {
         Ok(analysis) => {
             for similar_package in &analysis.similar_packages {
@@ -305,8 +318,18 @@ fn test_distance_metrics() {
                 assert!(similar_package.distance_metrics.levenshtein_distance >= 0);
                 assert!(similar_package.distance_metrics.jaro_winkler_similarity >= 0.0);
                 assert!(similar_package.distance_metrics.jaro_winkler_similarity <= 1.0);
-                assert!(similar_package.distance_metrics.damerau_levenshtein_similarity >= 0.0);
-                assert!(similar_package.distance_metrics.damerau_levenshtein_similarity <= 1.0);
+                assert!(
+                    similar_package
+                        .distance_metrics
+                        .damerau_levenshtein_similarity
+                        >= 0.0
+                );
+                assert!(
+                    similar_package
+                        .distance_metrics
+                        .damerau_levenshtein_similarity
+                        <= 1.0
+                );
                 assert!(similar_package.distance_metrics.edit_distance >= 0);
                 assert!(similar_package.distance_metrics.normalized_similarity >= 0.0);
                 assert!(similar_package.distance_metrics.normalized_similarity <= 1.0);
@@ -321,7 +344,7 @@ fn test_distance_metrics() {
 #[test]
 fn test_empty_package_name() {
     let result = analyze_typosquatting("", "npm");
-    
+
     match result {
         Ok(analysis) => {
             // Empty package name should not cause panic
@@ -337,10 +360,10 @@ fn test_empty_package_name() {
 #[test]
 fn test_very_short_package_names() {
     let short_names = ["a", "ab", "xy"];
-    
+
     for name in &short_names {
         let result = analyze_typosquatting(name, "npm");
-        
+
         match result {
             Ok(analysis) => {
                 // Short names should be handled gracefully
@@ -357,9 +380,9 @@ fn test_very_short_package_names() {
 #[test]
 fn test_very_long_package_names() {
     let long_name = "a".repeat(100);
-    
+
     let result = analyze_typosquatting(&long_name, "npm");
-    
+
     match result {
         Ok(analysis) => {
             // Long names should be handled gracefully
@@ -374,11 +397,15 @@ fn test_very_long_package_names() {
 
 #[test]
 fn test_special_characters_in_package_names() {
-    let special_names = ["@react/core", "package-with-hyphens", "package_with_underscores"];
-    
+    let special_names = [
+        "@react/core",
+        "package-with-hyphens",
+        "package_with_underscores",
+    ];
+
     for name in &special_names {
         let result = analyze_typosquatting(name, "npm");
-        
+
         match result {
             Ok(analysis) => {
                 // Special characters should be handled gracefully
@@ -395,12 +422,14 @@ fn test_special_characters_in_package_names() {
 #[test]
 fn test_number_substitution_detection() {
     let result = analyze_typosquatting("reac7", "npm"); // 't' -> '7'
-    
+
     match result {
         Ok(analysis) => {
-            let has_number_substitution = analysis.suspicious_patterns.iter()
+            let has_number_substitution = analysis
+                .suspicious_patterns
+                .iter()
                 .any(|p| p.pattern_type == "Number Substitution");
-            
+
             assert!(has_number_substitution);
         }
         Err(_) => {
@@ -412,12 +441,14 @@ fn test_number_substitution_detection() {
 #[test]
 fn test_repeated_characters_detection() {
     let result = analyze_typosquatting("reeact", "npm"); // repeated 'e'
-    
+
     match result {
         Ok(analysis) => {
-            let has_repeated_chars = analysis.suspicious_patterns.iter()
+            let has_repeated_chars = analysis
+                .suspicious_patterns
+                .iter()
                 .any(|p| p.pattern_type == "Repeated Characters");
-            
+
             assert!(has_repeated_chars);
         }
         Err(_) => {
@@ -429,17 +460,19 @@ fn test_repeated_characters_detection() {
 #[test]
 fn test_recommendations_generation() {
     let result = analyze_typosquatting("reakt", "npm");
-    
+
     match result {
         Ok(analysis) => {
             // Should always have recommendations
             assert!(!analysis.recommendations.is_empty());
-            
+
             if analysis.is_potential_typosquatting {
                 // High-risk packages should have specific recommendations
-                let has_verification_recommendation = analysis.recommendations.iter()
+                let has_verification_recommendation = analysis
+                    .recommendations
+                    .iter()
                     .any(|r| r.contains("Verify") || r.contains("author"));
-                
+
                 assert!(has_verification_recommendation);
             }
         }
@@ -452,7 +485,7 @@ fn test_recommendations_generation() {
 #[test]
 fn test_unknown_ecosystem() {
     let result = analyze_typosquatting("somepackage", "unknown");
-    
+
     match result {
         Ok(analysis) => {
             // Unknown ecosystem should be handled gracefully
@@ -469,7 +502,7 @@ fn test_unknown_ecosystem() {
 fn test_case_sensitivity() {
     let result1 = analyze_typosquatting("React", "npm");
     let result2 = analyze_typosquatting("REACT", "npm");
-    
+
     match (result1, result2) {
         (Ok(analysis1), Ok(analysis2)) => {
             // Case variations should be handled consistently
@@ -485,12 +518,12 @@ fn test_case_sensitivity() {
 #[test]
 fn test_attack_techniques_structure() {
     let result = analyze_typosquatting("test-package", "npm");
-    
+
     match result {
         Ok(analysis) => {
             // All attack techniques should be present
             assert!(!analysis.attack_techniques.is_empty());
-            
+
             for technique in &analysis.attack_techniques {
                 // Each technique should have proper structure
                 assert!(!technique.technique_name.is_empty());
@@ -508,14 +541,14 @@ fn test_attack_techniques_structure() {
 #[test]
 fn test_similar_packages_sorting() {
     let result = analyze_typosquatting("reactt", "npm");
-    
+
     match result {
         Ok(analysis) => {
             if analysis.similar_packages.len() > 1 {
                 // Similar packages should be sorted by risk level and similarity
                 let mut prev_was_critical = false;
                 let mut prev_was_high = false;
-                
+
                 for package in &analysis.similar_packages {
                     match package.risk_level {
                         RiskLevel::Critical => {
@@ -541,7 +574,7 @@ fn test_similar_packages_sorting() {
 #[test]
 fn test_popularity_score_integration() {
     let result = analyze_typosquatting("reakt", "npm");
-    
+
     match result {
         Ok(analysis) => {
             for package in &analysis.similar_packages {

@@ -1,8 +1,8 @@
 use anyhow::Result;
+use edit_distance::edit_distance;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use strsim::{levenshtein, jaro_winkler, normalized_damerau_levenshtein};
-use edit_distance::edit_distance;
+use strsim::{jaro_winkler, levenshtein, normalized_damerau_levenshtein};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TyposquattingAnalysis {
@@ -47,10 +47,10 @@ pub enum SimilarityType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum RiskLevel {
-    Critical,  // Very high similarity to popular package
-    High,      // High similarity with suspicious patterns
-    Medium,    // Moderate similarity
-    Low,       // Low similarity but worth noting
+    Critical, // Very high similarity to popular package
+    High,     // High similarity with suspicious patterns
+    Medium,   // Moderate similarity
+    Low,      // Low similarity but worth noting
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -105,17 +105,21 @@ impl TyposquattingDetector {
             visual_similarities: Self::create_visual_similarities(),
             phonetic_similarities: Self::create_phonetic_similarities(),
         };
-        
+
         detector.load_popular_packages();
         detector
     }
 
     /// Analyze a package name for typosquatting indicators
-    pub fn analyze_package_name(&self, package_name: &str, ecosystem: &str) -> Result<TyposquattingAnalysis> {
+    pub fn analyze_package_name(
+        &self,
+        package_name: &str,
+        ecosystem: &str,
+    ) -> Result<TyposquattingAnalysis> {
         let mut similar_packages = Vec::new();
         let mut attack_techniques = Vec::new();
         let mut suspicious_patterns = Vec::new();
-        
+
         // Find similar packages using multiple distance metrics
         for (popular_name, popular_pkg) in &self.popular_packages {
             if self.should_compare_packages(package_name, popular_name, ecosystem) {
@@ -126,18 +130,26 @@ impl TyposquattingDetector {
         }
 
         // Sort by risk level and similarity
-        similar_packages.sort_by(|a, b| {
-            match (&a.risk_level, &b.risk_level) {
-                (RiskLevel::Critical, RiskLevel::Critical) => 
-                    b.distance_metrics.normalized_similarity.partial_cmp(&a.distance_metrics.normalized_similarity).unwrap(),
-                (RiskLevel::Critical, _) => std::cmp::Ordering::Less,
-                (_, RiskLevel::Critical) => std::cmp::Ordering::Greater,
-                (RiskLevel::High, RiskLevel::High) => 
-                    b.distance_metrics.normalized_similarity.partial_cmp(&a.distance_metrics.normalized_similarity).unwrap(),
-                (RiskLevel::High, _) => std::cmp::Ordering::Less,
-                (_, RiskLevel::High) => std::cmp::Ordering::Greater,
-                _ => b.distance_metrics.normalized_similarity.partial_cmp(&a.distance_metrics.normalized_similarity).unwrap(),
-            }
+        similar_packages.sort_by(|a, b| match (&a.risk_level, &b.risk_level) {
+            (RiskLevel::Critical, RiskLevel::Critical) => b
+                .distance_metrics
+                .normalized_similarity
+                .partial_cmp(&a.distance_metrics.normalized_similarity)
+                .unwrap(),
+            (RiskLevel::Critical, _) => std::cmp::Ordering::Less,
+            (_, RiskLevel::Critical) => std::cmp::Ordering::Greater,
+            (RiskLevel::High, RiskLevel::High) => b
+                .distance_metrics
+                .normalized_similarity
+                .partial_cmp(&a.distance_metrics.normalized_similarity)
+                .unwrap(),
+            (RiskLevel::High, _) => std::cmp::Ordering::Less,
+            (_, RiskLevel::High) => std::cmp::Ordering::Greater,
+            _ => b
+                .distance_metrics
+                .normalized_similarity
+                .partial_cmp(&a.distance_metrics.normalized_similarity)
+                .unwrap(),
         });
 
         // Limit to top 10 most similar packages
@@ -150,14 +162,18 @@ impl TyposquattingDetector {
         suspicious_patterns.extend(self.detect_suspicious_patterns(package_name));
 
         // Calculate overall typosquatting score
-        let typosquatting_score = self.calculate_typosquatting_score(&similar_packages, &suspicious_patterns);
+        let typosquatting_score =
+            self.calculate_typosquatting_score(&similar_packages, &suspicious_patterns);
 
         // Determine if this is potential typosquatting
-        let is_potential_typosquatting = typosquatting_score > 0.7 || 
-            similar_packages.iter().any(|p| matches!(p.risk_level, RiskLevel::Critical | RiskLevel::High));
+        let is_potential_typosquatting = typosquatting_score > 0.7
+            || similar_packages
+                .iter()
+                .any(|p| matches!(p.risk_level, RiskLevel::Critical | RiskLevel::High));
 
         // Generate recommendations
-        let recommendations = self.generate_recommendations(&similar_packages, &suspicious_patterns);
+        let recommendations =
+            self.generate_recommendations(&similar_packages, &suspicious_patterns);
 
         Ok(TyposquattingAnalysis {
             is_potential_typosquatting,
@@ -169,7 +185,12 @@ impl TyposquattingDetector {
         })
     }
 
-    fn should_compare_packages(&self, package_name: &str, popular_name: &str, _ecosystem: &str) -> bool {
+    fn should_compare_packages(
+        &self,
+        package_name: &str,
+        popular_name: &str,
+        _ecosystem: &str,
+    ) -> bool {
         // Skip exact matches
         if package_name == popular_name {
             return false;
@@ -189,9 +210,13 @@ impl TyposquattingDetector {
         true
     }
 
-    fn calculate_similarity(&self, package_name: &str, popular_pkg: &PopularPackage) -> Option<SimilarPackage> {
+    fn calculate_similarity(
+        &self,
+        package_name: &str,
+        popular_pkg: &PopularPackage,
+    ) -> Option<SimilarPackage> {
         let popular_name = &popular_pkg.name;
-        
+
         // Calculate multiple distance metrics
         let levenshtein_dist = levenshtein(package_name, popular_name);
         let jaro_winkler_sim = jaro_winkler(package_name, popular_name);
@@ -219,7 +244,11 @@ impl TyposquattingDetector {
         let similarity_type = self.classify_similarity_type(package_name, popular_name);
 
         // Calculate risk level
-        let risk_level = self.calculate_risk_level(&distance_metrics, popular_pkg.download_count, &similarity_type);
+        let risk_level = self.calculate_risk_level(
+            &distance_metrics,
+            popular_pkg.download_count,
+            &similarity_type,
+        );
 
         Some(SimilarPackage {
             name: popular_name.clone(),
@@ -271,8 +300,9 @@ impl TyposquattingDetector {
         }
 
         // Check for hyphenation variations
-        if package_name.replace('-', "") == popular_name.replace('-', "") ||
-           package_name.replace('_', "") == popular_name.replace('_', "") {
+        if package_name.replace('-', "") == popular_name.replace('-', "")
+            || package_name.replace('_', "") == popular_name.replace('_', "")
+        {
             return SimilarityType::Hyphenation;
         }
 
@@ -280,7 +310,12 @@ impl TyposquattingDetector {
         SimilarityType::CharacterSubstitution
     }
 
-    fn calculate_risk_level(&self, metrics: &DistanceMetrics, popularity: u64, similarity_type: &SimilarityType) -> RiskLevel {
+    fn calculate_risk_level(
+        &self,
+        metrics: &DistanceMetrics,
+        popularity: u64,
+        similarity_type: &SimilarityType,
+    ) -> RiskLevel {
         let mut risk_score = 0.0;
 
         // High similarity score increases risk
@@ -303,9 +338,13 @@ impl TyposquattingDetector {
 
         // Certain similarity types are more suspicious
         match similarity_type {
-            SimilarityType::VisualSimilarity | SimilarityType::KeyboardProximity => risk_score += 2.0,
+            SimilarityType::VisualSimilarity | SimilarityType::KeyboardProximity => {
+                risk_score += 2.0
+            }
             SimilarityType::CharacterSubstitution => risk_score += 1.5,
-            SimilarityType::CharacterAddition | SimilarityType::CharacterDeletion => risk_score += 1.0,
+            SimilarityType::CharacterAddition | SimilarityType::CharacterDeletion => {
+                risk_score += 1.0
+            }
             _ => risk_score += 0.5,
         }
 
@@ -317,7 +356,11 @@ impl TyposquattingDetector {
         }
     }
 
-    fn detect_attack_techniques(&self, _package_name: &str, similar_packages: &[SimilarPackage]) -> Vec<TyposquattingTechnique> {
+    fn detect_attack_techniques(
+        &self,
+        _package_name: &str,
+        similar_packages: &[SimilarPackage],
+    ) -> Vec<TyposquattingTechnique> {
         let mut techniques = Vec::new();
 
         // Character substitution technique
@@ -325,7 +368,9 @@ impl TyposquattingDetector {
             technique_name: "Character Substitution".to_string(),
             description: "Replace characters with visually similar ones".to_string(),
             examples: vec!["react -> reakt".to_string(), "lodash -> lod4sh".to_string()],
-            detected: similar_packages.iter().any(|p| matches!(p.similarity_type, SimilarityType::CharacterSubstitution)),
+            detected: similar_packages
+                .iter()
+                .any(|p| matches!(p.similarity_type, SimilarityType::CharacterSubstitution)),
         };
         techniques.push(char_substitution);
 
@@ -333,8 +378,13 @@ impl TyposquattingDetector {
         let keyboard_proximity = TyposquattingTechnique {
             technique_name: "Keyboard Proximity".to_string(),
             description: "Use adjacent keys on keyboard".to_string(),
-            examples: vec!["express -> rxpress".to_string(), "jquery -> jqueey".to_string()],
-            detected: similar_packages.iter().any(|p| matches!(p.similarity_type, SimilarityType::KeyboardProximity)),
+            examples: vec![
+                "express -> rxpress".to_string(),
+                "jquery -> jqueey".to_string(),
+            ],
+            detected: similar_packages
+                .iter()
+                .any(|p| matches!(p.similarity_type, SimilarityType::KeyboardProximity)),
         };
         techniques.push(keyboard_proximity);
 
@@ -343,7 +393,9 @@ impl TyposquattingDetector {
             technique_name: "Visual Similarity".to_string(),
             description: "Use visually similar characters".to_string(),
             examples: vec!["babel -> babe1".to_string(), "async -> async".to_string()],
-            detected: similar_packages.iter().any(|p| matches!(p.similarity_type, SimilarityType::VisualSimilarity)),
+            detected: similar_packages
+                .iter()
+                .any(|p| matches!(p.similarity_type, SimilarityType::VisualSimilarity)),
         };
         techniques.push(visual_similarity);
 
@@ -351,8 +403,13 @@ impl TyposquattingDetector {
         let hyphenation = TyposquattingTechnique {
             technique_name: "Hyphenation/Underscore".to_string(),
             description: "Add or remove hyphens and underscores".to_string(),
-            examples: vec!["vue-router -> vuerouter".to_string(), "eslint -> es-lint".to_string()],
-            detected: similar_packages.iter().any(|p| matches!(p.similarity_type, SimilarityType::Hyphenation)),
+            examples: vec![
+                "vue-router -> vuerouter".to_string(),
+                "eslint -> es-lint".to_string(),
+            ],
+            detected: similar_packages
+                .iter()
+                .any(|p| matches!(p.similarity_type, SimilarityType::Hyphenation)),
         };
         techniques.push(hyphenation);
 
@@ -382,7 +439,11 @@ impl TyposquattingDetector {
         }
 
         // Check for numbers at the end
-        if package_name.chars().last().is_some_and(|c| c.is_ascii_digit()) {
+        if package_name
+            .chars()
+            .last()
+            .is_some_and(|c| c.is_ascii_digit())
+        {
             patterns.push(SuspiciousPattern {
                 pattern_type: "Numeric Suffix".to_string(),
                 description: "Package name ends with a number".to_string(),
@@ -414,7 +475,11 @@ impl TyposquattingDetector {
         patterns
     }
 
-    fn calculate_typosquatting_score(&self, similar_packages: &[SimilarPackage], suspicious_patterns: &[SuspiciousPattern]) -> f32 {
+    fn calculate_typosquatting_score(
+        &self,
+        similar_packages: &[SimilarPackage],
+        suspicious_patterns: &[SuspiciousPattern],
+    ) -> f32 {
         let mut score = 0.0;
 
         // Score based on similar packages
@@ -442,16 +507,25 @@ impl TyposquattingDetector {
         score.min(1.0)
     }
 
-    fn generate_recommendations(&self, similar_packages: &[SimilarPackage], suspicious_patterns: &[SuspiciousPattern]) -> Vec<String> {
+    fn generate_recommendations(
+        &self,
+        similar_packages: &[SimilarPackage],
+        suspicious_patterns: &[SuspiciousPattern],
+    ) -> Vec<String> {
         let mut recommendations = Vec::new();
 
         if !similar_packages.is_empty() {
             recommendations.push("Verify the package author and repository legitimacy".to_string());
-            recommendations.push("Check the package's publication date and version history".to_string());
-            recommendations.push("Compare functionality with the similar legitimate package".to_string());
+            recommendations
+                .push("Check the package's publication date and version history".to_string());
+            recommendations
+                .push("Compare functionality with the similar legitimate package".to_string());
         }
 
-        if similar_packages.iter().any(|p| matches!(p.risk_level, RiskLevel::Critical)) {
+        if similar_packages
+            .iter()
+            .any(|p| matches!(p.risk_level, RiskLevel::Critical))
+        {
             recommendations.push("HIGH RISK: This package name is very similar to a popular package - exercise extreme caution".to_string());
         }
 
@@ -460,14 +534,18 @@ impl TyposquattingDetector {
         }
 
         if recommendations.is_empty() {
-            recommendations.push("Package name appears legitimate, but continue with normal security practices".to_string());
+            recommendations.push(
+                "Package name appears legitimate, but continue with normal security practices"
+                    .to_string(),
+            );
         }
 
         recommendations
     }
 
     fn are_visually_similar(&self, c1: char, c2: char) -> bool {
-        self.visual_similarities.get(&c1)
+        self.visual_similarities
+            .get(&c1)
             .is_some_and(|similar| similar.contains(&c2))
     }
 
@@ -495,7 +573,7 @@ impl TyposquattingDetector {
     fn has_repeated_characters(&self, s: &str) -> bool {
         let chars: Vec<char> = s.chars().collect();
         for i in 1..chars.len() {
-            if chars[i] == chars[i-1] && chars[i].is_alphabetic() {
+            if chars[i] == chars[i - 1] && chars[i].is_alphabetic() {
                 return true;
             }
         }
@@ -504,14 +582,14 @@ impl TyposquattingDetector {
 
     fn create_visual_similarities() -> HashMap<char, Vec<char>> {
         let mut similarities = HashMap::new();
-        
+
         // Numbers and letters
         similarities.insert('0', vec!['o', 'O']);
         similarities.insert('1', vec!['l', 'I', '|']);
         similarities.insert('5', vec!['s', 'S']);
         similarities.insert('6', vec!['g', 'G']);
         similarities.insert('8', vec!['b', 'B']);
-        
+
         // Visually similar letters
         similarities.insert('o', vec!['0', 'O']);
         similarities.insert('l', vec!['1', 'I', '|']);
@@ -526,18 +604,18 @@ impl TyposquattingDetector {
         similarities.insert('u', vec!['n', 'v']);
         similarities.insert('v', vec!['u', 'w']);
         similarities.insert('w', vec!['v']);
-        
+
         similarities
     }
 
     fn create_phonetic_similarities() -> HashMap<String, Vec<String>> {
         let mut similarities = HashMap::new();
-        
+
         // Common phonetic substitutions
         similarities.insert("ph".to_string(), vec!["f".to_string()]);
         similarities.insert("ck".to_string(), vec!["k".to_string()]);
         similarities.insert("qu".to_string(), vec!["kw".to_string()]);
-        
+
         similarities
     }
 
@@ -557,12 +635,15 @@ impl TyposquattingDetector {
         ];
 
         for (name, downloads) in npm_packages {
-            self.popular_packages.insert(name.to_string(), PopularPackage {
-                name: name.to_string(),
-                download_count: downloads,
-                ecosystem: PackageEcosystem::Npm,
-                aliases: vec![],
-            });
+            self.popular_packages.insert(
+                name.to_string(),
+                PopularPackage {
+                    name: name.to_string(),
+                    download_count: downloads,
+                    ecosystem: PackageEcosystem::Npm,
+                    aliases: vec![],
+                },
+            );
         }
 
         // Load popular PyPI packages
@@ -580,12 +661,15 @@ impl TyposquattingDetector {
         ];
 
         for (name, downloads) in pypi_packages {
-            self.popular_packages.insert(name.to_string(), PopularPackage {
-                name: name.to_string(),
-                download_count: downloads,
-                ecosystem: PackageEcosystem::PyPI,
-                aliases: vec![],
-            });
+            self.popular_packages.insert(
+                name.to_string(),
+                PopularPackage {
+                    name: name.to_string(),
+                    download_count: downloads,
+                    ecosystem: PackageEcosystem::PyPI,
+                    aliases: vec![],
+                },
+            );
         }
     }
 }
@@ -593,7 +677,7 @@ impl TyposquattingDetector {
 impl KeyboardLayout {
     fn qwerty() -> Self {
         let mut adjacent_keys = HashMap::new();
-        
+
         // Define QWERTY keyboard adjacencies
         let adjacencies = [
             ('q', vec!['w', 'a', 's']),
@@ -632,7 +716,8 @@ impl KeyboardLayout {
     }
 
     fn are_adjacent(&self, c1: char, c2: char) -> bool {
-        self.adjacent_keys.get(&c1.to_ascii_lowercase())
+        self.adjacent_keys
+            .get(&c1.to_ascii_lowercase())
             .is_some_and(|adjacent| adjacent.contains(&c2.to_ascii_lowercase()))
     }
 }

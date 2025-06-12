@@ -227,21 +227,23 @@ impl RepositoryIntegrityChecker {
         package_version: &str,
         registry_type: RegistryType,
     ) -> Result<RepositoryIntegrityAnalysis> {
-        
         // Step 1: Extract package repository information
-        let package_info = self.extract_package_repository_info(
-            package_path, 
-            package_name, 
-            package_version, 
-            registry_type
-        ).await?;
+        let package_info = self
+            .extract_package_repository_info(
+                package_path,
+                package_name,
+                package_version,
+                registry_type,
+            )
+            .await?;
 
         // Step 2: Perform integrity checks
         let integrity_checks = self.perform_integrity_checks(&package_info).await?;
 
         // Step 3: Compare package contents with repository
         let source_comparison = if package_info.repository_status == RepositoryStatus::Accessible {
-            self.compare_package_with_repository(&package_info, package_path).await?
+            self.compare_package_with_repository(&package_info, package_path)
+                .await?
         } else {
             SourceComparison {
                 comparison_possible: false,
@@ -299,13 +301,14 @@ impl RepositoryIntegrityChecker {
         package_version: &str,
         registry_type: RegistryType,
     ) -> Result<PackageRepositoryInfo> {
-        
         // Extract repository URL from package metadata
         let repository_url = self.extract_repository_url(package_path, &registry_type)?;
         let homepage_url = self.extract_homepage_url(package_path, &registry_type)?;
 
         // Fetch registry information
-        let registry_info = self.fetch_registry_info(package_name, &registry_type).await?;
+        let registry_info = self
+            .fetch_registry_info(package_name, &registry_type)
+            .await?;
 
         // Check repository status
         let repository_status = if let Some(ref url) = repository_url {
@@ -324,7 +327,11 @@ impl RepositoryIntegrityChecker {
         })
     }
 
-    fn extract_repository_url(&self, package_path: &Path, registry_type: &RegistryType) -> Result<Option<String>> {
+    fn extract_repository_url(
+        &self,
+        package_path: &Path,
+        registry_type: &RegistryType,
+    ) -> Result<Option<String>> {
         match registry_type {
             RegistryType::Npm => self.extract_npm_repository_url(package_path),
             RegistryType::PyPI => self.extract_python_repository_url(package_path),
@@ -343,7 +350,7 @@ impl RepositoryIntegrityChecker {
         if package_json_path.exists() {
             let content = std::fs::read_to_string(&package_json_path)?;
             let json: serde_json::Value = serde_json::from_str(&content)?;
-            
+
             if let Some(repository) = json.get("repository") {
                 if let Some(url) = repository.get("url").and_then(|u| u.as_str()) {
                     return Ok(Some(self.normalize_repository_url(url)));
@@ -410,7 +417,11 @@ impl RepositoryIntegrityChecker {
         None
     }
 
-    fn extract_homepage_url(&self, package_path: &Path, registry_type: &RegistryType) -> Result<Option<String>> {
+    fn extract_homepage_url(
+        &self,
+        package_path: &Path,
+        registry_type: &RegistryType,
+    ) -> Result<Option<String>> {
         if let RegistryType::Npm = registry_type {
             let package_json_path = package_path.join("package.json");
             if package_json_path.exists() {
@@ -426,26 +437,30 @@ impl RepositoryIntegrityChecker {
 
     fn normalize_repository_url(&self, url: &str) -> String {
         let mut normalized = url.to_string();
-        
+
         // Remove git+ prefix
         if normalized.starts_with("git+") {
             normalized = normalized[4..].to_string();
         }
-        
+
         // Remove .git suffix
         if normalized.ends_with(".git") {
             normalized = normalized[..normalized.len() - 4].to_string();
         }
-        
+
         // Convert SSH to HTTPS
         if normalized.starts_with("git@github.com:") {
             normalized = normalized.replace("git@github.com:", "https://github.com/");
         }
-        
+
         normalized
     }
 
-    async fn fetch_registry_info(&self, package_name: &str, registry_type: &RegistryType) -> Result<RegistryInfo> {
+    async fn fetch_registry_info(
+        &self,
+        package_name: &str,
+        registry_type: &RegistryType,
+    ) -> Result<RegistryInfo> {
         match registry_type {
             RegistryType::Npm => self.fetch_npm_registry_info(package_name).await,
             RegistryType::PyPI => self.fetch_pypi_registry_info(package_name).await,
@@ -461,12 +476,13 @@ impl RepositoryIntegrityChecker {
 
     async fn fetch_npm_registry_info(&self, package_name: &str) -> Result<RegistryInfo> {
         let url = format!("https://registry.npmjs.org/{}", package_name);
-        
+
         match self.client.get(&url).send() {
             Ok(response) if response.status().is_success() => {
                 let json: serde_json::Value = response.json()?;
-                
-                let version_count = json.get("versions")
+
+                let version_count = json
+                    .get("versions")
                     .and_then(|v| v.as_object())
                     .map(|obj| obj.len() as u32);
 
@@ -500,12 +516,13 @@ impl RepositoryIntegrityChecker {
 
     async fn fetch_pypi_registry_info(&self, package_name: &str) -> Result<RegistryInfo> {
         let url = format!("https://pypi.org/pypi/{}/json", package_name);
-        
+
         match self.client.get(&url).send() {
             Ok(response) if response.status().is_success() => {
                 let json: serde_json::Value = response.json()?;
-                
-                let version_count = json.get("releases")
+
+                let version_count = json
+                    .get("releases")
                     .and_then(|r| r.as_object())
                     .map(|obj| obj.len() as u32);
 
@@ -543,7 +560,10 @@ impl RepositoryIntegrityChecker {
         }
     }
 
-    async fn perform_integrity_checks(&self, package_info: &PackageRepositoryInfo) -> Result<Vec<IntegrityCheck>> {
+    async fn perform_integrity_checks(
+        &self,
+        package_info: &PackageRepositoryInfo,
+    ) -> Result<Vec<IntegrityCheck>> {
         let mut checks = Vec::new();
 
         // Check 1: Repository exists
@@ -556,18 +576,25 @@ impl RepositoryIntegrityChecker {
                 _ => CheckStatus::Unknown,
             },
             description: "Verify that the repository URL is accessible".to_string(),
-            evidence: vec![
-                package_info.repository_url.clone().unwrap_or_else(|| "No repository URL".to_string())
-            ],
+            evidence: vec![package_info
+                .repository_url
+                .clone()
+                .unwrap_or_else(|| "No repository URL".to_string())],
             severity: CheckSeverity::High,
         });
 
         // Check 2: URL consistency
-        if let (Some(repo_url), Some(homepage_url)) = (&package_info.repository_url, &package_info.homepage_url) {
+        if let (Some(repo_url), Some(homepage_url)) =
+            (&package_info.repository_url, &package_info.homepage_url)
+        {
             let consistent = self.are_urls_consistent(repo_url, homepage_url);
             checks.push(IntegrityCheck {
                 check_type: IntegrityCheckType::UrlConsistency,
-                status: if consistent { CheckStatus::Pass } else { CheckStatus::Warning },
+                status: if consistent {
+                    CheckStatus::Pass
+                } else {
+                    CheckStatus::Warning
+                },
                 description: "Verify consistency between repository and homepage URLs".to_string(),
                 evidence: vec![repo_url.clone(), homepage_url.clone()],
                 severity: CheckSeverity::Medium,
@@ -577,10 +604,16 @@ impl RepositoryIntegrityChecker {
         // Check 3: Version tag exists (for accessible repositories)
         if package_info.repository_status == RepositoryStatus::Accessible {
             if let Some(repo_url) = &package_info.repository_url {
-                let tag_exists = self.check_version_tag_exists(repo_url, &package_info.package_version).await;
+                let tag_exists = self
+                    .check_version_tag_exists(repo_url, &package_info.package_version)
+                    .await;
                 checks.push(IntegrityCheck {
                     check_type: IntegrityCheckType::VersionTagExists,
-                    status: if tag_exists { CheckStatus::Pass } else { CheckStatus::Warning },
+                    status: if tag_exists {
+                        CheckStatus::Pass
+                    } else {
+                        CheckStatus::Warning
+                    },
                     description: "Verify that a Git tag exists for the package version".to_string(),
                     evidence: vec![format!("Version: {}", package_info.package_version)],
                     severity: CheckSeverity::Medium,
@@ -592,10 +625,12 @@ impl RepositoryIntegrityChecker {
     }
 
     fn are_urls_consistent(&self, repo_url: &str, homepage_url: &str) -> bool {
-        if let (Ok(repo_parsed), Ok(homepage_parsed)) = (Url::parse(repo_url), Url::parse(homepage_url)) {
-            repo_parsed.host() == homepage_parsed.host() ||
-            homepage_url.contains(repo_url) ||
-            repo_url.contains(homepage_url)
+        if let (Ok(repo_parsed), Ok(homepage_parsed)) =
+            (Url::parse(repo_url), Url::parse(homepage_url))
+        {
+            repo_parsed.host() == homepage_parsed.host()
+                || homepage_url.contains(repo_url)
+                || repo_url.contains(homepage_url)
         } else {
             false
         }
@@ -605,13 +640,19 @@ impl RepositoryIntegrityChecker {
         // For GitHub repositories, check if tag exists via API
         if repo_url.contains("github.com") {
             if let Some((owner, repo)) = self.extract_github_owner_repo(repo_url) {
-                let tag_url = format!("https://api.github.com/repos/{}/{}/git/refs/tags/v{}", owner, repo, version);
+                let tag_url = format!(
+                    "https://api.github.com/repos/{}/{}/git/refs/tags/v{}",
+                    owner, repo, version
+                );
                 if let Ok(response) = self.client.get(&tag_url).send() {
                     return response.status().is_success();
                 }
-                
+
                 // Try without 'v' prefix
-                let tag_url = format!("https://api.github.com/repos/{}/{}/git/refs/tags/{}", owner, repo, version);
+                let tag_url = format!(
+                    "https://api.github.com/repos/{}/{}/git/refs/tags/{}",
+                    owner, repo, version
+                );
                 if let Ok(response) = self.client.get(&tag_url).send() {
                     return response.status().is_success();
                 }
@@ -641,7 +682,7 @@ impl RepositoryIntegrityChecker {
     ) -> Result<SourceComparison> {
         // This is a simplified implementation
         // In practice, you would clone the repository and compare files
-        
+
         Ok(SourceComparison {
             comparison_possible: false,
             files_compared: 0,
@@ -654,7 +695,10 @@ impl RepositoryIntegrityChecker {
         })
     }
 
-    async fn verify_maintainers(&self, _package_info: &PackageRepositoryInfo) -> Result<MaintainerVerification> {
+    async fn verify_maintainers(
+        &self,
+        _package_info: &PackageRepositoryInfo,
+    ) -> Result<MaintainerVerification> {
         // Simplified implementation
         Ok(MaintainerVerification {
             package_maintainers: vec![],
@@ -665,7 +709,10 @@ impl RepositoryIntegrityChecker {
         })
     }
 
-    async fn analyze_timeline(&self, package_info: &PackageRepositoryInfo) -> Result<TimelineAnalysis> {
+    async fn analyze_timeline(
+        &self,
+        package_info: &PackageRepositoryInfo,
+    ) -> Result<TimelineAnalysis> {
         // Simplified implementation
         Ok(TimelineAnalysis {
             package_creation: package_info.registry_info.publish_date.clone(),
@@ -724,11 +771,13 @@ impl RepositoryIntegrityChecker {
 
         // Repository not accessible
         for check in integrity_checks {
-            if matches!(check.check_type, IntegrityCheckType::RepositoryExists) &&
-               matches!(check.status, CheckStatus::Fail) {
+            if matches!(check.check_type, IntegrityCheckType::RepositoryExists)
+                && matches!(check.status, CheckStatus::Fail)
+            {
                 indicators.push(RiskIndicator {
                     indicator_type: "Repository Not Accessible".to_string(),
-                    description: "Package repository is not accessible or does not exist".to_string(),
+                    description: "Package repository is not accessible or does not exist"
+                        .to_string(),
                     risk_level: RiskLevel::High,
                     evidence: "Repository URL returns 404 or is invalid".to_string(),
                 });
@@ -736,7 +785,10 @@ impl RepositoryIntegrityChecker {
         }
 
         // Suspicious maintainer activity
-        if matches!(maintainer_verification.verification_status, VerificationStatus::Suspicious) {
+        if matches!(
+            maintainer_verification.verification_status,
+            VerificationStatus::Suspicious
+        ) {
             indicators.push(RiskIndicator {
                 indicator_type: "Suspicious Maintainer Activity".to_string(),
                 description: "Maintainer verification shows suspicious patterns".to_string(),
@@ -751,18 +803,27 @@ impl RepositoryIntegrityChecker {
                 indicator_type: "Timeline Inconsistencies".to_string(),
                 description: "Package and repository timelines don't align".to_string(),
                 risk_level: RiskLevel::Medium,
-                evidence: format!("{} inconsistencies found", timeline_analysis.timeline_inconsistencies.len()),
+                evidence: format!(
+                    "{} inconsistencies found",
+                    timeline_analysis.timeline_inconsistencies.len()
+                ),
             });
         }
 
         indicators
     }
 
-    fn generate_recommendations(&self, risk_indicators: &[RiskIndicator], trust_score: f32) -> Vec<String> {
+    fn generate_recommendations(
+        &self,
+        risk_indicators: &[RiskIndicator],
+        trust_score: f32,
+    ) -> Vec<String> {
         let mut recommendations = Vec::new();
 
         if trust_score < 30.0 {
-            recommendations.push("HIGH RISK: Do not use this package without thorough manual review".to_string());
+            recommendations.push(
+                "HIGH RISK: Do not use this package without thorough manual review".to_string(),
+            );
         } else if trust_score < 50.0 {
             recommendations.push("Exercise caution when using this package".to_string());
         }
@@ -770,20 +831,25 @@ impl RepositoryIntegrityChecker {
         for indicator in risk_indicators {
             match indicator.indicator_type.as_str() {
                 "Repository Not Accessible" => {
-                    recommendations.push("Verify package authenticity through alternative means".to_string());
+                    recommendations
+                        .push("Verify package authenticity through alternative means".to_string());
                 }
                 "Suspicious Maintainer Activity" => {
-                    recommendations.push("Investigate maintainer reputation and history".to_string());
+                    recommendations
+                        .push("Investigate maintainer reputation and history".to_string());
                 }
                 "Timeline Inconsistencies" => {
-                    recommendations.push("Review package publication timeline for anomalies".to_string());
+                    recommendations
+                        .push("Review package publication timeline for anomalies".to_string());
                 }
                 _ => {}
             }
         }
 
         if recommendations.is_empty() {
-            recommendations.push("Package appears legitimate, continue with normal security practices".to_string());
+            recommendations.push(
+                "Package appears legitimate, continue with normal security practices".to_string(),
+            );
         }
 
         recommendations
@@ -804,7 +870,9 @@ pub async fn analyze_repository_integrity(
     registry_type: RegistryType,
 ) -> Result<RepositoryIntegrityAnalysis> {
     let checker = RepositoryIntegrityChecker::new();
-    checker.analyze_package_integrity(package_path, package_name, package_version, registry_type).await
+    checker
+        .analyze_package_integrity(package_path, package_name, package_version, registry_type)
+        .await
 }
 
 /// Quick check for repository integrity issues

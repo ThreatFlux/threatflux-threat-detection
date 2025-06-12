@@ -1,8 +1,8 @@
 use anyhow::Result;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use regex::Regex;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TaintAnalysis {
@@ -99,28 +99,28 @@ pub struct TaintFlowSummary {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SourceType {
-    UserInput,          // Form data, URL parameters, etc.
-    FileRead,           // Reading from files
-    NetworkRequest,     // HTTP requests, API calls
-    EnvironmentVariable,// Environment variables
-    CommandLineArg,     // Command line arguments
-    Database,           // Database queries
-    ExternalAPI,        // Third-party API responses
-    Configuration,      // Configuration files
+    UserInput,           // Form data, URL parameters, etc.
+    FileRead,            // Reading from files
+    NetworkRequest,      // HTTP requests, API calls
+    EnvironmentVariable, // Environment variables
+    CommandLineArg,      // Command line arguments
+    Database,            // Database queries
+    ExternalAPI,         // Third-party API responses
+    Configuration,       // Configuration files
     Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SinkType {
-    SqlQuery,           // SQL injection
-    SystemCommand,      // Command injection
-    FileSystem,         // Path traversal
-    CodeExecution,      // Code injection
-    HttpResponse,       // XSS
-    LogOutput,          // Log injection
-    DatabaseWrite,      // Database manipulation
-    NetworkRequest,     // SSRF
-    TemplateEngine,     // Template injection
+    SqlQuery,       // SQL injection
+    SystemCommand,  // Command injection
+    FileSystem,     // Path traversal
+    CodeExecution,  // Code injection
+    HttpResponse,   // XSS
+    LogOutput,      // Log injection
+    DatabaseWrite,  // Database manipulation
+    NetworkRequest, // SSRF
+    TemplateEngine, // Template injection
     Unknown,
 }
 
@@ -157,18 +157,18 @@ pub enum DataType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TrustLevel {
-    Trusted,        // Internal, validated data
-    SemiTrusted,    // Partially validated data
-    Untrusted,      // External, unvalidated data
+    Trusted,     // Internal, validated data
+    SemiTrusted, // Partially validated data
+    Untrusted,   // External, unvalidated data
     Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Impact {
-    Critical,       // Full system compromise
-    High,           // Significant data exposure
-    Medium,         // Limited data exposure
-    Low,            // Minimal impact
+    Critical, // Full system compromise
+    High,     // Significant data exposure
+    Medium,   // Limited data exposure
+    Low,      // Minimal impact
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -208,9 +208,9 @@ pub enum SanitizerType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SanitizerEffectiveness {
-    Complete,       // Fully neutralizes taint
-    Partial,        // Reduces but doesn't eliminate risk
-    Ineffective,    // Doesn't properly sanitize
+    Complete,    // Fully neutralizes taint
+    Partial,     // Reduces but doesn't eliminate risk
+    Ineffective, // Doesn't properly sanitize
     Unknown,
 }
 
@@ -224,11 +224,11 @@ pub enum VulnerabilitySeverity {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Exploitability {
-    Trivial,        // Easy to exploit
-    Simple,         // Requires basic knowledge
-    Intermediate,   // Requires specialized knowledge
-    Advanced,       // Requires expert knowledge
-    Theoretical,    // Difficult to exploit in practice
+    Trivial,      // Easy to exploit
+    Simple,       // Requires basic knowledge
+    Intermediate, // Requires specialized knowledge
+    Advanced,     // Requires expert knowledge
+    Theoretical,  // Difficult to exploit in practice
 }
 
 pub struct TaintTracker {
@@ -279,7 +279,7 @@ impl TaintTracker {
             sanitizer_patterns: Vec::new(),
             propagation_rules: Vec::new(),
         };
-        
+
         tracker.initialize_patterns();
         tracker
     }
@@ -288,24 +288,24 @@ impl TaintTracker {
     pub fn analyze_file(&self, file_path: &Path) -> Result<TaintAnalysis> {
         let content = std::fs::read_to_string(file_path)?;
         let lines: Vec<&str> = content.lines().collect();
-        
+
         // Step 1: Identify sources, sinks, and sanitizers
         let sources = self.find_sources(&lines, file_path)?;
         let sinks = self.find_sinks(&lines, file_path)?;
         let sanitizers = self.find_sanitizers(&lines, file_path)?;
-        
+
         // Step 2: Build control flow graph (simplified)
         let cfg = self.build_control_flow_graph(&lines)?;
-        
+
         // Step 3: Perform taint propagation analysis
         let taint_flows = self.propagate_taint(&sources, &sinks, &sanitizers, &cfg)?;
-        
+
         // Step 4: Identify vulnerabilities
         let vulnerabilities = self.identify_vulnerabilities(&taint_flows)?;
-        
+
         // Step 5: Generate summary
         let flow_summary = self.generate_flow_summary(&taint_flows, &vulnerabilities);
-        
+
         Ok(TaintAnalysis {
             taint_flows,
             sources,
@@ -319,7 +319,7 @@ impl TaintTracker {
     fn find_sources(&self, lines: &[&str], file_path: &Path) -> Result<Vec<TaintSource>> {
         let mut sources = Vec::new();
         let file_path_str = file_path.to_string_lossy().to_string();
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             for pattern in &self.sources_patterns {
                 if let Some(captures) = pattern.pattern.captures(line) {
@@ -334,8 +334,12 @@ impl TaintTracker {
                         },
                         source_type: pattern.source_type.clone(),
                         description: pattern.description.clone(),
-                        user_controlled: matches!(pattern.source_type, 
-                            SourceType::UserInput | SourceType::NetworkRequest | SourceType::CommandLineArg),
+                        user_controlled: matches!(
+                            pattern.source_type,
+                            SourceType::UserInput
+                                | SourceType::NetworkRequest
+                                | SourceType::CommandLineArg
+                        ),
                         trust_level: pattern.trust_level.clone(),
                         data_types: vec![DataType::String], // Simplified
                     };
@@ -343,14 +347,14 @@ impl TaintTracker {
                 }
             }
         }
-        
+
         Ok(sources)
     }
 
     fn find_sinks(&self, lines: &[&str], file_path: &Path) -> Result<Vec<TaintSink>> {
         let mut sinks = Vec::new();
         let file_path_str = file_path.to_string_lossy().to_string();
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             for pattern in &self.sinks_patterns {
                 if let Some(captures) = pattern.pattern.captures(line) {
@@ -365,7 +369,8 @@ impl TaintTracker {
                         },
                         sink_type: pattern.sink_type.clone(),
                         description: pattern.description.clone(),
-                        dangerous_function: captures.get(1)
+                        dangerous_function: captures
+                            .get(1)
                             .map(|m| m.as_str().to_string())
                             .unwrap_or_else(|| "unknown".to_string()),
                         impact: pattern.impact.clone(),
@@ -374,14 +379,14 @@ impl TaintTracker {
                 }
             }
         }
-        
+
         Ok(sinks)
     }
 
     fn find_sanitizers(&self, lines: &[&str], file_path: &Path) -> Result<Vec<Sanitizer>> {
         let mut sanitizers = Vec::new();
         let file_path_str = file_path.to_string_lossy().to_string();
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             for pattern in &self.sanitizer_patterns {
                 if pattern.pattern.is_match(line) {
@@ -402,7 +407,7 @@ impl TaintTracker {
                 }
             }
         }
-        
+
         Ok(sanitizers)
     }
 
@@ -419,7 +424,7 @@ impl TaintTracker {
         _cfg: &ControlFlowGraph,
     ) -> Result<Vec<TaintFlow>> {
         let mut flows = Vec::new();
-        
+
         // Simplified taint propagation - match sources to sinks on same line or nearby
         for source in sources {
             for sink in sinks {
@@ -428,7 +433,7 @@ impl TaintTracker {
                     let is_sanitized = self.is_flow_sanitized(source, sink, sanitizers);
                     let vulnerability_type = self.determine_vulnerability_type(&sink.sink_type);
                     let risk_score = self.calculate_risk_score(source, sink, is_sanitized);
-                    
+
                     let flow = TaintFlow {
                         flow_id: format!("flow_{}_{}", source.source_id, sink.sink_id),
                         source: source.clone(),
@@ -444,14 +449,14 @@ impl TaintTracker {
                 }
             }
         }
-        
+
         Ok(flows)
     }
 
     fn identify_vulnerabilities(&self, flows: &[TaintFlow]) -> Result<Vec<TaintVulnerability>> {
         let mut vulnerabilities = Vec::new();
         let mut vuln_map: HashMap<VulnerabilityType, Vec<String>> = HashMap::new();
-        
+
         // Group flows by vulnerability type
         for flow in flows {
             if !flow.is_sanitized {
@@ -461,7 +466,7 @@ impl TaintTracker {
                     .push(flow.flow_id.clone());
             }
         }
-        
+
         // Create vulnerability entries
         for (vuln_type, flow_ids) in vuln_map {
             let vulnerability = TaintVulnerability {
@@ -476,34 +481,38 @@ impl TaintTracker {
             };
             vulnerabilities.push(vulnerability);
         }
-        
+
         Ok(vulnerabilities)
     }
 
-    fn generate_flow_summary(&self, flows: &[TaintFlow], vulnerabilities: &[TaintVulnerability]) -> TaintFlowSummary {
+    fn generate_flow_summary(
+        &self,
+        flows: &[TaintFlow],
+        vulnerabilities: &[TaintVulnerability],
+    ) -> TaintFlowSummary {
         let total_flows = flows.len();
         let vulnerable_flows = flows.iter().filter(|f| !f.is_sanitized).count();
         let sanitized_flows = flows.iter().filter(|f| f.is_sanitized).count();
         let high_risk_flows = flows.iter().filter(|f| f.risk_score >= 7.0).count();
-        
+
         let mut flows_by_type = HashMap::new();
         for flow in flows {
             *flows_by_type
                 .entry(format!("{:?}", flow.vulnerability_type))
                 .or_insert(0) += 1;
         }
-        
+
         let mut vuln_counts = HashMap::new();
         for vuln in vulnerabilities {
             *vuln_counts
                 .entry(format!("{:?}", vuln.vulnerability_type))
                 .or_insert(0) += 1;
         }
-        
+
         let mut most_common_vulnerabilities: Vec<_> = vuln_counts.into_iter().collect();
         most_common_vulnerabilities.sort_by(|a, b| b.1.cmp(&a.1));
         most_common_vulnerabilities.truncate(5);
-        
+
         TaintFlowSummary {
             total_flows,
             vulnerable_flows,
@@ -532,7 +541,10 @@ impl TaintTracker {
 
         // File read sources
         self.sources_patterns.push(SourcePattern {
-            pattern: Regex::new(r#"(?:fs\.readFileSync|open|fopen|readFile)\s*\(\s*['"]?([^'"]+)['"]?"#).unwrap(),
+            pattern: Regex::new(
+                r#"(?:fs\.readFileSync|open|fopen|readFile)\s*\(\s*['"]?([^'"]+)['"]?"#,
+            )
+            .unwrap(),
             source_type: SourceType::FileRead,
             trust_level: TrustLevel::SemiTrusted,
             description: "File read operation".to_string(),
@@ -540,7 +552,8 @@ impl TaintTracker {
 
         // Environment variables
         self.sources_patterns.push(SourcePattern {
-            pattern: Regex::new(r#"(?:process\.env|os\.environ|getenv)\[?['"]?(\w+)['"]?\]?"#).unwrap(),
+            pattern: Regex::new(r#"(?:process\.env|os\.environ|getenv)\[?['"]?(\w+)['"]?\]?"#)
+                .unwrap(),
             source_type: SourceType::EnvironmentVariable,
             trust_level: TrustLevel::SemiTrusted,
             description: "Environment variable access".to_string(),
@@ -558,7 +571,10 @@ impl TaintTracker {
     fn initialize_sink_patterns(&mut self) {
         // SQL injection sinks
         self.sinks_patterns.push(SinkPattern {
-            pattern: Regex::new(r#"(?:execute|query|exec)\s*\(\s*['"]?([^'"]*(?:\+|%s|%d|\{\})[^'"]*)['"]?"#).unwrap(),
+            pattern: Regex::new(
+                r#"(?:execute|query|exec)\s*\(\s*['"]?([^'"]*(?:\+|%s|%d|\{\})[^'"]*)['"]?"#,
+            )
+            .unwrap(),
             sink_type: SinkType::SqlQuery,
             vulnerability_type: VulnerabilityType::SqlInjection,
             impact: Impact::Critical,
@@ -567,7 +583,10 @@ impl TaintTracker {
 
         // Command injection sinks
         self.sinks_patterns.push(SinkPattern {
-            pattern: Regex::new(r"(?:exec|system|popen|subprocess\.(?:call|run|Popen))\s*\(\s*([^)]+)").unwrap(),
+            pattern: Regex::new(
+                r"(?:exec|system|popen|subprocess\.(?:call|run|Popen))\s*\(\s*([^)]+)",
+            )
+            .unwrap(),
             sink_type: SinkType::SystemCommand,
             vulnerability_type: VulnerabilityType::CommandInjection,
             impact: Impact::Critical,
@@ -640,7 +659,7 @@ impl TaintTracker {
     fn extract_function_name(&self, lines: &[&str], line_num: usize) -> Option<String> {
         // Create regex once outside the loop
         let re = Regex::new(r"(?:function|def|fn)\s+(\w+)").ok()?;
-        
+
         // Look backwards for function declaration
         for i in (0..line_num).rev() {
             if let Some(line) = lines.get(i) {
@@ -654,16 +673,22 @@ impl TaintTracker {
 
     fn are_potentially_connected(&self, source: &TaintSource, sink: &TaintSink) -> bool {
         // Simplified: same file and within reasonable distance
-        source.location.file_path == sink.location.file_path &&
-        (sink.location.line_number as i32 - source.location.line_number as i32).abs() < 50
+        source.location.file_path == sink.location.file_path
+            && (sink.location.line_number as i32 - source.location.line_number as i32).abs() < 50
     }
 
-    fn is_flow_sanitized(&self, source: &TaintSource, sink: &TaintSink, sanitizers: &[Sanitizer]) -> bool {
+    fn is_flow_sanitized(
+        &self,
+        source: &TaintSource,
+        sink: &TaintSink,
+        sanitizers: &[Sanitizer],
+    ) -> bool {
         // Check if there's a sanitizer between source and sink
         for sanitizer in sanitizers {
-            if sanitizer.location.file_path == source.location.file_path &&
-               sanitizer.location.line_number > source.location.line_number &&
-               sanitizer.location.line_number < sink.location.line_number {
+            if sanitizer.location.file_path == source.location.file_path
+                && sanitizer.location.line_number > source.location.line_number
+                && sanitizer.location.line_number < sink.location.line_number
+            {
                 return matches!(sanitizer.effectiveness, SanitizerEffectiveness::Complete);
             }
         }
@@ -681,7 +706,12 @@ impl TaintTracker {
         }
     }
 
-    fn calculate_risk_score(&self, source: &TaintSource, sink: &TaintSink, is_sanitized: bool) -> f32 {
+    fn calculate_risk_score(
+        &self,
+        source: &TaintSource,
+        sink: &TaintSink,
+        is_sanitized: bool,
+    ) -> f32 {
         let mut score: f32 = 0.0;
 
         // Base score from impact
@@ -707,28 +737,48 @@ impl TaintTracker {
 
     fn generate_attack_vector(&self, vuln_type: &VulnerabilityType) -> String {
         match vuln_type {
-            VulnerabilityType::SqlInjection => "Inject malicious SQL through user input to access/modify database".to_string(),
-            VulnerabilityType::CommandInjection => "Execute arbitrary system commands through user input".to_string(),
-            VulnerabilityType::PathTraversal => "Access files outside intended directory using path manipulation".to_string(),
-            VulnerabilityType::CrossSiteScripting => "Inject malicious JavaScript to execute in victim's browser".to_string(),
+            VulnerabilityType::SqlInjection => {
+                "Inject malicious SQL through user input to access/modify database".to_string()
+            }
+            VulnerabilityType::CommandInjection => {
+                "Execute arbitrary system commands through user input".to_string()
+            }
+            VulnerabilityType::PathTraversal => {
+                "Access files outside intended directory using path manipulation".to_string()
+            }
+            VulnerabilityType::CrossSiteScripting => {
+                "Inject malicious JavaScript to execute in victim's browser".to_string()
+            }
             _ => "Exploit vulnerability through malicious input".to_string(),
         }
     }
 
     fn generate_remediation(&self, vuln_type: &VulnerabilityType) -> String {
         match vuln_type {
-            VulnerabilityType::SqlInjection => "Use parameterized queries or prepared statements".to_string(),
-            VulnerabilityType::CommandInjection => "Validate input and use safe command execution methods".to_string(),
-            VulnerabilityType::PathTraversal => "Validate and canonicalize file paths, use allowlists".to_string(),
-            VulnerabilityType::CrossSiteScripting => "HTML encode output and validate input".to_string(),
+            VulnerabilityType::SqlInjection => {
+                "Use parameterized queries or prepared statements".to_string()
+            }
+            VulnerabilityType::CommandInjection => {
+                "Validate input and use safe command execution methods".to_string()
+            }
+            VulnerabilityType::PathTraversal => {
+                "Validate and canonicalize file paths, use allowlists".to_string()
+            }
+            VulnerabilityType::CrossSiteScripting => {
+                "HTML encode output and validate input".to_string()
+            }
             _ => "Validate and sanitize all user input".to_string(),
         }
     }
 
     fn get_vulnerability_severity(&self, vuln_type: &VulnerabilityType) -> VulnerabilitySeverity {
         match vuln_type {
-            VulnerabilityType::SqlInjection | VulnerabilityType::CommandInjection => VulnerabilitySeverity::Critical,
-            VulnerabilityType::PathTraversal | VulnerabilityType::CodeInjection => VulnerabilitySeverity::High,
+            VulnerabilityType::SqlInjection | VulnerabilityType::CommandInjection => {
+                VulnerabilitySeverity::Critical
+            }
+            VulnerabilityType::PathTraversal | VulnerabilityType::CodeInjection => {
+                VulnerabilitySeverity::High
+            }
             VulnerabilityType::CrossSiteScripting => VulnerabilitySeverity::Medium,
             _ => VulnerabilitySeverity::Low,
         }
@@ -736,7 +786,9 @@ impl TaintTracker {
 
     fn get_exploitability(&self, vuln_type: &VulnerabilityType) -> Exploitability {
         match vuln_type {
-            VulnerabilityType::SqlInjection | VulnerabilityType::CrossSiteScripting => Exploitability::Simple,
+            VulnerabilityType::SqlInjection | VulnerabilityType::CrossSiteScripting => {
+                Exploitability::Simple
+            }
             VulnerabilityType::CommandInjection => Exploitability::Intermediate,
             VulnerabilityType::PathTraversal => Exploitability::Simple,
             _ => Exploitability::Intermediate,
@@ -756,10 +808,19 @@ impl TaintTracker {
 
     fn get_vulnerability_description(&self, vuln_type: &VulnerabilityType) -> String {
         match vuln_type {
-            VulnerabilityType::SqlInjection => "Untrusted data is used in SQL query without proper sanitization".to_string(),
-            VulnerabilityType::CommandInjection => "User input is passed to system command execution without validation".to_string(),
-            VulnerabilityType::PathTraversal => "File path is constructed using untrusted input allowing directory traversal".to_string(),
-            VulnerabilityType::CrossSiteScripting => "User input is included in HTML output without proper encoding".to_string(),
+            VulnerabilityType::SqlInjection => {
+                "Untrusted data is used in SQL query without proper sanitization".to_string()
+            }
+            VulnerabilityType::CommandInjection => {
+                "User input is passed to system command execution without validation".to_string()
+            }
+            VulnerabilityType::PathTraversal => {
+                "File path is constructed using untrusted input allowing directory traversal"
+                    .to_string()
+            }
+            VulnerabilityType::CrossSiteScripting => {
+                "User input is included in HTML output without proper encoding".to_string()
+            }
             _ => "Vulnerability detected in data flow from source to sink".to_string(),
         }
     }
@@ -769,7 +830,9 @@ impl TaintTracker {
             VulnerabilityType::SqlInjection => Some("'; DROP TABLE users; --".to_string()),
             VulnerabilityType::CommandInjection => Some("; cat /etc/passwd".to_string()),
             VulnerabilityType::PathTraversal => Some("../../../etc/passwd".to_string()),
-            VulnerabilityType::CrossSiteScripting => Some("<script>alert('XSS')</script>".to_string()),
+            VulnerabilityType::CrossSiteScripting => {
+                Some("<script>alert('XSS')</script>".to_string())
+            }
             _ => None,
         }
     }

@@ -324,7 +324,8 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
         // Supply Chain Attack Patterns (High Priority)
         MaliciousPackagePattern {
             pattern_name: "Install script with external download".to_string(),
-            description: "Package downloads and executes external code during installation".to_string(),
+            description: "Package downloads and executes external code during installation"
+                .to_string(),
             indicators: vec![
                 "curl.*http.*|.*exec".to_string(),
                 "wget.*http.*exec".to_string(),
@@ -337,7 +338,8 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
         },
         MaliciousPackagePattern {
             pattern_name: "Obfuscated code execution".to_string(),
-            description: "Package contains heavily obfuscated code that executes dynamically".to_string(),
+            description: "Package contains heavily obfuscated code that executes dynamically"
+                .to_string(),
             indicators: vec![
                 r"eval\s*\(".to_string(),
                 r"Function\s*\(".to_string(),
@@ -365,11 +367,11 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Critical".to_string(),
         },
-
         // Cryptocurrency & Financial Attacks
         MaliciousPackagePattern {
             pattern_name: "Cryptocurrency theft".to_string(),
-            description: "Package contains patterns associated with cryptocurrency wallet theft".to_string(),
+            description: "Package contains patterns associated with cryptocurrency wallet theft"
+                .to_string(),
             indicators: vec![
                 "wallet\\.dat".to_string(),
                 "bitcoin.*core".to_string(),
@@ -382,7 +384,7 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
                 "exodus".to_string(),
                 "coinbase".to_string(),
                 "[13][a-km-zA-HJ-NP-Z1-9]{25,34}".to_string(), // Bitcoin address
-                "0x[a-fA-F0-9]{40}".to_string(), // Ethereum address
+                "0x[a-fA-F0-9]{40}".to_string(),               // Ethereum address
             ],
             severity: "Critical".to_string(),
         },
@@ -403,7 +405,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "High".to_string(),
         },
-
         // Network & Communication Attacks
         MaliciousPackagePattern {
             pattern_name: "Reverse shell".to_string(),
@@ -452,7 +453,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Critical".to_string(),
         },
-
         // Data Theft & Exfiltration
         MaliciousPackagePattern {
             pattern_name: "File system enumeration".to_string(),
@@ -484,7 +484,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Critical".to_string(),
         },
-
         // System Manipulation
         MaliciousPackagePattern {
             pattern_name: "Registry manipulation".to_string(),
@@ -529,7 +528,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Critical".to_string(),
         },
-
         // Anti-Analysis & Evasion
         MaliciousPackagePattern {
             pattern_name: "Anti-debugging".to_string(),
@@ -560,7 +558,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Medium".to_string(),
         },
-
         // Malware Delivery
         MaliciousPackagePattern {
             pattern_name: "Malware download".to_string(),
@@ -591,7 +588,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Critical".to_string(),
         },
-
         // Data Destruction
         MaliciousPackagePattern {
             pattern_name: "Data destruction".to_string(),
@@ -608,7 +604,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Critical".to_string(),
         },
-
         // Information Gathering
         MaliciousPackagePattern {
             pattern_name: "System reconnaissance".to_string(),
@@ -642,7 +637,6 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
             ],
             severity: "Medium".to_string(),
         },
-
         // Supply Chain Specific
         MaliciousPackagePattern {
             pattern_name: "Dependency confusion".to_string(),
@@ -778,62 +772,62 @@ pub fn get_known_malicious_packages() -> Vec<&'static str> {
         "internal-auth",
         "dev-tools-internal",
         // Typosquatting attempts (popular packages)
-        "reakt",           // react
-        "reactt",          // react
-        "react-js",        // react
-        "reactjs",         // react
-        "babelcli",        // babel-cli
+        "reakt",    // react
+        "reactt",   // react
+        "react-js", // react
+        "reactjs",  // react
+        "babelcli", // babel-cli
         "babel-preset-es2015",
         "babel-preset-es2016",
         "babel-preset-es2017",
-        "expresss",        // express
-        "expres",          // express
-        "express-js",      // express
-        "lodaash",         // lodash
-        "lod4sh",          // lodash
-        "lo-dash",         // lodash
-        "lodash-js",       // lodash
-        "axiooss",         // axios
-        "axios-js",        // axios
-        "momentt",         // moment
-        "moment-js",       // moment
-        "webpackk",        // webpack
-        "web-pack",        // webpack
-        "eslintrc",        // eslint
-        "es-lint",         // eslint
-        "typescriptt",     // typescript
-        "type-script",     // typescript
-        "vuejs",           // vue
-        "vue-js",          // vue
-        "vue2",            // vue
-        "angularr",        // angular
-        "angular-js",      // angular
-        "jquerry",         // jquery
-        "j-query",         // jquery
-        "jquery-js",       // jquery
-        "underscorejs",    // underscore
-        "underscore-js",   // underscore
-        "backbonejs",      // backbone
-        "backbone-js",     // backbone
-        "requirejs",       // require
-        "require-js",      // require
-        "gruntjs",         // grunt
-        "grunt-js",        // grunt
-        "gulpjs",          // gulp
-        "gulp-js",         // gulp
-        "bowerr",          // bower
-        "bower-js",        // bower
-        "yarnpkg",         // yarn
-        "yarn-js",         // yarn
-        "npm-js",          // npm
-        "npmjs",           // npm
-        "nodemon-js",      // nodemon
-        "node-mon",        // nodemon
-        "expresss-generator", // express-generator
+        "expresss",            // express
+        "expres",              // express
+        "express-js",          // express
+        "lodaash",             // lodash
+        "lod4sh",              // lodash
+        "lo-dash",             // lodash
+        "lodash-js",           // lodash
+        "axiooss",             // axios
+        "axios-js",            // axios
+        "momentt",             // moment
+        "moment-js",           // moment
+        "webpackk",            // webpack
+        "web-pack",            // webpack
+        "eslintrc",            // eslint
+        "es-lint",             // eslint
+        "typescriptt",         // typescript
+        "type-script",         // typescript
+        "vuejs",               // vue
+        "vue-js",              // vue
+        "vue2",                // vue
+        "angularr",            // angular
+        "angular-js",          // angular
+        "jquerry",             // jquery
+        "j-query",             // jquery
+        "jquery-js",           // jquery
+        "underscorejs",        // underscore
+        "underscore-js",       // underscore
+        "backbonejs",          // backbone
+        "backbone-js",         // backbone
+        "requirejs",           // require
+        "require-js",          // require
+        "gruntjs",             // grunt
+        "grunt-js",            // grunt
+        "gulpjs",              // gulp
+        "gulp-js",             // gulp
+        "bowerr",              // bower
+        "bower-js",            // bower
+        "yarnpkg",             // yarn
+        "yarn-js",             // yarn
+        "npm-js",              // npm
+        "npmjs",               // npm
+        "nodemon-js",          // nodemon
+        "node-mon",            // nodemon
+        "expresss-generator",  // express-generator
         "create-react-app-js", // create-react-app
-        "prettier-js",     // prettier
-        "eslint-js",       // eslint
-        "webpack-cli-js",  // webpack-cli
+        "prettier-js",         // prettier
+        "eslint-js",           // eslint
+        "webpack-cli-js",      // webpack-cli
         "babel-preset-react",
         "babel-preset-stage-0",
         "font-awesome",
@@ -851,7 +845,7 @@ pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>>
 
     for popular in &popular_packages {
         let distance = levenshtein(package_name, popular);
-        
+
         // More sophisticated similarity checking
         if distance > 0 && distance <= 2 {
             similar_packages.push(format!("{} (distance: {})", popular, distance));
@@ -877,9 +871,29 @@ pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>>
             let suffix = &package_name[popular.len()..];
             if matches!(
                 suffix,
-                "-dev" | "-test" | "js" | ".js" | "-js" | "2" | "-cli" | "-official" | 
-                "-latest" | "-new" | "-updated" | "-fixed" | "-secure" | "-safe" |
-                "-utils" | "-tool" | "-lib" | "-core" | "-api" | "1" | "3" | "4" | "5"
+                "-dev"
+                    | "-test"
+                    | "js"
+                    | ".js"
+                    | "-js"
+                    | "2"
+                    | "-cli"
+                    | "-official"
+                    | "-latest"
+                    | "-new"
+                    | "-updated"
+                    | "-fixed"
+                    | "-secure"
+                    | "-safe"
+                    | "-utils"
+                    | "-tool"
+                    | "-lib"
+                    | "-core"
+                    | "-api"
+                    | "1"
+                    | "3"
+                    | "4"
+                    | "5"
             ) {
                 similar_packages.push(format!("{} (suspicious suffix: {})", popular, suffix));
             }
@@ -890,9 +904,22 @@ pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>>
             let prefix = &package_name[..package_name.len() - popular.len()];
             if matches!(
                 prefix,
-                "new-" | "updated-" | "fixed-" | "secure-" | "safe-" | "official-" |
-                "real-" | "original-" | "better-" | "super-" | "fast-" | "node-" |
-                "npm-" | "js-" | "lib-" | "core-"
+                "new-"
+                    | "updated-"
+                    | "fixed-"
+                    | "secure-"
+                    | "safe-"
+                    | "official-"
+                    | "real-"
+                    | "original-"
+                    | "better-"
+                    | "super-"
+                    | "fast-"
+                    | "node-"
+                    | "npm-"
+                    | "js-"
+                    | "lib-"
+                    | "core-"
             ) {
                 similar_packages.push(format!("{} (suspicious prefix: {})", popular, prefix));
             }
@@ -914,66 +941,192 @@ pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>>
 fn get_top_npm_packages() -> Vec<&'static str> {
     vec![
         // Top 50 most downloaded packages
-        "react", "lodash", "express", "axios", "moment", "webpack", "babel-core",
-        "eslint", "typescript", "vue", "angular", "jquery", "underscore", "backbone",
-        "grunt", "gulp", "bower", "yarn", "npm", "nodemon", "prettier", "jest",
-        "mocha", "chai", "sinon", "helmet", "cors", "body-parser", "cookie-parser",
-        "multer", "passport", "bcrypt", "jsonwebtoken", "mongoose", "sequelize",
-        "redis", "socket.io", "validator", "request", "chalk", "commander", "yargs",
-        "inquirer", "ora", "boxen", "figlet", "colors", "debug", "util", "path",
-        
+        "react",
+        "lodash",
+        "express",
+        "axios",
+        "moment",
+        "webpack",
+        "babel-core",
+        "eslint",
+        "typescript",
+        "vue",
+        "angular",
+        "jquery",
+        "underscore",
+        "backbone",
+        "grunt",
+        "gulp",
+        "bower",
+        "yarn",
+        "npm",
+        "nodemon",
+        "prettier",
+        "jest",
+        "mocha",
+        "chai",
+        "sinon",
+        "helmet",
+        "cors",
+        "body-parser",
+        "cookie-parser",
+        "multer",
+        "passport",
+        "bcrypt",
+        "jsonwebtoken",
+        "mongoose",
+        "sequelize",
+        "redis",
+        "socket.io",
+        "validator",
+        "request",
+        "chalk",
+        "commander",
+        "yargs",
+        "inquirer",
+        "ora",
+        "boxen",
+        "figlet",
+        "colors",
+        "debug",
+        "util",
+        "path",
         // Popular React ecosystem
-        "react-dom", "react-router", "react-router-dom", "create-react-app",
-        "react-scripts", "react-dev-utils", "prop-types", "react-helmet",
-        "react-hook-form", "redux", "react-redux", "redux-thunk", "redux-saga",
-        "reselect", "immutable", "styled-components", "emotion", "material-ui",
-        
+        "react-dom",
+        "react-router",
+        "react-router-dom",
+        "create-react-app",
+        "react-scripts",
+        "react-dev-utils",
+        "prop-types",
+        "react-helmet",
+        "react-hook-form",
+        "redux",
+        "react-redux",
+        "redux-thunk",
+        "redux-saga",
+        "reselect",
+        "immutable",
+        "styled-components",
+        "emotion",
+        "material-ui",
         // Popular Vue ecosystem
-        "vue-router", "vuex", "vue-cli", "nuxt", "vue-loader", "vue-template-compiler",
-        
+        "vue-router",
+        "vuex",
+        "vue-cli",
+        "nuxt",
+        "vue-loader",
+        "vue-template-compiler",
         // Popular Angular ecosystem
-        "@angular/core", "@angular/common", "@angular/forms", "@angular/router",
-        "@angular/cli", "rxjs", "zone.js",
-        
+        "@angular/core",
+        "@angular/common",
+        "@angular/forms",
+        "@angular/router",
+        "@angular/cli",
+        "rxjs",
+        "zone.js",
         // Build tools and bundlers
-        "webpack-cli", "webpack-dev-server", "babel-loader", "css-loader",
-        "style-loader", "file-loader", "html-webpack-plugin", "mini-css-extract-plugin",
-        "rollup", "parcel", "vite", "esbuild", "swc",
-        
+        "webpack-cli",
+        "webpack-dev-server",
+        "babel-loader",
+        "css-loader",
+        "style-loader",
+        "file-loader",
+        "html-webpack-plugin",
+        "mini-css-extract-plugin",
+        "rollup",
+        "parcel",
+        "vite",
+        "esbuild",
+        "swc",
         // Testing frameworks
-        "cypress", "puppeteer", "playwright", "selenium-webdriver", "supertest",
-        "karma", "jasmine", "ava", "tape",
-        
+        "cypress",
+        "puppeteer",
+        "playwright",
+        "selenium-webdriver",
+        "supertest",
+        "karma",
+        "jasmine",
+        "ava",
+        "tape",
         // Development tools
-        "nodemon", "concurrently", "cross-env", "rimraf", "mkdirp", "glob",
-        "minimist", "dotenv", "config", "helmet", "morgan", "compression",
-        
+        "nodemon",
+        "concurrently",
+        "cross-env",
+        "rimraf",
+        "mkdirp",
+        "glob",
+        "minimist",
+        "dotenv",
+        "config",
+        "helmet",
+        "morgan",
+        "compression",
         // Database and ORM
-        "mysql", "pg", "sqlite3", "mongodb", "mysql2", "typeorm", "prisma",
-        "knex", "bookshelf",
-        
+        "mysql",
+        "pg",
+        "sqlite3",
+        "mongodb",
+        "mysql2",
+        "typeorm",
+        "prisma",
+        "knex",
+        "bookshelf",
         // Utility libraries
-        "moment", "date-fns", "luxon", "ramda", "immutable", "faker", "uuid",
-        "crypto-js", "base64-js", "btoa", "atob", "qs", "querystring", "url-parse",
-        
+        "moment",
+        "date-fns",
+        "luxon",
+        "ramda",
+        "immutable",
+        "faker",
+        "uuid",
+        "crypto-js",
+        "base64-js",
+        "btoa",
+        "atob",
+        "qs",
+        "querystring",
+        "url-parse",
         // HTTP clients
-        "node-fetch", "got", "superagent", "isomorphic-fetch",
-        
+        "node-fetch",
+        "got",
+        "superagent",
+        "isomorphic-fetch",
         // File system utilities
-        "fs-extra", "graceful-fs", "chokidar", "watch", "recursive-readdir",
-        
+        "fs-extra",
+        "graceful-fs",
+        "chokidar",
+        "watch",
+        "recursive-readdir",
         // CLI utilities
-        "meow", "cac", "caporal", "oclif", "vorpal", "blessed", "ink",
-        
+        "meow",
+        "cac",
+        "caporal",
+        "oclif",
+        "vorpal",
+        "blessed",
+        "ink",
         // Logging
-        "winston", "pino", "bunyan", "log4js", "signale",
-        
+        "winston",
+        "pino",
+        "bunyan",
+        "log4js",
+        "signale",
         // Process management
-        "pm2", "forever", "cluster", "throng",
-        
+        "pm2",
+        "forever",
+        "cluster",
+        "throng",
         // Security
-        "helmet", "csrf", "express-rate-limit", "express-validator", "joi",
-        "ajv", "sanitize-html", "xss", "dompurify"
+        "helmet",
+        "csrf",
+        "express-rate-limit",
+        "express-validator",
+        "joi",
+        "ajv",
+        "sanitize-html",
+        "xss",
+        "dompurify",
     ]
 }
 
@@ -982,11 +1135,11 @@ fn check_character_substitution(name1: &str, name2: &str) -> bool {
     if name1.len() != name2.len() {
         return false;
     }
-    
+
     let chars1: Vec<char> = name1.chars().collect();
     let chars2: Vec<char> = name2.chars().collect();
     let mut differences = 0;
-    
+
     for (c1, c2) in chars1.iter().zip(chars2.iter()) {
         if c1 != c2 {
             differences += 1;
@@ -995,7 +1148,7 @@ fn check_character_substitution(name1: &str, name2: &str) -> bool {
             }
         }
     }
-    
+
     differences == 1
 }
 
@@ -1004,12 +1157,12 @@ fn check_keyboard_proximity(name1: &str, name2: &str) -> bool {
     if name1.len() != name2.len() {
         return false;
     }
-    
+
     let adjacent_keys = get_adjacent_keys();
     let chars1: Vec<char> = name1.chars().collect();
     let chars2: Vec<char> = name2.chars().collect();
     let mut proximity_errors = 0;
-    
+
     for (c1, c2) in chars1.iter().zip(chars2.iter()) {
         if c1 != c2 {
             if let Some(adjacent) = adjacent_keys.get(c1) {
@@ -1026,7 +1179,7 @@ fn check_keyboard_proximity(name1: &str, name2: &str) -> bool {
             }
         }
     }
-    
+
     proximity_errors == 1
 }
 
@@ -1035,12 +1188,12 @@ fn check_visual_similarity(name1: &str, name2: &str) -> bool {
     if name1.len() != name2.len() {
         return false;
     }
-    
+
     let visual_confusions = get_visual_confusions();
     let chars1: Vec<char> = name1.chars().collect();
     let chars2: Vec<char> = name2.chars().collect();
     let mut visual_errors = 0;
-    
+
     for (c1, c2) in chars1.iter().zip(chars2.iter()) {
         if c1 != c2 {
             if let Some(similar) = visual_confusions.get(c1) {
@@ -1057,14 +1210,14 @@ fn check_visual_similarity(name1: &str, name2: &str) -> bool {
             }
         }
     }
-    
+
     visual_errors == 1
 }
 
 /// Get QWERTY keyboard adjacent keys mapping
 fn get_adjacent_keys() -> HashMap<char, Vec<char>> {
     let mut adjacent = HashMap::new();
-    
+
     adjacent.insert('q', vec!['w', 'a', 's']);
     adjacent.insert('w', vec!['q', 'e', 'a', 's', 'd']);
     adjacent.insert('e', vec!['w', 'r', 's', 'd', 'f']);
@@ -1075,7 +1228,7 @@ fn get_adjacent_keys() -> HashMap<char, Vec<char>> {
     adjacent.insert('i', vec!['u', 'o', 'j', 'k', 'l']);
     adjacent.insert('o', vec!['i', 'p', 'k', 'l']);
     adjacent.insert('p', vec!['o', 'l']);
-    
+
     adjacent.insert('a', vec!['q', 'w', 's', 'z', 'x']);
     adjacent.insert('s', vec!['q', 'w', 'e', 'a', 'd', 'z', 'x', 'c']);
     adjacent.insert('d', vec!['w', 'e', 'r', 's', 'f', 'x', 'c', 'v']);
@@ -1085,7 +1238,7 @@ fn get_adjacent_keys() -> HashMap<char, Vec<char>> {
     adjacent.insert('j', vec!['y', 'u', 'i', 'h', 'k', 'n', 'm']);
     adjacent.insert('k', vec!['u', 'i', 'o', 'j', 'l', 'm']);
     adjacent.insert('l', vec!['i', 'o', 'p', 'k']);
-    
+
     adjacent.insert('z', vec!['a', 's', 'x']);
     adjacent.insert('x', vec!['a', 's', 'd', 'z', 'c']);
     adjacent.insert('c', vec!['s', 'd', 'f', 'x', 'v']);
@@ -1093,38 +1246,38 @@ fn get_adjacent_keys() -> HashMap<char, Vec<char>> {
     adjacent.insert('b', vec!['f', 'g', 'h', 'v', 'n']);
     adjacent.insert('n', vec!['g', 'h', 'j', 'b', 'm']);
     adjacent.insert('m', vec!['h', 'j', 'k', 'n']);
-    
+
     adjacent
 }
 
 /// Get visually confusing character mappings
 fn get_visual_confusions() -> HashMap<char, Vec<char>> {
     let mut confusions = HashMap::new();
-    
+
     confusions.insert('0', vec!['o', 'O']);
     confusions.insert('o', vec!['0', 'O']);
     confusions.insert('O', vec!['0', 'o']);
-    
+
     confusions.insert('1', vec!['l', 'I', '|']);
     confusions.insert('l', vec!['1', 'I', '|']);
     confusions.insert('I', vec!['1', 'l', '|']);
     confusions.insert('|', vec!['1', 'l', 'I']);
-    
+
     confusions.insert('5', vec!['s', 'S']);
     confusions.insert('s', vec!['5', 'S']);
     confusions.insert('S', vec!['5', 's']);
-    
+
     confusions.insert('6', vec!['g', 'G']);
     confusions.insert('g', vec!['6', 'G']);
     confusions.insert('G', vec!['6', 'g']);
-    
+
     confusions.insert('8', vec!['b', 'B']);
     confusions.insert('b', vec!['8', 'B']);
     confusions.insert('B', vec!['8', 'b']);
-    
+
     confusions.insert('2', vec!['z', 'Z']);
     confusions.insert('z', vec!['2', 'Z']);
     confusions.insert('Z', vec!['2', 'z']);
-    
+
     confusions
 }
