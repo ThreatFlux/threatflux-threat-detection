@@ -39,7 +39,7 @@ tokio = { version = "1.40", features = ["full"] }
 ring = "0.17"
 
 # MCP SDK
-rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main", features = ["transport-io"] }
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "db03f63", features = ["transport-io"] }
 schemars = "0.9"
 
 # HTTP server for MCP
@@ -59,15 +59,22 @@ utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 addr2line = "0.24"
 memmap2 = "0.9"
 capstone = "0.13"
-petgraph = "0.8"
+petgraph = "0.8.2"
 
 # Threat detection
 yara-x = { git = "https://github.com/wroersma/yara-x", branch = "main" }
 walkdir = "2.4"
 
+# Semgrep integration and static analysis enhancements
+strsim = "0.11"  # For Levenshtein distance calculations
+reqwest = { version = "0.12", features = ["json", "blocking"] }  # For repository checks
+git2 = "0.19"  # For Git repository operations
+url = "2.5"  # For URL parsing and validation
+edit-distance = "2.1"  # Additional string distance algorithms
+
 # OLE and VBA parsing
-cfb = "0.9"  # Compound File Binary format (OLE storage)
-zip = "2.1"  # For OOXML format support and Java archives
+cfb = "0.10"  # Compound File Binary format (OLE storage)
+zip = "3.0"  # For OOXML format support and Java archives
 
 # NPM package analysis
 flate2 = "1.0"  # For gzip decompression
@@ -102,6 +109,9 @@ tokio-test = "0.4"
 reqwest = { version = "0.12", features = ["json"] }
 wiremock = "0.6"
 
+# For shared test fixtures and performance
+once_cell = "1.19"
+
 [[bench]]
 name = "hash_benchmark"
 harness = false
@@ -109,3 +119,16 @@ harness = false
 [[bench]]
 name = "parser_benchmark"
 harness = false
+
+# Test optimization profiles
+[profile.test]
+opt-level = 2      # Optimize test builds for speed
+debug = 1          # Reduce debug info to speed up compilation
+incremental = true # Enable incremental compilation
+codegen-units = 16 # Parallel codegen
+
+# Fast test configuration for development
+[profile.test-fast]
+inherits = "test"
+opt-level = 3
+lto = "thin"

@@ -1,7 +1,10 @@
 use chrono::{DateTime, Utc};
 use file_scanner::metadata::FileMetadata;
 
+pub mod fixtures;
+
 /// Common test utilities
+#[allow(dead_code)]
 pub mod utils {
     use super::*;
 
@@ -54,15 +57,18 @@ pub mod mocks {
     use std::path::{Path, PathBuf};
 
     /// Mock file system for testing without actual file I/O
+    #[allow(dead_code)]
     pub struct MockFileSystem {
         files: HashMap<PathBuf, MockFile>,
     }
 
+    #[allow(dead_code)]
     pub struct MockFile {
         pub content: Vec<u8>,
         pub metadata: MockMetadata,
     }
 
+    #[allow(dead_code)]
     pub struct MockMetadata {
         pub size: u64,
         pub is_file: bool,
@@ -71,12 +77,14 @@ pub mod mocks {
     }
 
     impl MockFileSystem {
+        #[allow(dead_code)]
         pub fn new() -> Self {
             Self {
                 files: HashMap::new(),
             }
         }
 
+        #[allow(dead_code)]
         pub fn add_file(&mut self, path: impl Into<PathBuf>, content: Vec<u8>) {
             let path = path.into();
             let metadata = MockMetadata {
@@ -88,6 +96,7 @@ pub mod mocks {
             self.files.insert(path, MockFile { content, metadata });
         }
 
+        #[allow(dead_code)]
         pub fn get_file(&self, path: &Path) -> Option<&MockFile> {
             self.files.get(path)
         }
@@ -100,8 +109,8 @@ pub mod generators {
 
     /// Generate random bytes of specified length
     pub fn random_bytes(len: usize) -> Vec<u8> {
-        let mut rng = rand::thread_rng();
-        (0..len).map(|_| rng.gen()).collect()
+        let mut rng = rand::rng();
+        (0..len).map(|_| rng.random()).collect()
     }
 
     /// Generate a string with specific pattern
@@ -113,6 +122,7 @@ pub mod generators {
     }
 
     /// Generate test binary with embedded strings
+    #[allow(dead_code)]
     pub fn generate_binary_with_strings(strings: &[&str]) -> Vec<u8> {
         let mut result = Vec::new();
         for s in strings {
@@ -132,11 +142,13 @@ pub mod assertions {
     use pretty_assertions::assert_eq;
 
     /// Assert two vectors are equal, showing differences clearly
+    #[allow(dead_code)]
     pub fn assert_vec_eq<T: std::fmt::Debug + PartialEq>(actual: &[T], expected: &[T]) {
         assert_eq!(actual, expected);
     }
 
     /// Assert a vector contains specific items
+    #[allow(dead_code)]
     pub fn assert_vec_contains<T: std::fmt::Debug + PartialEq>(vec: &[T], items: &[T]) {
         for item in items {
             assert!(
@@ -149,6 +161,7 @@ pub mod assertions {
     }
 
     /// Assert a string contains all substrings
+    #[allow(dead_code)]
     pub fn assert_contains_all(haystack: &str, needles: &[&str]) {
         for needle in needles {
             assert!(

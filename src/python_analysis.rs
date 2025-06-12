@@ -575,6 +575,8 @@ fn parse_wheel_metadata(metadata: &str) -> Result<PackageInfo> {
     let mut description = None;
     let mut author = None;
     let mut author_email = None;
+    let mut maintainer = None;
+    let mut maintainer_email = None;
     let mut license = None;
     let mut url = None;
     let mut keywords = vec![];
@@ -590,6 +592,8 @@ fn parse_wheel_metadata(metadata: &str) -> Result<PackageInfo> {
                 "Summary" => description = Some(value.to_string()),
                 "Author" => author = Some(value.to_string()),
                 "Author-email" => author_email = Some(value.to_string()),
+                "Maintainer" => maintainer = Some(value.to_string()),
+                "Maintainer-email" => maintainer_email = Some(value.to_string()),
                 "License" => license = Some(value.to_string()),
                 "Home-page" => url = Some(value.to_string()),
                 "Keywords" => keywords = value.split(',').map(|s| s.trim().to_string()).collect(),
@@ -611,8 +615,8 @@ fn parse_wheel_metadata(metadata: &str) -> Result<PackageInfo> {
         description,
         author,
         author_email,
-        maintainer: None,
-        maintainer_email: None,
+        maintainer,
+        maintainer_email,
         license,
         url,
         project_urls,
@@ -703,6 +707,12 @@ fn parse_setup_py(content: &str) -> Result<PackageInfo> {
         url = Some(cap[1].to_string());
     }
 
+    // Extract keywords - handle list format
+    let mut keywords = vec![];
+    if let Some(keywords_list) = extract_list_from_setup_py(content, "keywords") {
+        keywords = keywords_list;
+    }
+
     Ok(PackageInfo {
         name,
         version,
@@ -714,7 +724,7 @@ fn parse_setup_py(content: &str) -> Result<PackageInfo> {
         license,
         url,
         project_urls: HashMap::new(),
-        keywords: vec![],
+        keywords,
         classifiers: vec![],
         python_requires: None,
         package_format: PackageFormat::SourceDistribution,
@@ -790,6 +800,12 @@ fn analyze_dependencies_from_metadata(metadata: &str) -> Result<PythonDependency
     for line in metadata.lines() {
         if line.starts_with("Requires-Dist: ") {
             let dep_spec = line.trim_start_matches("Requires-Dist: ");
+
+            // Skip dependencies with environment markers for extras
+            if dep_spec.contains("; extra ==") || dep_spec.contains(";extra==") {
+                continue;
+            }
+
             let (name, version_spec) = parse_dependency_spec(dep_spec);
 
             let vulnerabilities = check_package_vulnerabilities(&name, &version_spec);
@@ -972,19 +988,69 @@ fn extract_pyproject_dependencies(
 ) -> Result<()> {
     // Simple extraction - in production use a TOML parser
     let mut in_dependencies = false;
+    let mut in_project_deps = false;
+    let mut in_deps_list = false;
 
     for line in content.lines() {
-        if line.contains("[tool.poetry.dependencies]") || line.contains("[project.dependencies]") {
+        // Handle [tool.poetry.dependencies] section (key-value format)
+        if line.contains("[tool.poetry.dependencies]") {
             in_dependencies = true;
+            in_project_deps = false;
+            in_deps_list = false;
             continue;
         }
-        if line.starts_with('[') {
+
+        // Handle [project] section
+        if line.contains("[project]") {
+            in_project_deps = true;
             in_dependencies = false;
+            in_deps_list = false;
+            continue;
         }
 
-        if in_dependencies && line.contains('=') {
+        // Handle dependencies list in [project] section
+        if in_project_deps && line.trim() == "dependencies = [" {
+            in_deps_list = true;
+            continue;
+        }
+
+        // End of section
+        if line.starts_with('[') {
+            in_dependencies = false;
+            in_project_deps = false;
+            in_deps_list = false;
+        }
+
+        // End of dependencies list
+        if in_deps_list && line.contains(']') {
+            in_deps_list = false;
+        }
+
+        // Parse dependencies in [project] dependencies list format
+        if in_deps_list && line.trim().starts_with('"') {
+            let dep_spec = line.trim().trim_matches('"').trim_matches(',');
+            let (name, version_spec) = parse_dependency_spec(dep_spec);
+            let vulnerabilities = check_package_vulnerabilities(&name, &version_spec);
+
+            install_requires.insert(
+                name,
+                DependencyDetails {
+                    version_spec,
+                    is_pinned: false,
+                    is_url: false,
+                    is_git: false,
+                    vulnerabilities,
+                    deprecated: false,
+                },
+            );
+        }
+        // Parse dependencies in [tool.poetry.dependencies] format
+        else if in_dependencies && line.contains('=') {
             if let Some((name, version)) = line.split_once('=') {
                 let name = name.trim().trim_matches('"');
+                if name == "python" {
+                    continue; // Skip python version requirement
+                }
                 let version_spec = version.trim().trim_matches('"').trim_matches('^');
                 let vulnerabilities = check_package_vulnerabilities(name, version_spec);
 
@@ -1076,7 +1142,7 @@ fn analyze_setup_scripts(
 ) -> Result<SetupAnalysis> {
     let mut setup_type = SetupType::PyProjectToml;
     let mut setup_commands = vec![];
-    let custom_commands = HashMap::new();
+    let mut custom_commands = HashMap::new();
     let mut dangerous_operations = vec![];
     let mut external_downloads = vec![];
 
@@ -1091,6 +1157,12 @@ fn analyze_setup_scripts(
                 is_suspicious: true,
                 risk_reason: Some("Custom setup commands can execute arbitrary code".to_string()),
             });
+
+            // Also add to custom_commands map
+            custom_commands.insert(
+                "cmdclass".to_string(),
+                "Custom commands detected".to_string(),
+            );
         }
 
         // Check for imports that indicate dangerous operations
@@ -1154,7 +1226,23 @@ fn perform_security_analysis(
     let file_system_access = detect_filesystem_patterns(files, setup_analysis);
     let process_execution = detect_process_execution(files, setup_analysis);
 
-    let obfuscation_detected = detect_obfuscation(files);
+    // Check for obfuscation in files and setup script
+    let mut obfuscation_detected = detect_obfuscation(files);
+    if !obfuscation_detected && matches!(setup_analysis.setup_type, SetupType::SetupPy) {
+        // Also check setup.py content if we have it
+        for op in &setup_analysis.dangerous_operations {
+            if op.operation == "base64"
+                || op.operation == "exec"
+                || op.operation == "eval"
+                || op.operation == "__import__"
+                || op.operation == "compile"
+            {
+                obfuscation_detected = true;
+                break;
+            }
+        }
+    }
+
     let crypto_mining_indicators = detect_crypto_mining(files, &suspicious_imports);
     let data_exfiltration_risk = detect_data_exfiltration(&network_access_patterns);
     let backdoor_indicators = detect_backdoor_indicators(files, &process_execution);
@@ -1256,6 +1344,40 @@ fn detect_process_execution(
 fn detect_obfuscation(files: &[PythonFileAnalysis]) -> bool {
     // Check if any file has suspicious content suggesting obfuscation
     files.iter().any(|f| f.obfuscation_score > 0.5)
+}
+
+/// Detect obfuscation in setup content
+fn detect_obfuscation_in_content(content: &str) -> bool {
+    // Check for various obfuscation patterns
+    let obfuscation_patterns = [
+        r"base64\.b64decode",
+        r"codecs\.decode.*hex",
+        r"exec\s*\(",
+        r"eval\s*\(",
+        r"compile\s*\(",
+        r"__import__",
+        r"chr\s*\(\s*\d+\s*\)",
+        r"\\x[0-9a-fA-F]{2}",
+        r"lambda\s*:.*\(\s*\)",
+    ];
+
+    for pattern in &obfuscation_patterns {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            if re.is_match(content) {
+                return true;
+            }
+        }
+    }
+
+    // Check for string concatenation obfuscation (many single char strings)
+    if let Ok(re) = regex::Regex::new(r"'[^']'\s*\+\s*'[^']'") {
+        let matches = re.find_iter(content).count();
+        if matches > 3 {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Detect crypto mining
@@ -1591,18 +1713,42 @@ fn calculate_quality_metrics(files: &[PythonFileAnalysis]) -> Result<PackageQual
 
 /// Detect Python file type
 fn detect_python_file_type(path: &str) -> String {
-    if path.ends_with(".py") {
-        "Python source".to_string()
-    } else if path.ends_with(".pyi") {
+    let path_lower = path.to_lowercase();
+
+    if path_lower.ends_with("setup.py") {
+        "Setup Script".to_string()
+    } else if path_lower.ends_with("__init__.py") {
+        "Init File".to_string()
+    } else if path_lower.contains("test_") && path_lower.ends_with(".py") {
+        "Test File".to_string()
+    } else if path_lower.ends_with(".py") {
+        if path_lower.contains("module") {
+            "Python Module".to_string()
+        } else {
+            "Python source".to_string()
+        }
+    } else if path_lower.ends_with(".pyi") {
         "Python stub".to_string()
-    } else if path.ends_with(".pyc") {
-        "Python bytecode".to_string()
-    } else if path.ends_with(".pyo") {
+    } else if path_lower.ends_with(".pyc") {
+        "Compiled Python".to_string()
+    } else if path_lower.ends_with(".pyo") {
         "Python optimized bytecode".to_string()
-    } else if path.ends_with(".pyd") {
+    } else if path_lower.ends_with(".pyd") {
         "Python extension".to_string()
-    } else if path.ends_with(".so") {
+    } else if path_lower.ends_with(".so") {
         "Shared library".to_string()
+    } else if path_lower.ends_with("requirements.txt") || path_lower.ends_with("requirements.in") {
+        "Requirements".to_string()
+    } else if path_lower.ends_with(".cfg")
+        || path_lower.ends_with(".ini")
+        || path_lower.ends_with(".toml")
+    {
+        "Config".to_string()
+    } else if path_lower.ends_with(".md")
+        || path_lower.ends_with(".rst")
+        || path_lower.ends_with(".txt")
+    {
+        "Documentation".to_string()
     } else {
         "Unknown".to_string()
     }

@@ -1,0 +1,5 @@
+{
+  "file_path": "/home/vtriple/threatflux/file-scanner/test_npm_packages/package",
+  "all": true
+}
+EOF < /dev/null

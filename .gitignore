@@ -148,3 +148,4 @@ scan_output/
 
 # Package lock file (use Cargo.lock instead)
 package-lock.json
+test_results.log

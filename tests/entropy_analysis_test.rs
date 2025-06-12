@@ -11,6 +11,7 @@ fn create_test_file(content: &[u8]) -> anyhow::Result<(TempDir, std::path::PathB
     Ok((temp_dir, file_path))
 }
 
+#[allow(dead_code)]
 fn create_minimal_elf() -> Vec<u8> {
     let mut elf = vec![0u8; 64]; // ELF header size
 

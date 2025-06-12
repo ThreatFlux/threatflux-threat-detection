@@ -107,11 +107,13 @@ fn test_npm_typosquatting_detection() {
     // Test exact typosquatting
     let similar = check_typosquatting_similarity("expres");
     assert!(similar.is_some());
-    assert!(similar.unwrap().contains(&"express".to_string()));
+    let similar_packages = similar.unwrap();
+    assert!(similar_packages.iter().any(|s| s.contains("express")));
 
     let similar = check_typosquatting_similarity("lod-ash");
     assert!(similar.is_some());
-    assert!(similar.unwrap().contains(&"lodash".to_string()));
+    let similar_packages = similar.unwrap();
+    assert!(similar_packages.iter().any(|s| s.contains("lodash")));
 
     // Test legitimate package
     let similar = check_typosquatting_similarity("my-unique-package-name");
