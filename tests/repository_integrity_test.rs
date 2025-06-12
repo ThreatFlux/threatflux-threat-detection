@@ -10,16 +10,14 @@ use file_scanner::repository_integrity::{
 
 #[test]
 fn test_repository_integrity_checker_creation() {
-    let checker = RepositoryIntegrityChecker::new();
+    let _checker = RepositoryIntegrityChecker::new();
     // Test that checker can be created without panicking
-    assert!(true); // Placeholder assertion since internal state is private
 }
 
 #[test]
 fn test_repository_integrity_checker_default() {
-    let checker = RepositoryIntegrityChecker::default();
+    let _checker = RepositoryIntegrityChecker::default();
     // Test that default creation works
-    assert!(true); // Placeholder assertion
 }
 
 #[tokio::test]
@@ -54,7 +52,7 @@ async fn test_has_integrity_issues_function() {
         has_integrity_issues(package_path, "test-package", "1.0.0", RegistryType::Npm).await;
 
     // Function should not panic and return a boolean
-    assert!(has_issues == true || has_issues == false);
+    let _ = has_issues; // Check it's a valid boolean
 }
 
 #[tokio::test]
@@ -570,13 +568,13 @@ async fn test_maintainer_verification_structure() {
     match result {
         Ok(analysis) => {
             // Maintainer verification should have proper structure
-            let mv = &analysis.maintainer_verification;
+            let _mv = &analysis.maintainer_verification;
 
             // Lists should be initialized (empty is fine)
-            assert!(mv.package_maintainers.len() >= 0);
-            assert!(mv.repository_contributors.len() >= 0);
-            assert!(mv.maintainer_overlap.len() >= 0);
-            assert!(mv.suspicious_activity.len() >= 0);
+            // Vec length is always >= 0
+            // Vec length is always >= 0
+            // Vec length is always >= 0
+            // Vec length is always >= 0
         }
         Err(_) => {
             // Analysis might fail, which is acceptable
@@ -596,12 +594,12 @@ async fn test_timeline_analysis_structure() {
     match result {
         Ok(analysis) => {
             // Timeline analysis should have proper structure
-            let ta = &analysis.timeline_analysis;
+            let _ta = &analysis.timeline_analysis;
 
             // Lists should be initialized (empty is fine)
-            assert!(ta.version_releases.len() >= 0);
-            assert!(ta.timeline_inconsistencies.len() >= 0);
-            assert!(ta.suspicious_patterns.len() >= 0);
+            // Vec length is always >= 0
+            // Vec length is always >= 0
+            // Vec length is always >= 0
         }
         Err(_) => {
             // Analysis might fail, which is acceptable
@@ -624,15 +622,15 @@ async fn test_source_comparison_structure() {
             let sc = &analysis.source_comparison;
 
             // Counts should be non-negative
-            assert!(sc.files_compared >= 0);
-            assert!(sc.files_matched >= 0);
-            assert!(sc.files_different >= 0);
+            // files_compared is usize, always >= 0
+            // files_matched is usize, always >= 0
+            // files_different is usize, always >= 0
             assert!(sc.similarity_score >= 0.0 && sc.similarity_score <= 1.0);
 
             // Lists should be initialized
-            assert!(sc.missing_in_package.len() >= 0);
-            assert!(sc.extra_in_package.len() >= 0);
-            assert!(sc.content_differences.len() >= 0);
+            // Vec length is usize, always >= 0
+            // Vec length is usize, always >= 0
+            // Vec length is usize, always >= 0
         }
         Err(_) => {
             // Analysis might fail, which is acceptable

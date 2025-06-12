@@ -8,11 +8,13 @@ use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 
 // Mock for testing stdio transport logic
+#[allow(dead_code)]
 struct MockStdio {
     input: Arc<Mutex<Cursor<Vec<u8>>>>,
     output: Arc<Mutex<Vec<u8>>>,
 }
 
+#[allow(dead_code)]
 impl MockStdio {
     fn new(input_data: &str) -> Self {
         Self {

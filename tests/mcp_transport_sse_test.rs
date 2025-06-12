@@ -164,7 +164,7 @@ async fn test_sse_event_stream_simulation() {
 #[tokio::test]
 async fn test_sse_json_rpc_integration() {
     // Test SSE with JSON-RPC integration
-    let transport = McpTransportServer::new();
+    let _transport = McpTransportServer::new();
 
     // Create an SSE event that contains a JSON-RPC response
     let jsonrpc_response = json!({
@@ -321,7 +321,7 @@ async fn test_sse_client_disconnect_simulation() {
     let mut clients = HashMap::<String, mpsc::UnboundedSender<SseEvent>>::new();
 
     let (tx1, rx1) = mpsc::unbounded_channel::<SseEvent>();
-    let (tx2, rx2) = mpsc::unbounded_channel::<SseEvent>();
+    let (tx2, _rx2) = mpsc::unbounded_channel::<SseEvent>();
 
     clients.insert("client-1".to_string(), tx1);
     clients.insert("client-2".to_string(), tx2);

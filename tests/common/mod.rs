@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use file_scanner::metadata::FileMetadata;
 
 /// Common test utilities
+#[allow(dead_code)]
 pub mod utils {
     use super::*;
 

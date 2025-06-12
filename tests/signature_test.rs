@@ -349,7 +349,7 @@ fn test_signature_verification_edge_cases() -> Result<()> {
 
     // Test with a file containing only null bytes
     let null_file = temp_dir.path().join("null.bin");
-    fs::write(&null_file, &[0x00; 100])?;
+    fs::write(&null_file, [0x00; 100])?;
     let sig_info = verify_signature(&null_file)?;
     assert!(!sig_info.is_signed);
 

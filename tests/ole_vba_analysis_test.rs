@@ -1719,8 +1719,8 @@ fn test_corrupted_ole_file_handling() {
     // Valid OLE2 signature
     corrupted_header[0..8].copy_from_slice(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1");
     // But invalid/corrupted structure after that
-    for i in 8..512 {
-        corrupted_header[i] = 0xFF; // Fill with invalid data
+    for byte in corrupted_header.iter_mut().skip(8).take(512 - 8) {
+        *byte = 0xFF; // Fill with invalid data
     }
 
     temp_file.write_all(&corrupted_header).unwrap();

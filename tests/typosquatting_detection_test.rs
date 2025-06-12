@@ -5,16 +5,14 @@ use file_scanner::typosquatting_detection::{
 
 #[test]
 fn test_typosquatting_detector_creation() {
-    let detector = TyposquattingDetector::new();
+    let _detector = TyposquattingDetector::new();
     // Test that detector can be created without panicking
-    assert!(true); // Placeholder assertion since internal state is private
 }
 
 #[test]
 fn test_typosquatting_detector_default() {
-    let detector = TyposquattingDetector::default();
+    let _detector = TyposquattingDetector::default();
     // Test that default creation works
-    assert!(true); // Placeholder assertion
 }
 
 #[test]
@@ -43,7 +41,7 @@ fn test_is_potential_typosquatting_function() {
     // Test with a suspicious package name
     let is_typosquatting = is_potential_typosquatting("reakt", "npm");
     // Function should not panic and return a boolean
-    assert!(is_typosquatting == true || is_typosquatting == false);
+    let _ = is_typosquatting; // Check it's a valid boolean
 }
 
 #[test]
@@ -63,7 +61,7 @@ fn test_calculate_package_similarity_function() {
 
     // Test with empty strings
     let similarity = calculate_package_similarity("", "");
-    assert!(similarity >= 0.0 && similarity <= 1.0);
+    assert!((0.0..=1.0).contains(&similarity));
 }
 
 #[test]
@@ -315,7 +313,7 @@ fn test_distance_metrics() {
         Ok(analysis) => {
             for similar_package in &analysis.similar_packages {
                 // Verify distance metrics are calculated
-                assert!(similar_package.distance_metrics.levenshtein_distance >= 0);
+                // levenshtein_distance is usize, always >= 0
                 assert!(similar_package.distance_metrics.jaro_winkler_similarity >= 0.0);
                 assert!(similar_package.distance_metrics.jaro_winkler_similarity <= 1.0);
                 assert!(
@@ -330,7 +328,7 @@ fn test_distance_metrics() {
                         .damerau_levenshtein_similarity
                         <= 1.0
                 );
-                assert!(similar_package.distance_metrics.edit_distance >= 0);
+                // edit_distance is usize, always >= 0
                 assert!(similar_package.distance_metrics.normalized_similarity >= 0.0);
                 assert!(similar_package.distance_metrics.normalized_similarity <= 1.0);
             }

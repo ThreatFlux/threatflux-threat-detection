@@ -1353,7 +1353,7 @@ fn test_symbol_count_calculations() {
         },
     ];
 
-    let global_variables = vec![
+    let global_variables = [
         VariableInfo {
             name: "global1".to_string(),
             address: 0x4000,
@@ -1370,7 +1370,7 @@ fn test_symbol_count_calculations() {
         },
     ];
 
-    let cross_references = vec![CrossReference {
+    let cross_references = [CrossReference {
         from_address: 0x1000,
         to_address: 0x2000,
         reference_type: ReferenceType::Call,
@@ -1499,7 +1499,7 @@ fn test_function_size_analysis() {
         let is_imported = name.contains("imported");
         if is_imported {
             // Imported functions can have size 0
-            assert!(size == 0 || size > 0, "Imported function size validation");
+            assert!(size >= 0, "Imported function size validation");
         } else {
             // Local functions should typically have size > 0
             // But we don't enforce this as some symbols may not have size info
@@ -2059,8 +2059,8 @@ fn test_dynamic_linking_analysis() {
         }
     }
 
-    assert!(libraries.contains(&"libc.so.6".to_string()));
-    assert!(libraries.contains(&"libpthread.so.0".to_string()));
+    assert!(libraries.contains("libc.so.6"));
+    assert!(libraries.contains("libpthread.so.0"));
     assert_eq!(libraries.len(), 2);
 
     // Test PLT/GOT address patterns
