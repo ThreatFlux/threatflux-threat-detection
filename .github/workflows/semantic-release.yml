@@ -31,7 +31,7 @@ jobs:
           toolchain: 1.87.0
 
       - name: Install cargo-release
-        uses: taiki-e/install-action@7bf3bbf3104a2e9a77906ccbdf6d4aa6a87b0210 # v2.44.13
+        uses: taiki-e/install-action@65d14c1beefa0eed0e0285f1c6ee9d7c037bc1cf # v2.52.7
         with:
           tool: cargo-release
 

@@ -108,8 +108,8 @@ impl TestFixture {
     /// Create a file with high entropy (compressed/encrypted appearance)
     pub fn create_high_entropy_file(&mut self, name: &str, size: usize) -> anyhow::Result<PathBuf> {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let content: Vec<u8> = (0..size).map(|_| rng.gen()).collect();
+        let mut rng = rand::rng();
+        let content: Vec<u8> = (0..size).map(|_| rng.random()).collect();
         self.create_binary_file(name, &content)
     }
 

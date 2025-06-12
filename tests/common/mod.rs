@@ -100,8 +100,8 @@ pub mod generators {
 
     /// Generate random bytes of specified length
     pub fn random_bytes(len: usize) -> Vec<u8> {
-        let mut rng = rand::thread_rng();
-        (0..len).map(|_| rng.gen()).collect()
+        let mut rng = rand::rng();
+        (0..len).map(|_| rng.random()).collect()
     }
 
     /// Generate a string with specific pattern

@@ -39,7 +39,7 @@ tokio = { version = "1.40", features = ["full"] }
 ring = "0.17"
 
 # MCP SDK
-rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main", features = ["transport-io"] }
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "db03f63", features = ["transport-io"] }
 schemars = "0.9"
 
 # HTTP server for MCP
@@ -59,15 +59,15 @@ utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 addr2line = "0.24"
 memmap2 = "0.9"
 capstone = "0.13"
-petgraph = "0.8"
+petgraph = "0.8.2"
 
 # Threat detection
 yara-x = { git = "https://github.com/wroersma/yara-x", branch = "main" }
 walkdir = "2.4"
 
 # OLE and VBA parsing
-cfb = "0.9"  # Compound File Binary format (OLE storage)
-zip = "2.1"  # For OOXML format support and Java archives
+cfb = "0.10"  # Compound File Binary format (OLE storage)
+zip = "3.0"  # For OOXML format support and Java archives
 
 # NPM package analysis
 flate2 = "1.0"  # For gzip decompression

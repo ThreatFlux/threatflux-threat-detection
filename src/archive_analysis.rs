@@ -241,8 +241,8 @@ fn extract_zip_metadata<R: Read + Seek>(archive: &mut ZipArchive<R>) -> Result<A
     })
 }
 
-fn analyze_zip_entry(
-    entry: &mut zip::read::ZipFile,
+fn analyze_zip_entry<R: std::io::Read>(
+    entry: &mut zip::read::ZipFile<'_, R>,
     indicators: &mut SuspiciousArchiveIndicators,
 ) -> Result<ArchiveEntry> {
     let path = entry.name().to_string();
