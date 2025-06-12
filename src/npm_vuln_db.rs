@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strsim::levenshtein;
 
 use crate::dependency_analysis::{KnownVulnerability, VulnerabilitySeverity};
 
@@ -317,29 +318,35 @@ fn is_version_affected(version: &str, ranges: &[VersionRange]) -> bool {
     false
 }
 
-/// Get a list of known malicious package patterns
+/// Comprehensive malicious patterns database with real-world threat intelligence
 pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
     vec![
+        // Supply Chain Attack Patterns (High Priority)
         MaliciousPackagePattern {
             pattern_name: "Install script with external download".to_string(),
-            description: "Package downloads and executes external code during installation"
-                .to_string(),
+            description: "Package downloads and executes external code during installation".to_string(),
             indicators: vec![
-                "curl|wget.*http".to_string(),
-                "exec.*http".to_string(),
-                "eval.*fetch".to_string(),
+                "curl.*http.*|.*exec".to_string(),
+                "wget.*http.*exec".to_string(),
+                "fetch.*http.*eval".to_string(),
+                "postinstall.*download".to_string(),
+                "preinstall.*curl".to_string(),
+                "install.*remote.*script".to_string(),
             ],
             severity: "Critical".to_string(),
         },
         MaliciousPackagePattern {
             pattern_name: "Obfuscated code execution".to_string(),
-            description: "Package contains heavily obfuscated code that executes dynamically"
-                .to_string(),
+            description: "Package contains heavily obfuscated code that executes dynamically".to_string(),
             indicators: vec![
                 r"eval\s*\(".to_string(),
                 r"Function\s*\(".to_string(),
                 r"atob\s*\(".to_string(),
                 r#"Buffer\.from\([^,]+,\s*['"]base64"#.to_string(),
+                "\\\\x[0-9a-fA-F]+".to_string(),
+                "String\\.fromCharCode".to_string(),
+                "unescape\\(".to_string(),
+                "setTimeout.*eval".to_string(),
             ],
             severity: "High".to_string(),
         },
@@ -350,22 +357,54 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
                 "process\\.env.*http".to_string(),
                 "process\\.env.*fetch".to_string(),
                 "process\\.env.*request".to_string(),
+                "Object\\.keys\\(process\\.env\\)".to_string(),
+                "JSON\\.stringify\\(process\\.env\\)".to_string(),
+                "process\\.env\\..*TOKEN".to_string(),
+                "process\\.env\\..*SECRET".to_string(),
+                "process\\.env\\..*API_KEY".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+
+        // Cryptocurrency & Financial Attacks
+        MaliciousPackagePattern {
+            pattern_name: "Cryptocurrency theft".to_string(),
+            description: "Package contains patterns associated with cryptocurrency wallet theft".to_string(),
+            indicators: vec![
+                "wallet\\.dat".to_string(),
+                "bitcoin.*core".to_string(),
+                "ethereum.*keystore".to_string(),
+                "private.*key".to_string(),
+                "seed.*phrase".to_string(),
+                "mnemonic.*phrase".to_string(),
+                "electrum".to_string(),
+                "metamask".to_string(),
+                "exodus".to_string(),
+                "coinbase".to_string(),
+                "[13][a-km-zA-HJ-NP-Z1-9]{25,34}".to_string(), // Bitcoin address
+                "0x[a-fA-F0-9]{40}".to_string(), // Ethereum address
             ],
             severity: "Critical".to_string(),
         },
         MaliciousPackagePattern {
-            pattern_name: "Cryptocurrency theft".to_string(),
-            description: "Package contains patterns associated with cryptocurrency wallet theft"
-                .to_string(),
+            pattern_name: "Cryptocurrency mining".to_string(),
+            description: "Package contains cryptocurrency mining code".to_string(),
             indicators: vec![
-                "wallet".to_string(),
-                "bitcoin".to_string(),
-                "ethereum".to_string(),
-                "private.*key".to_string(),
-                "seed.*phrase".to_string(),
+                "stratum\\+tcp".to_string(),
+                "cryptonight".to_string(),
+                "coinhive".to_string(),
+                "crypto-loot".to_string(),
+                "mining.*pool".to_string(),
+                "hashrate".to_string(),
+                "xmrig".to_string(),
+                "cpuminer".to_string(),
+                "monero.*miner".to_string(),
+                "WebAssembly.*mining".to_string(),
             ],
-            severity: "Critical".to_string(),
+            severity: "High".to_string(),
         },
+
+        // Network & Communication Attacks
         MaliciousPackagePattern {
             pattern_name: "Reverse shell".to_string(),
             description: "Package attempts to establish reverse shell connection".to_string(),
@@ -374,6 +413,10 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
                 "bash.*-i".to_string(),
                 "/dev/tcp".to_string(),
                 "socket.*connect".to_string(),
+                "telnet.*bash".to_string(),
+                "socat.*exec".to_string(),
+                "powershell.*-c".to_string(),
+                "cmd\\.exe.*reverse".to_string(),
             ],
             severity: "Critical".to_string(),
         },
@@ -385,8 +428,254 @@ pub fn get_malicious_patterns() -> Vec<MaliciousPackagePattern> {
                 "pastebin\\.com".to_string(),
                 "ngrok\\.io".to_string(),
                 "webhook".to_string(),
+                "discord\\.com/api/webhooks".to_string(),
+                "telegram\\.org/bot".to_string(),
+                "bit\\.ly".to_string(),
+                "tinyurl\\.com".to_string(),
+                "raw\\.githubusercontent\\.com".to_string(),
+                "transfer\\.sh".to_string(),
+                "file\\.io".to_string(),
             ],
             severity: "High".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Command and control".to_string(),
+            description: "Package establishes command and control communication".to_string(),
+            indicators: vec![
+                "c2\\..*\\.com".to_string(),
+                "cmd\\..*\\.org".to_string(),
+                "setInterval.*http".to_string(),
+                "WebSocket.*onmessage.*eval".to_string(),
+                "eval.*response".to_string(),
+                "exec.*response".to_string(),
+                "periodic.*beacon".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+
+        // Data Theft & Exfiltration
+        MaliciousPackagePattern {
+            pattern_name: "File system enumeration".to_string(),
+            description: "Package attempts to enumerate sensitive files".to_string(),
+            indicators: vec![
+                "\\.ssh/id_rsa".to_string(),
+                "\\.aws/credentials".to_string(),
+                "\\.npmrc".to_string(),
+                "\\.env".to_string(),
+                "config\\.json".to_string(),
+                "/etc/passwd".to_string(),
+                "/etc/shadow".to_string(),
+                "readdir.*recursive".to_string(),
+                "glob\\(.*secrets".to_string(),
+            ],
+            severity: "High".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Browser data theft".to_string(),
+            description: "Package attempts to steal browser data".to_string(),
+            indicators: vec![
+                "Local Storage".to_string(),
+                "Session Storage".to_string(),
+                "document\\.cookie".to_string(),
+                "Chrome.*passwords".to_string(),
+                "Firefox.*passwords".to_string(),
+                "History.*file".to_string(),
+                "Cookies.*database".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+
+        // System Manipulation
+        MaliciousPackagePattern {
+            pattern_name: "Registry manipulation".to_string(),
+            description: "Package manipulates Windows registry".to_string(),
+            indicators: vec![
+                "HKEY_CURRENT_USER".to_string(),
+                "HKEY_LOCAL_MACHINE".to_string(),
+                "reg\\.exe.*add".to_string(),
+                "regedit.*import".to_string(),
+                "SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run".to_string(),
+                "winreg.*OpenKey".to_string(),
+            ],
+            severity: "High".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Persistence mechanisms".to_string(),
+            description: "Package establishes persistence on the system".to_string(),
+            indicators: vec![
+                "crontab.*-l".to_string(),
+                "startup.*folder".to_string(),
+                "autostart".to_string(),
+                "/etc/rc\\.local".to_string(),
+                "systemd.*service".to_string(),
+                "launchd.*plist".to_string(),
+                "pm2.*startup".to_string(),
+                "Windows.*Task.*Scheduler".to_string(),
+            ],
+            severity: "High".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Process injection".to_string(),
+            description: "Package attempts process injection or manipulation".to_string(),
+            indicators: vec![
+                "ptrace".to_string(),
+                "CreateRemoteThread".to_string(),
+                "VirtualAllocEx".to_string(),
+                "WriteProcessMemory".to_string(),
+                "SetWindowsHookEx".to_string(),
+                "DLL.*injection".to_string(),
+                "code.*injection".to_string(),
+                "process.*hollowing".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+
+        // Anti-Analysis & Evasion
+        MaliciousPackagePattern {
+            pattern_name: "Anti-debugging".to_string(),
+            description: "Package contains anti-debugging techniques".to_string(),
+            indicators: vec![
+                "debugger".to_string(),
+                "IsDebuggerPresent".to_string(),
+                "CheckRemoteDebuggerPresent".to_string(),
+                "timing.*attack".to_string(),
+                "performance\\.now.*diff".to_string(),
+                "Date\\.now.*diff".to_string(),
+                "setInterval.*debugger".to_string(),
+            ],
+            severity: "Medium".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Sandbox evasion".to_string(),
+            description: "Package attempts to evade sandbox analysis".to_string(),
+            indicators: vec![
+                "VirtualBox".to_string(),
+                "VMware".to_string(),
+                "qemu".to_string(),
+                "sandboxie".to_string(),
+                "sleep.*random".to_string(),
+                "setTimeout.*random".to_string(),
+                "user.*interaction".to_string(),
+                "mouse.*click".to_string(),
+            ],
+            severity: "Medium".to_string(),
+        },
+
+        // Malware Delivery
+        MaliciousPackagePattern {
+            pattern_name: "Malware download".to_string(),
+            description: "Package downloads and executes malware".to_string(),
+            indicators: vec![
+                "\\.exe.*download".to_string(),
+                "\\.bat.*download".to_string(),
+                "\\.ps1.*download".to_string(),
+                "\\.sh.*download".to_string(),
+                "wget.*http.*exec".to_string(),
+                "curl.*http.*exec".to_string(),
+                "invoke.*webrequest".to_string(),
+                "downloadstring.*invoke".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Fileless malware".to_string(),
+            description: "Package uses fileless malware techniques".to_string(),
+            indicators: vec![
+                "powershell.*-enc".to_string(),
+                "powershell.*-encodedcommand".to_string(),
+                "invoke.*expression".to_string(),
+                "bypass.*executionpolicy".to_string(),
+                "hidden.*windowstyle".to_string(),
+                "memory.*only.*execution".to_string(),
+                "reflective.*loading".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+
+        // Data Destruction
+        MaliciousPackagePattern {
+            pattern_name: "Data destruction".to_string(),
+            description: "Package may destroy or corrupt data".to_string(),
+            indicators: vec![
+                "rm.*-rf.*/$".to_string(),
+                "del.*\\*.*force".to_string(),
+                "format.*c:".to_string(),
+                "shred.*-vfz".to_string(),
+                "dd.*if=/dev/zero".to_string(),
+                "crypto.*encrypt.*ransom".to_string(),
+                "ransomware".to_string(),
+                "wipe.*disk".to_string(),
+            ],
+            severity: "Critical".to_string(),
+        },
+
+        // Information Gathering
+        MaliciousPackagePattern {
+            pattern_name: "System reconnaissance".to_string(),
+            description: "Package gathers system information".to_string(),
+            indicators: vec![
+                "uname.*-a".to_string(),
+                "systeminfo".to_string(),
+                "whoami".to_string(),
+                "ipconfig".to_string(),
+                "ifconfig".to_string(),
+                "netstat.*-an".to_string(),
+                "ps.*aux".to_string(),
+                "tasklist".to_string(),
+                "os\\.platform".to_string(),
+                "process\\.arch".to_string(),
+            ],
+            severity: "Medium".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Network reconnaissance".to_string(),
+            description: "Package performs network reconnaissance".to_string(),
+            indicators: vec![
+                "nmap".to_string(),
+                "ping.*-c.*subnet".to_string(),
+                "port.*scan".to_string(),
+                "network.*discovery".to_string(),
+                "arp.*-a".to_string(),
+                "nslookup.*internal".to_string(),
+                "dig.*@.*internal".to_string(),
+                "traceroute".to_string(),
+            ],
+            severity: "Medium".to_string(),
+        },
+
+        // Supply Chain Specific
+        MaliciousPackagePattern {
+            pattern_name: "Dependency confusion".to_string(),
+            description: "Package may be part of dependency confusion attack".to_string(),
+            indicators: vec![
+                "internal-".to_string(),
+                "company-".to_string(),
+                "corp-".to_string(),
+                "private-".to_string(),
+                "@internal/".to_string(),
+                "@company/".to_string(),
+                "test-.*-internal".to_string(),
+                "@[a-zA-Z]+/(internal|private|corp)".to_string(),
+            ],
+            severity: "High".to_string(),
+        },
+        MaliciousPackagePattern {
+            pattern_name: "Typosquatting indicators".to_string(),
+            description: "Package shows signs of typosquatting attack".to_string(),
+            indicators: vec![
+                ".*-official$".to_string(),
+                ".*-secure$".to_string(),
+                ".*-fixed$".to_string(),
+                ".*-updated$".to_string(),
+                ".*-new$".to_string(),
+                ".*-latest$".to_string(),
+                ".*2$".to_string(),
+                ".*js$".to_string(),
+                "real-.*".to_string(),
+                "original-.*".to_string(),
+                "better-.*".to_string(),
+            ],
+            severity: "Medium".to_string(),
         },
     ]
 }
@@ -441,11 +730,110 @@ pub fn get_known_malicious_packages() -> Vec<&'static str> {
         "sqliter",
         "sqlserver",
         "tkinter",
-        // Typosquatting attempts
-        "babelcli",
+        // Recent supply chain attacks (2021-2024)
+        "node-ipc@9.2.2",
+        "node-ipc@10.1.1",
+        "node-ipc@10.1.2",
+        "colors@1.4.1",
+        "colors@1.4.2",
+        "faker@6.6.6",
+        "ua-parser-js@0.7.29",
+        "ua-parser-js@0.8.0",
+        "ua-parser-js@1.0.0",
+        "coa@2.0.3",
+        "coa@2.0.4",
+        "rc@1.2.9",
+        "rc@1.3.0",
+        // Cryptocurrency miners
+        "electron-native-notify",
+        "getcookies",
+        "http-server-upload",
+        "nodetest199",
+        "nodesass",
+        "discordi.js",
+        "discord-selfbot",
+        "bitcoin-miner",
+        "crypto-miner-script",
+        "mine-bitcoin",
+        "monero-miner",
+        // Data exfiltration packages
+        "discord-token-grabber",
+        "browser-password-stealer",
+        "keylogger-node",
+        "steal-password",
+        "grab-discord-tokens",
+        "password-harvester",
+        // Backdoor packages
+        "remote-access-tool",
+        "reverse-shell-js",
+        "backdoor-service",
+        "shell-access",
+        "cmd-executor",
+        "system-backdoor",
+        // Package confusion attacks
+        "internal-tool",
+        "company-utils",
+        "corp-logger",
+        "private-config",
+        "internal-auth",
+        "dev-tools-internal",
+        // Typosquatting attempts (popular packages)
+        "reakt",           // react
+        "reactt",          // react
+        "react-js",        // react
+        "reactjs",         // react
+        "babelcli",        // babel-cli
         "babel-preset-es2015",
         "babel-preset-es2016",
         "babel-preset-es2017",
+        "expresss",        // express
+        "expres",          // express
+        "express-js",      // express
+        "lodaash",         // lodash
+        "lod4sh",          // lodash
+        "lo-dash",         // lodash
+        "lodash-js",       // lodash
+        "axiooss",         // axios
+        "axios-js",        // axios
+        "momentt",         // moment
+        "moment-js",       // moment
+        "webpackk",        // webpack
+        "web-pack",        // webpack
+        "eslintrc",        // eslint
+        "es-lint",         // eslint
+        "typescriptt",     // typescript
+        "type-script",     // typescript
+        "vuejs",           // vue
+        "vue-js",          // vue
+        "vue2",            // vue
+        "angularr",        // angular
+        "angular-js",      // angular
+        "jquerry",         // jquery
+        "j-query",         // jquery
+        "jquery-js",       // jquery
+        "underscorejs",    // underscore
+        "underscore-js",   // underscore
+        "backbonejs",      // backbone
+        "backbone-js",     // backbone
+        "requirejs",       // require
+        "require-js",      // require
+        "gruntjs",         // grunt
+        "grunt-js",        // grunt
+        "gulpjs",          // gulp
+        "gulp-js",         // gulp
+        "bowerr",          // bower
+        "bower-js",        // bower
+        "yarnpkg",         // yarn
+        "yarn-js",         // yarn
+        "npm-js",          // npm
+        "npmjs",           // npm
+        "nodemon-js",      // nodemon
+        "node-mon",        // nodemon
+        "expresss-generator", // express-generator
+        "create-react-app-js", // create-react-app
+        "prettier-js",     // prettier
+        "eslint-js",       // eslint
+        "webpack-cli-js",  // webpack-cli
         "babel-preset-react",
         "babel-preset-stage-0",
         "font-awesome",
@@ -456,70 +844,64 @@ pub fn get_known_malicious_packages() -> Vec<&'static str> {
     ]
 }
 
-/// Check if a package name is suspiciously similar to a popular package
+/// Enhanced typosquatting detection using Levenshtein distance and pattern analysis
 pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>> {
-    let popular_packages = vec![
-        "react",
-        "express",
-        "lodash",
-        "axios",
-        "moment",
-        "webpack",
-        "babel",
-        "typescript",
-        "jest",
-        "eslint",
-        "prettier",
-        "redux",
-        "next",
-        "vue",
-        "angular",
-        "jquery",
-        "bootstrap",
-        "material-ui",
-        "styled-components",
-        "react-router",
-        "react-redux",
-        "react-dom",
-        "prop-types",
-        "classnames",
-        "commander",
-        "chalk",
-        "debug",
-        "request",
-        "async",
-        "underscore",
-        "body-parser",
-        "cookie-parser",
-        "cors",
-        "dotenv",
-        "jsonwebtoken",
-        "mongoose",
-        "mysql",
-        "passport",
-        "socket.io",
-        "validator",
-    ];
-
+    let popular_packages = get_top_npm_packages();
     let mut similar_packages = vec![];
 
     for popular in &popular_packages {
-        let distance = levenshtein_distance(package_name, popular);
+        let distance = levenshtein(package_name, popular);
+        
+        // More sophisticated similarity checking
         if distance > 0 && distance <= 2 {
-            similar_packages.push(popular.to_string());
+            similar_packages.push(format!("{} (distance: {})", popular, distance));
         }
 
-        // Check for common typosquatting patterns
+        // Character substitution patterns
+        if check_character_substitution(package_name, popular) {
+            similar_packages.push(format!("{} (character substitution)", popular));
+        }
+
+        // Keyboard proximity typos
+        if check_keyboard_proximity(package_name, popular) {
+            similar_packages.push(format!("{} (keyboard typo)", popular));
+        }
+
+        // Visual similarity (0/o, 1/l, etc.)
+        if check_visual_similarity(package_name, popular) {
+            similar_packages.push(format!("{} (visual confusion)", popular));
+        }
+
+        // Common typosquatting patterns
         if package_name.starts_with(popular) && package_name.len() > popular.len() {
             let suffix = &package_name[popular.len()..];
             if matches!(
                 suffix,
-                "-dev" | "-test" | "js" | ".js" | "-js" | "2" | "-cli"
+                "-dev" | "-test" | "js" | ".js" | "-js" | "2" | "-cli" | "-official" | 
+                "-latest" | "-new" | "-updated" | "-fixed" | "-secure" | "-safe" |
+                "-utils" | "-tool" | "-lib" | "-core" | "-api" | "1" | "3" | "4" | "5"
             ) {
                 similar_packages.push(format!("{} (suspicious suffix: {})", popular, suffix));
             }
         }
+
+        // Prefix patterns
+        if package_name.ends_with(popular) && package_name.len() > popular.len() {
+            let prefix = &package_name[..package_name.len() - popular.len()];
+            if matches!(
+                prefix,
+                "new-" | "updated-" | "fixed-" | "secure-" | "safe-" | "official-" |
+                "real-" | "original-" | "better-" | "super-" | "fast-" | "node-" |
+                "npm-" | "js-" | "lib-" | "core-"
+            ) {
+                similar_packages.push(format!("{} (suspicious prefix: {})", popular, prefix));
+            }
+        }
     }
+
+    // Remove duplicates
+    similar_packages.sort();
+    similar_packages.dedup();
 
     if similar_packages.is_empty() {
         None
@@ -528,27 +910,221 @@ pub fn check_typosquatting_similarity(package_name: &str) -> Option<Vec<String>>
     }
 }
 
-fn levenshtein_distance(s1: &str, s2: &str) -> usize {
-    let len1 = s1.chars().count();
-    let len2 = s2.chars().count();
-    let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
+/// Get top 100+ most popular npm packages for typosquatting detection
+fn get_top_npm_packages() -> Vec<&'static str> {
+    vec![
+        // Top 50 most downloaded packages
+        "react", "lodash", "express", "axios", "moment", "webpack", "babel-core",
+        "eslint", "typescript", "vue", "angular", "jquery", "underscore", "backbone",
+        "grunt", "gulp", "bower", "yarn", "npm", "nodemon", "prettier", "jest",
+        "mocha", "chai", "sinon", "helmet", "cors", "body-parser", "cookie-parser",
+        "multer", "passport", "bcrypt", "jsonwebtoken", "mongoose", "sequelize",
+        "redis", "socket.io", "validator", "request", "chalk", "commander", "yargs",
+        "inquirer", "ora", "boxen", "figlet", "colors", "debug", "util", "path",
+        
+        // Popular React ecosystem
+        "react-dom", "react-router", "react-router-dom", "create-react-app",
+        "react-scripts", "react-dev-utils", "prop-types", "react-helmet",
+        "react-hook-form", "redux", "react-redux", "redux-thunk", "redux-saga",
+        "reselect", "immutable", "styled-components", "emotion", "material-ui",
+        
+        // Popular Vue ecosystem
+        "vue-router", "vuex", "vue-cli", "nuxt", "vue-loader", "vue-template-compiler",
+        
+        // Popular Angular ecosystem
+        "@angular/core", "@angular/common", "@angular/forms", "@angular/router",
+        "@angular/cli", "rxjs", "zone.js",
+        
+        // Build tools and bundlers
+        "webpack-cli", "webpack-dev-server", "babel-loader", "css-loader",
+        "style-loader", "file-loader", "html-webpack-plugin", "mini-css-extract-plugin",
+        "rollup", "parcel", "vite", "esbuild", "swc",
+        
+        // Testing frameworks
+        "cypress", "puppeteer", "playwright", "selenium-webdriver", "supertest",
+        "karma", "jasmine", "ava", "tape",
+        
+        // Development tools
+        "nodemon", "concurrently", "cross-env", "rimraf", "mkdirp", "glob",
+        "minimist", "dotenv", "config", "helmet", "morgan", "compression",
+        
+        // Database and ORM
+        "mysql", "pg", "sqlite3", "mongodb", "mysql2", "typeorm", "prisma",
+        "knex", "bookshelf",
+        
+        // Utility libraries
+        "moment", "date-fns", "luxon", "ramda", "immutable", "faker", "uuid",
+        "crypto-js", "base64-js", "btoa", "atob", "qs", "querystring", "url-parse",
+        
+        // HTTP clients
+        "node-fetch", "got", "superagent", "isomorphic-fetch",
+        
+        // File system utilities
+        "fs-extra", "graceful-fs", "chokidar", "watch", "recursive-readdir",
+        
+        // CLI utilities
+        "meow", "cac", "caporal", "oclif", "vorpal", "blessed", "ink",
+        
+        // Logging
+        "winston", "pino", "bunyan", "log4js", "signale",
+        
+        // Process management
+        "pm2", "forever", "cluster", "throng",
+        
+        // Security
+        "helmet", "csrf", "express-rate-limit", "express-validator", "joi",
+        "ajv", "sanitize-html", "xss", "dompurify"
+    ]
+}
 
-    for (i, row) in matrix.iter_mut().enumerate().take(len1 + 1) {
-        row[0] = i;
+/// Check for character substitution patterns (common typos)
+fn check_character_substitution(name1: &str, name2: &str) -> bool {
+    if name1.len() != name2.len() {
+        return false;
     }
-    for j in 0..=len2 {
-        matrix[0][j] = j;
-    }
-
-    for (i, c1) in s1.chars().enumerate() {
-        for (j, c2) in s2.chars().enumerate() {
-            let cost = if c1 == c2 { 0 } else { 1 };
-            matrix[i + 1][j + 1] = std::cmp::min(
-                std::cmp::min(matrix[i][j + 1] + 1, matrix[i + 1][j] + 1),
-                matrix[i][j] + cost,
-            );
+    
+    let chars1: Vec<char> = name1.chars().collect();
+    let chars2: Vec<char> = name2.chars().collect();
+    let mut differences = 0;
+    
+    for (c1, c2) in chars1.iter().zip(chars2.iter()) {
+        if c1 != c2 {
+            differences += 1;
+            if differences > 1 {
+                return false;
+            }
         }
     }
+    
+    differences == 1
+}
 
-    matrix[len1][len2]
+/// Check for keyboard proximity errors
+fn check_keyboard_proximity(name1: &str, name2: &str) -> bool {
+    if name1.len() != name2.len() {
+        return false;
+    }
+    
+    let adjacent_keys = get_adjacent_keys();
+    let chars1: Vec<char> = name1.chars().collect();
+    let chars2: Vec<char> = name2.chars().collect();
+    let mut proximity_errors = 0;
+    
+    for (c1, c2) in chars1.iter().zip(chars2.iter()) {
+        if c1 != c2 {
+            if let Some(adjacent) = adjacent_keys.get(c1) {
+                if adjacent.contains(c2) {
+                    proximity_errors += 1;
+                    if proximity_errors > 1 {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+    }
+    
+    proximity_errors == 1
+}
+
+/// Check for visual similarity (confusing characters)
+fn check_visual_similarity(name1: &str, name2: &str) -> bool {
+    if name1.len() != name2.len() {
+        return false;
+    }
+    
+    let visual_confusions = get_visual_confusions();
+    let chars1: Vec<char> = name1.chars().collect();
+    let chars2: Vec<char> = name2.chars().collect();
+    let mut visual_errors = 0;
+    
+    for (c1, c2) in chars1.iter().zip(chars2.iter()) {
+        if c1 != c2 {
+            if let Some(similar) = visual_confusions.get(c1) {
+                if similar.contains(c2) {
+                    visual_errors += 1;
+                    if visual_errors > 1 {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+    }
+    
+    visual_errors == 1
+}
+
+/// Get QWERTY keyboard adjacent keys mapping
+fn get_adjacent_keys() -> HashMap<char, Vec<char>> {
+    let mut adjacent = HashMap::new();
+    
+    adjacent.insert('q', vec!['w', 'a', 's']);
+    adjacent.insert('w', vec!['q', 'e', 'a', 's', 'd']);
+    adjacent.insert('e', vec!['w', 'r', 's', 'd', 'f']);
+    adjacent.insert('r', vec!['e', 't', 'd', 'f', 'g']);
+    adjacent.insert('t', vec!['r', 'y', 'f', 'g', 'h']);
+    adjacent.insert('y', vec!['t', 'u', 'g', 'h', 'j']);
+    adjacent.insert('u', vec!['y', 'i', 'h', 'j', 'k']);
+    adjacent.insert('i', vec!['u', 'o', 'j', 'k', 'l']);
+    adjacent.insert('o', vec!['i', 'p', 'k', 'l']);
+    adjacent.insert('p', vec!['o', 'l']);
+    
+    adjacent.insert('a', vec!['q', 'w', 's', 'z', 'x']);
+    adjacent.insert('s', vec!['q', 'w', 'e', 'a', 'd', 'z', 'x', 'c']);
+    adjacent.insert('d', vec!['w', 'e', 'r', 's', 'f', 'x', 'c', 'v']);
+    adjacent.insert('f', vec!['e', 'r', 't', 'd', 'g', 'c', 'v', 'b']);
+    adjacent.insert('g', vec!['r', 't', 'y', 'f', 'h', 'v', 'b', 'n']);
+    adjacent.insert('h', vec!['t', 'y', 'u', 'g', 'j', 'b', 'n', 'm']);
+    adjacent.insert('j', vec!['y', 'u', 'i', 'h', 'k', 'n', 'm']);
+    adjacent.insert('k', vec!['u', 'i', 'o', 'j', 'l', 'm']);
+    adjacent.insert('l', vec!['i', 'o', 'p', 'k']);
+    
+    adjacent.insert('z', vec!['a', 's', 'x']);
+    adjacent.insert('x', vec!['a', 's', 'd', 'z', 'c']);
+    adjacent.insert('c', vec!['s', 'd', 'f', 'x', 'v']);
+    adjacent.insert('v', vec!['d', 'f', 'g', 'c', 'b']);
+    adjacent.insert('b', vec!['f', 'g', 'h', 'v', 'n']);
+    adjacent.insert('n', vec!['g', 'h', 'j', 'b', 'm']);
+    adjacent.insert('m', vec!['h', 'j', 'k', 'n']);
+    
+    adjacent
+}
+
+/// Get visually confusing character mappings
+fn get_visual_confusions() -> HashMap<char, Vec<char>> {
+    let mut confusions = HashMap::new();
+    
+    confusions.insert('0', vec!['o', 'O']);
+    confusions.insert('o', vec!['0', 'O']);
+    confusions.insert('O', vec!['0', 'o']);
+    
+    confusions.insert('1', vec!['l', 'I', '|']);
+    confusions.insert('l', vec!['1', 'I', '|']);
+    confusions.insert('I', vec!['1', 'l', '|']);
+    confusions.insert('|', vec!['1', 'l', 'I']);
+    
+    confusions.insert('5', vec!['s', 'S']);
+    confusions.insert('s', vec!['5', 'S']);
+    confusions.insert('S', vec!['5', 's']);
+    
+    confusions.insert('6', vec!['g', 'G']);
+    confusions.insert('g', vec!['6', 'G']);
+    confusions.insert('G', vec!['6', 'g']);
+    
+    confusions.insert('8', vec!['b', 'B']);
+    confusions.insert('b', vec!['8', 'B']);
+    confusions.insert('B', vec!['8', 'b']);
+    
+    confusions.insert('2', vec!['z', 'Z']);
+    confusions.insert('z', vec!['2', 'Z']);
+    confusions.insert('Z', vec!['2', 'z']);
+    
+    confusions
 }

@@ -65,6 +65,13 @@ petgraph = "0.8.2"
 yara-x = { git = "https://github.com/wroersma/yara-x", branch = "main" }
 walkdir = "2.4"
 
+# Semgrep integration and static analysis enhancements
+strsim = "0.11"  # For Levenshtein distance calculations
+reqwest = { version = "0.12", features = ["json", "blocking"] }  # For repository checks
+git2 = "0.19"  # For Git repository operations
+url = "2.5"  # For URL parsing and validation
+edit-distance = "2.1"  # Additional string distance algorithms
+
 # OLE and VBA parsing
 cfb = "0.10"  # Compound File Binary format (OLE storage)
 zip = "3.0"  # For OOXML format support and Java archives
