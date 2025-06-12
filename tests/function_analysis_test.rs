@@ -2055,7 +2055,7 @@ fn test_dynamic_linking_analysis() {
     let mut libraries = HashSet::new();
     for import in &dynamic_imports {
         if let Some(lib) = &import.library {
-            libraries.insert(lib);
+            libraries.insert(lib.as_str());
         }
     }
 

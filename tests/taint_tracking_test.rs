@@ -37,7 +37,7 @@ fn test_analyze_taint_flows_function() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Should detect at least one source and one sink
             // Vec length is always >= 0
             // Vec length is always >= 0
@@ -81,7 +81,7 @@ fn test_analyze_sql_injection_pattern() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Check that we detect SQL injection sources and sinks
             let has_user_input_sources = analysis
                 .sources
@@ -117,7 +117,7 @@ fn test_analyze_command_injection_pattern() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Check that we detect command injection patterns
             let has_command_sinks = analysis
                 .sinks
@@ -148,7 +148,7 @@ fn test_analyze_xss_pattern() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Check that we detect XSS patterns
             let has_http_response_sinks = analysis
                 .sinks
@@ -180,7 +180,7 @@ fn test_analyze_file_with_sanitization() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Should detect sanitizers
             let has_sanitizers = !analysis.sanitizers.is_empty();
             let has_sanitized_flows = analysis.flow_summary.sanitized_flows > 0;
@@ -343,7 +343,7 @@ fn test_analyze_python_pattern() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Python patterns should be detected
             // Vec length is always >= 0
             // Vec length is always >= 0
@@ -370,7 +370,7 @@ fn test_analyze_environment_variable_source() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Environment variable sources might be detected
             let has_env_sources = analysis
                 .sources
@@ -401,7 +401,7 @@ fn test_analyze_file_read_source() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // File read sources might be detected
             let has_file_sources = analysis
                 .sources
@@ -423,7 +423,7 @@ fn test_analyze_empty_file() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Empty file should have no sources, sinks, or flows
             assert_eq!(analysis.sources.len(), 0);
             assert_eq!(analysis.sinks.len(), 0);
@@ -583,7 +583,7 @@ fn test_complex_taint_flow_scenario() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(_analysis) => {
+        Ok(analysis) => {
             // Complex scenario should detect multiple sources and sinks
             // Vec length is always >= 0
             // Vec length is always >= 0
