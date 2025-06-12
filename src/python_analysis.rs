@@ -575,6 +575,8 @@ fn parse_wheel_metadata(metadata: &str) -> Result<PackageInfo> {
     let mut description = None;
     let mut author = None;
     let mut author_email = None;
+    let mut maintainer = None;
+    let mut maintainer_email = None;
     let mut license = None;
     let mut url = None;
     let mut keywords = vec![];
@@ -590,6 +592,8 @@ fn parse_wheel_metadata(metadata: &str) -> Result<PackageInfo> {
                 "Summary" => description = Some(value.to_string()),
                 "Author" => author = Some(value.to_string()),
                 "Author-email" => author_email = Some(value.to_string()),
+                "Maintainer" => maintainer = Some(value.to_string()),
+                "Maintainer-email" => maintainer_email = Some(value.to_string()),
                 "License" => license = Some(value.to_string()),
                 "Home-page" => url = Some(value.to_string()),
                 "Keywords" => keywords = value.split(',').map(|s| s.trim().to_string()).collect(),
@@ -611,8 +615,8 @@ fn parse_wheel_metadata(metadata: &str) -> Result<PackageInfo> {
         description,
         author,
         author_email,
-        maintainer: None,
-        maintainer_email: None,
+        maintainer,
+        maintainer_email,
         license,
         url,
         project_urls,
