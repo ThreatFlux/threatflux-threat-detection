@@ -635,10 +635,10 @@ fn test_python_file_type_detection() -> Result<()> {
     fs::write(temp_dir.path().join("test_module.py"), "# test")?;
     fs::write(temp_dir.path().join("conftest.py"), "# pytest config")?;
     fs::write(temp_dir.path().join("__init__.py"), "# init")?;
-    fs::write(temp_dir.path().join("compiled.pyc"), &[0u8; 16])?; // Fake pyc
-    fs::write(temp_dir.path().join("optimized.pyo"), &[0u8; 16])?; // Fake pyo
-    fs::write(temp_dir.path().join("extension.pyd"), &[0u8; 16])?; // Fake pyd
-    fs::write(temp_dir.path().join("shared.so"), &[0u8; 16])?; // Fake so
+    fs::write(temp_dir.path().join("compiled.pyc"), [0u8; 16])?; // Fake pyc
+    fs::write(temp_dir.path().join("optimized.pyo"), [0u8; 16])?; // Fake pyo
+    fs::write(temp_dir.path().join("extension.pyd"), [0u8; 16])?; // Fake pyd
+    fs::write(temp_dir.path().join("shared.so"), [0u8; 16])?; // Fake so
     fs::write(temp_dir.path().join("requirements.txt"), "requests==2.25.0")?;
     fs::write(temp_dir.path().join("README.rst"), "README")?;
     fs::write(temp_dir.path().join("setup.cfg"), "[metadata]")?;

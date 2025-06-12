@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use strsim::{levenshtein, jaro_winkler, normalized_damerau_levenshtein};
 use edit_distance::edit_distance;
 
@@ -169,7 +169,7 @@ impl TyposquattingDetector {
         })
     }
 
-    fn should_compare_packages(&self, package_name: &str, popular_name: &str, ecosystem: &str) -> bool {
+    fn should_compare_packages(&self, package_name: &str, popular_name: &str, _ecosystem: &str) -> bool {
         // Skip exact matches
         if package_name == popular_name {
             return false;
@@ -237,7 +237,7 @@ impl TyposquattingDetector {
         // Check for character substitution
         if pkg_chars.len() == pop_chars.len() {
             let mut substitutions = 0;
-            for (i, (p, q)) in pkg_chars.iter().zip(pop_chars.iter()).enumerate() {
+            for (p, q) in pkg_chars.iter().zip(pop_chars.iter()) {
                 if p != q {
                     substitutions += 1;
                     // Check for visual similarity
@@ -317,7 +317,7 @@ impl TyposquattingDetector {
         }
     }
 
-    fn detect_attack_techniques(&self, package_name: &str, similar_packages: &[SimilarPackage]) -> Vec<TyposquattingTechnique> {
+    fn detect_attack_techniques(&self, _package_name: &str, similar_packages: &[SimilarPackage]) -> Vec<TyposquattingTechnique> {
         let mut techniques = Vec::new();
 
         // Character substitution technique
@@ -382,7 +382,7 @@ impl TyposquattingDetector {
         }
 
         // Check for numbers at the end
-        if package_name.chars().last().map_or(false, |c| c.is_ascii_digit()) {
+        if package_name.chars().last().is_some_and(|c| c.is_ascii_digit()) {
             patterns.push(SuspiciousPattern {
                 pattern_type: "Numeric Suffix".to_string(),
                 description: "Package name ends with a number".to_string(),
@@ -468,7 +468,7 @@ impl TyposquattingDetector {
 
     fn are_visually_similar(&self, c1: char, c2: char) -> bool {
         self.visual_similarities.get(&c1)
-            .map_or(false, |similar| similar.contains(&c2))
+            .is_some_and(|similar| similar.contains(&c2))
     }
 
     fn is_transposition(&self, s1: &str, s2: &str) -> bool {
@@ -633,7 +633,7 @@ impl KeyboardLayout {
 
     fn are_adjacent(&self, c1: char, c2: char) -> bool {
         self.adjacent_keys.get(&c1.to_ascii_lowercase())
-            .map_or(false, |adjacent| adjacent.contains(&c2.to_ascii_lowercase()))
+            .is_some_and(|adjacent| adjacent.contains(&c2.to_ascii_lowercase()))
     }
 }
 

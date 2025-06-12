@@ -7,7 +7,7 @@ use tempfile::TempDir;
 async fn test_transport_creation() {
     let transport = McpTransportServer::new();
     // Just verify it can be created without panicking
-    assert!(std::ptr::addr_of!(transport).is_null() == false);
+    assert!(!std::ptr::addr_of!(transport).is_null());
 }
 
 #[tokio::test]

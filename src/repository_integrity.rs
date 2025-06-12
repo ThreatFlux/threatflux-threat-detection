@@ -1,11 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+// use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;
 use url::Url;
-use git2::{Repository, ObjectType, Oid};
+// use git2::{Repository, ObjectType, Oid};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RepositoryIntegrityAnalysis {
@@ -411,18 +411,15 @@ impl RepositoryIntegrityChecker {
     }
 
     fn extract_homepage_url(&self, package_path: &Path, registry_type: &RegistryType) -> Result<Option<String>> {
-        match registry_type {
-            RegistryType::Npm => {
-                let package_json_path = package_path.join("package.json");
-                if package_json_path.exists() {
-                    let content = std::fs::read_to_string(&package_json_path)?;
-                    let json: serde_json::Value = serde_json::from_str(&content)?;
-                    if let Some(homepage) = json.get("homepage").and_then(|h| h.as_str()) {
-                        return Ok(Some(homepage.to_string()));
-                    }
+        if let RegistryType::Npm = registry_type {
+            let package_json_path = package_path.join("package.json");
+            if package_json_path.exists() {
+                let content = std::fs::read_to_string(&package_json_path)?;
+                let json: serde_json::Value = serde_json::from_str(&content)?;
+                if let Some(homepage) = json.get("homepage").and_then(|h| h.as_str()) {
+                    return Ok(Some(homepage.to_string()));
                 }
             }
-            _ => {}
         }
         Ok(None)
     }
@@ -531,7 +528,7 @@ impl RepositoryIntegrityChecker {
     }
 
     async fn check_repository_status(&self, url: &str) -> RepositoryStatus {
-        if let Ok(parsed_url) = Url::parse(url) {
+        if let Ok(_parsed_url) = Url::parse(url) {
             match self.client.head(url).send() {
                 Ok(response) => match response.status().as_u16() {
                     200 => RepositoryStatus::Accessible,
@@ -639,8 +636,8 @@ impl RepositoryIntegrityChecker {
 
     async fn compare_package_with_repository(
         &self,
-        package_info: &PackageRepositoryInfo,
-        package_path: &Path,
+        _package_info: &PackageRepositoryInfo,
+        _package_path: &Path,
     ) -> Result<SourceComparison> {
         // This is a simplified implementation
         // In practice, you would clone the repository and compare files
@@ -657,7 +654,7 @@ impl RepositoryIntegrityChecker {
         })
     }
 
-    async fn verify_maintainers(&self, package_info: &PackageRepositoryInfo) -> Result<MaintainerVerification> {
+    async fn verify_maintainers(&self, _package_info: &PackageRepositoryInfo) -> Result<MaintainerVerification> {
         // Simplified implementation
         Ok(MaintainerVerification {
             package_maintainers: vec![],
@@ -685,7 +682,7 @@ impl RepositoryIntegrityChecker {
         integrity_checks: &[IntegrityCheck],
         source_comparison: &SourceComparison,
         maintainer_verification: &MaintainerVerification,
-        timeline_analysis: &TimelineAnalysis,
+        _timeline_analysis: &TimelineAnalysis,
     ) -> f32 {
         let mut score = 100.0;
 
@@ -713,7 +710,7 @@ impl RepositoryIntegrityChecker {
             _ => {}
         }
 
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     }
 
     fn identify_risk_indicators(

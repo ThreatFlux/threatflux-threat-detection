@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashMap;
 use std::path::Path;
 use regex::Regex;
 
@@ -457,7 +457,7 @@ impl TaintTracker {
             if !flow.is_sanitized {
                 vuln_map
                     .entry(flow.vulnerability_type.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(flow.flow_id.clone());
             }
         }
@@ -638,13 +638,14 @@ impl TaintTracker {
 
     // Helper methods
     fn extract_function_name(&self, lines: &[&str], line_num: usize) -> Option<String> {
+        // Create regex once outside the loop
+        let re = Regex::new(r"(?:function|def|fn)\s+(\w+)").ok()?;
+        
         // Look backwards for function declaration
         for i in (0..line_num).rev() {
             if let Some(line) = lines.get(i) {
-                if let Ok(re) = Regex::new(r"(?:function|def|fn)\s+(\w+)") {
-                    if let Some(captures) = re.captures(line) {
-                        return captures.get(1).map(|m| m.as_str().to_string());
-                    }
+                if let Some(captures) = re.captures(line) {
+                    return captures.get(1).map(|m| m.as_str().to_string());
                 }
             }
         }
