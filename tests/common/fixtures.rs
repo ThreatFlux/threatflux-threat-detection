@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Test fixtures may not all be used immediately
+
 use once_cell::sync::Lazy;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -8,7 +10,7 @@ use tempfile::TempDir;
 /// This module provides cached, reusable test files and directories that persist
 /// for the duration of the test run, eliminating the need for each test to create
 /// its own temporary files.
-
+/// 
 /// Shared temporary directory for all tests
 pub static SHARED_TEST_DIR: Lazy<Arc<TempDir>> = Lazy::new(|| {
     Arc::new(TempDir::new().expect("Failed to create shared test directory"))
@@ -85,26 +87,26 @@ pub static HIGH_ENTROPY_FILE: Lazy<PathBuf> = Lazy::new(|| {
 /// Pre-computed hash values for test files to avoid recalculation
 pub mod known_hashes {
     use file_scanner::hash::Hashes;
+    use once_cell::sync::Lazy;
     
     /// Hashes for SMALL_TEST_FILE (1KB of 'x' characters)
-    pub const SMALL_FILE_HASHES: Hashes = Hashes {
+    pub static SMALL_FILE_HASHES: Lazy<Hashes> = Lazy::new(|| Hashes {
         md5: "b2f5ff47436671b6e533d8dc3614845d".to_string(),
         sha256: "cb33b2c7e6f4e7b8f8ad4a2d4c6b7c5c8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a".to_string(),
         sha512: "8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a8b7e8f9d4a6b8c9e7f8a9b6c5d8e7f9a".to_string(),
         blake3: "a7f8b9c6d5e8f7a9b8c7d6e9f8a7b9c6d5e8f7a9b8c7d6e9f8a7b9c6d5e8f7a9".to_string(),
-    };
+    });
     
     /// Empty file hashes
-    pub const EMPTY_FILE_HASHES: Hashes = Hashes {
+    pub static EMPTY_FILE_HASHES: Lazy<Hashes> = Lazy::new(|| Hashes {
         md5: "d41d8cd98f00b204e9800998ecf8427e".to_string(),
         sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
         sha512: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e".to_string(),
         blake3: "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262".to_string(),
-    };
+    });
 }
 
 /// Helper functions for creating test data
-
 fn create_minimal_elf() -> Vec<u8> {
     let mut elf = vec![0u8; 64]; // Minimal ELF header size
     
@@ -192,12 +194,12 @@ fn create_minimal_zip() -> Vec<u8> {
 
 fn generate_random_data(size: usize) -> Vec<u8> {
     use rand::Rng;
-    let mut rng = rand::thread_rng();
-    (0..size).map(|_| rng.gen()).collect()
+    let mut rng = rand::rng();
+    (0..size).map(|_| rng.random()).collect()
 }
 
 /// Utility functions for tests
-
+///
 /// Get a temporary file path without creating the file
 pub fn temp_file_path(name: &str) -> PathBuf {
     SHARED_TEST_DIR.path().join(name)

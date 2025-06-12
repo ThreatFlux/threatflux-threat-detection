@@ -28,7 +28,6 @@ export RUSTFLAGS="-C target-cpu=native"
 # Run tests with parallel execution
 time cargo test \
     --profile test \
-    --exclude-ignored \
     --jobs $CORES \
     --quiet \
     "$@"

@@ -1,0 +1,10 @@
+⚡ Running parallel test suite with maximum performance...
+🔧 Using 16 CPU cores for testing
+error: unexpected argument '--exclude-ignored' found
+
+  tip: a similar argument exists: '--exclude'
+  tip: to pass '--exclude-ignored' as a value, use '-- --exclude-ignored'
+
+Usage: cargo test --profile <PROFILE-NAME> --exclude <SPEC> [TESTNAME] [-- [ARGS]...]
+
+For more information, try '--help'.

@@ -13,7 +13,6 @@ export CARGO_PROFILE_TEST_DEBUG=1
 # Run tests with increased parallelism
 RUST_TEST_THREADS=$(nproc) cargo test \
     --profile test \
-    --exclude-ignored \
     --lib \
     --bins \
     --quiet \
