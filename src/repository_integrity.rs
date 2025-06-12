@@ -1,5 +1,5 @@
 use anyhow::Result;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 // use std::collections::HashMap;
 use std::path::Path;
@@ -477,9 +477,9 @@ impl RepositoryIntegrityChecker {
     async fn fetch_npm_registry_info(&self, package_name: &str) -> Result<RegistryInfo> {
         let url = format!("https://registry.npmjs.org/{}", package_name);
 
-        match self.client.get(&url).send() {
+        match self.client.get(&url).send().await {
             Ok(response) if response.status().is_success() => {
-                let json: serde_json::Value = response.json()?;
+                let json: serde_json::Value = response.json().await?;
 
                 let version_count = json
                     .get("versions")
@@ -517,9 +517,9 @@ impl RepositoryIntegrityChecker {
     async fn fetch_pypi_registry_info(&self, package_name: &str) -> Result<RegistryInfo> {
         let url = format!("https://pypi.org/pypi/{}/json", package_name);
 
-        match self.client.get(&url).send() {
+        match self.client.get(&url).send().await {
             Ok(response) if response.status().is_success() => {
-                let json: serde_json::Value = response.json()?;
+                let json: serde_json::Value = response.json().await?;
 
                 let version_count = json
                     .get("releases")
@@ -546,7 +546,7 @@ impl RepositoryIntegrityChecker {
 
     async fn check_repository_status(&self, url: &str) -> RepositoryStatus {
         if let Ok(_parsed_url) = Url::parse(url) {
-            match self.client.head(url).send() {
+            match self.client.head(url).send().await {
                 Ok(response) => match response.status().as_u16() {
                     200 => RepositoryStatus::Accessible,
                     404 => RepositoryStatus::NotFound,
@@ -644,7 +644,7 @@ impl RepositoryIntegrityChecker {
                     "https://api.github.com/repos/{}/{}/git/refs/tags/v{}",
                     owner, repo, version
                 );
-                if let Ok(response) = self.client.get(&tag_url).send() {
+                if let Ok(response) = self.client.get(&tag_url).send().await {
                     return response.status().is_success();
                 }
 
@@ -653,7 +653,7 @@ impl RepositoryIntegrityChecker {
                     "https://api.github.com/repos/{}/{}/git/refs/tags/{}",
                     owner, repo, version
                 );
-                if let Ok(response) = self.client.get(&tag_url).send() {
+                if let Ok(response) = self.client.get(&tag_url).send().await {
                     return response.status().is_success();
                 }
             }
