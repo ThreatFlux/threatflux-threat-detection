@@ -37,7 +37,7 @@ fn test_analyze_taint_flows_function() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(analysis) => {
+        Ok(_analysis) => {
             // Should detect at least one source and one sink
             // Vec length is always >= 0
             // Vec length is always >= 0
@@ -343,7 +343,7 @@ fn test_analyze_python_pattern() {
     let result = analyze_taint_flows(temp_file.path());
 
     match result {
-        Ok(analysis) => {
+        Ok(_analysis) => {
             // Python patterns should be detected
             // Vec length is always >= 0
             // Vec length is always >= 0

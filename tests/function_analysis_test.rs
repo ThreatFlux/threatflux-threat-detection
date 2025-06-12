@@ -1499,7 +1499,7 @@ fn test_function_size_analysis() {
         let is_imported = name.contains("imported");
         if is_imported {
             // Imported functions can have size 0
-            assert!(size >= 0, "Imported function size validation");
+            // Size is usize, which is always >= 0, so no assertion needed
         } else {
             // Local functions should typically have size > 0
             // But we don't enforce this as some symbols may not have size info

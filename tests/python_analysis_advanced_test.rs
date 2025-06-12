@@ -603,7 +603,7 @@ setup(name='process-exec', version='1.0.0')
     assert!(!analysis.security_analysis.process_execution.is_empty());
     // Current implementation detects dangerous imports, not individual usage patterns
     // So we expect entries for 'subprocess' and 'os.system' imports, not each individual call
-    assert!(analysis.security_analysis.process_execution.len() >= 1);
+    assert!(!analysis.security_analysis.process_execution.is_empty());
 
     // Check for dangerous operations
     assert!(!analysis.setup_analysis.dangerous_operations.is_empty());
@@ -1006,7 +1006,7 @@ License: MIT
 
     // Check maintainer information - should have both author and maintainer
     assert_eq!(analysis.maintainer_analysis.maintainers.len(), 2);
-    
+
     // First should be the author
     assert_eq!(
         analysis.maintainer_analysis.maintainers[0].name,
@@ -1016,7 +1016,7 @@ License: MIT
         analysis.maintainer_analysis.maintainers[0].email,
         Some("original@example.com".to_string())
     );
-    
+
     // Second should be the maintainer
     assert_eq!(
         analysis.maintainer_analysis.maintainers[1].name,
@@ -1062,7 +1062,7 @@ from cryptography.fernet import Fernet
     let analysis = analyze_python_package(temp_dir.path())?;
 
     // Should detect suspicious imports in files
-    let has_suspicious_file = analysis
+    let _has_suspicious_file = analysis
         .files_analysis
         .iter()
         .any(|f| !f.imports.is_empty() || !f.suspicious_content.is_empty());

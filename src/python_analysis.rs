@@ -800,12 +800,12 @@ fn analyze_dependencies_from_metadata(metadata: &str) -> Result<PythonDependency
     for line in metadata.lines() {
         if line.starts_with("Requires-Dist: ") {
             let dep_spec = line.trim_start_matches("Requires-Dist: ");
-            
+
             // Skip dependencies with environment markers for extras
             if dep_spec.contains("; extra ==") || dep_spec.contains(";extra==") {
                 continue;
             }
-            
+
             let (name, version_spec) = parse_dependency_spec(dep_spec);
 
             let vulnerabilities = check_package_vulnerabilities(&name, &version_spec);
@@ -999,7 +999,7 @@ fn extract_pyproject_dependencies(
             in_deps_list = false;
             continue;
         }
-        
+
         // Handle [project] section
         if line.contains("[project]") {
             in_project_deps = true;
@@ -1007,20 +1007,20 @@ fn extract_pyproject_dependencies(
             in_deps_list = false;
             continue;
         }
-        
+
         // Handle dependencies list in [project] section
         if in_project_deps && line.trim() == "dependencies = [" {
             in_deps_list = true;
             continue;
         }
-        
+
         // End of section
         if line.starts_with('[') {
             in_dependencies = false;
             in_project_deps = false;
             in_deps_list = false;
         }
-        
+
         // End of dependencies list
         if in_deps_list && line.contains(']') {
             in_deps_list = false;
@@ -1157,9 +1157,12 @@ fn analyze_setup_scripts(
                 is_suspicious: true,
                 risk_reason: Some("Custom setup commands can execute arbitrary code".to_string()),
             });
-            
+
             // Also add to custom_commands map
-            custom_commands.insert("cmdclass".to_string(), "Custom commands detected".to_string());
+            custom_commands.insert(
+                "cmdclass".to_string(),
+                "Custom commands detected".to_string(),
+            );
         }
 
         // Check for imports that indicate dangerous operations
@@ -1228,14 +1231,18 @@ fn perform_security_analysis(
     if !obfuscation_detected && matches!(setup_analysis.setup_type, SetupType::SetupPy) {
         // Also check setup.py content if we have it
         for op in &setup_analysis.dangerous_operations {
-            if op.operation == "base64" || op.operation == "exec" || op.operation == "eval" 
-                || op.operation == "__import__" || op.operation == "compile" {
+            if op.operation == "base64"
+                || op.operation == "exec"
+                || op.operation == "eval"
+                || op.operation == "__import__"
+                || op.operation == "compile"
+            {
                 obfuscation_detected = true;
                 break;
             }
         }
     }
-    
+
     let crypto_mining_indicators = detect_crypto_mining(files, &suspicious_imports);
     let data_exfiltration_risk = detect_data_exfiltration(&network_access_patterns);
     let backdoor_indicators = detect_backdoor_indicators(files, &process_execution);
@@ -1353,7 +1360,7 @@ fn detect_obfuscation_in_content(content: &str) -> bool {
         r"\\x[0-9a-fA-F]{2}",
         r"lambda\s*:.*\(\s*\)",
     ];
-    
+
     for pattern in &obfuscation_patterns {
         if let Ok(re) = regex::Regex::new(pattern) {
             if re.is_match(content) {
@@ -1361,7 +1368,7 @@ fn detect_obfuscation_in_content(content: &str) -> bool {
             }
         }
     }
-    
+
     // Check for string concatenation obfuscation (many single char strings)
     if let Ok(re) = regex::Regex::new(r"'[^']'\s*\+\s*'[^']'") {
         let matches = re.find_iter(content).count();
@@ -1369,7 +1376,7 @@ fn detect_obfuscation_in_content(content: &str) -> bool {
             return true;
         }
     }
-    
+
     false
 }
 
@@ -1707,7 +1714,7 @@ fn calculate_quality_metrics(files: &[PythonFileAnalysis]) -> Result<PackageQual
 /// Detect Python file type
 fn detect_python_file_type(path: &str) -> String {
     let path_lower = path.to_lowercase();
-    
+
     if path_lower.ends_with("setup.py") {
         "Setup Script".to_string()
     } else if path_lower.ends_with("__init__.py") {
@@ -1732,9 +1739,15 @@ fn detect_python_file_type(path: &str) -> String {
         "Shared library".to_string()
     } else if path_lower.ends_with("requirements.txt") || path_lower.ends_with("requirements.in") {
         "Requirements".to_string()
-    } else if path_lower.ends_with(".cfg") || path_lower.ends_with(".ini") || path_lower.ends_with(".toml") {
+    } else if path_lower.ends_with(".cfg")
+        || path_lower.ends_with(".ini")
+        || path_lower.ends_with(".toml")
+    {
         "Config".to_string()
-    } else if path_lower.ends_with(".md") || path_lower.ends_with(".rst") || path_lower.ends_with(".txt") {
+    } else if path_lower.ends_with(".md")
+        || path_lower.ends_with(".rst")
+        || path_lower.ends_with(".txt")
+    {
         "Documentation".to_string()
     } else {
         "Unknown".to_string()
