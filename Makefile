@@ -1,4 +1,4 @@
-.PHONY: help init build test test-parallel test-unit test-hash test-mcp test-analysis test-integration test-legacy install clean run-debug run-release docker-build docker-run lint fmt check deps update security-audit dev dev-full ci ci-full prepare-release
+.PHONY: help init build test test-parallel test-unit test-hash test-mcp test-analysis test-integration test-legacy install clean run-debug run-release docker-build docker-run docker-run-http lint fmt check deps update security-audit dev dev-full ci ci-full prepare-release
 
 # Default target
 help:
@@ -34,6 +34,7 @@ help:
 	@echo "DOCKER COMMANDS:"
 	@echo "  docker-build  - Build Docker image"
 	@echo "  docker-run    - Run Docker container"
+	@echo "  docker-run-http - Run Docker container in MCP HTTP mode (port 3111)"
 	@echo ""
 	@echo "MISC COMMANDS:"
 	@echo "  deps          - Update dependencies"
@@ -124,6 +125,10 @@ docker-build:
 docker-run:
 	@echo "Running Docker container..."
 	docker run --rm -v /bin:/data:ro threatflux/file-scanner:latest /data/ls
+
+docker-run-http:
+	@echo "Running Docker container in MCP HTTP mode..."
+	docker run --rm -p 3111:3000 threatflux/file-scanner:latest mcp-http --port 3000
 
 # Code quality
 lint:
