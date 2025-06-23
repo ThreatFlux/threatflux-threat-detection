@@ -12,7 +12,7 @@ env:
   CARGO_INCREMENTAL: 0  # Disable for CI to improve caching
   CARGO_NET_RETRY: 10
   CARGO_NET_GIT_FETCH_WITH_CLI: true
-  RUSTFLAGS: "-C link-arg=-fuse-ld=lld"  # Use faster linker
+  # RUSTFLAGS: "-C link-arg=-fuse-ld=lld"  # Disabled: lld not available in GitHub Actions by default
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse  # Faster registry updates
 
 jobs:
