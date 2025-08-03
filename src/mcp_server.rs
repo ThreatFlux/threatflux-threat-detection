@@ -1950,3 +1950,22 @@ mod tests {
         assert!(response_selective.yara_indicators.is_none());
     }
 }
+
+// Public functions for CLI usage
+pub async fn analyze_file_llm(request: LlmFileAnalysisRequest) -> Result<LlmFileAnalysisResult> {
+    let handler = FileScannerMcp;
+    let result = handler
+        .llm_analyze_file(request)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
+    Ok(result.0)
+}
+
+pub async fn yara_scan_files(request: YaraScanRequest) -> Result<YaraScanResult> {
+    let handler = FileScannerMcp;
+    let result = handler
+        .yara_scan_file(request)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
+    Ok(result.0)
+}
