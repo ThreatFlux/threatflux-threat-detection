@@ -62,7 +62,7 @@ capstone = "0.13"
 petgraph = "0.8.2"
 
 # Threat detection
-yara-x = { git = "https://github.com/wroersma/yara-x", branch = "main" }
+yara-x = "1.4.0"
 walkdir = "2.4"
 
 # Semgrep integration and static analysis enhancements
