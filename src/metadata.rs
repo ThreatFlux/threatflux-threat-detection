@@ -6,17 +6,28 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
+use crate::behavioral_analysis::BehavioralAnalysis;
 use crate::binary_parser::BinaryInfo;
+use crate::code_metrics::CodeQualityAnalysis;
+use crate::control_flow::ControlFlowAnalysis;
+use crate::dependency_analysis::DependencyAnalysisResult;
+use crate::disassembly::DisassemblyResult;
+use crate::entropy_analysis::EntropyAnalysis;
+use crate::function_analysis::SymbolTable;
 use crate::hash::Hashes;
 use crate::hexdump::HexDump;
+use crate::mcp_server::YaraIndicators;
 use crate::signature::SignatureInfo;
 use crate::strings::ExtractedStrings;
+use crate::threat_detection::ThreatAnalysis;
+use crate::vulnerability_detection::VulnerabilityDetectionResult;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileMetadata {
     pub file_path: PathBuf,
     pub file_name: String,
     pub file_size: u64,
+    pub size: u64, // Alias for compatibility
     pub created: Option<DateTime<Utc>>,
     pub modified: Option<DateTime<Utc>>,
     pub accessed: Option<DateTime<Utc>>,
@@ -30,6 +41,17 @@ pub struct FileMetadata {
     pub hex_dump: Option<HexDump>,
     pub owner_uid: u32,
     pub group_gid: u32,
+    // New analysis fields
+    pub symbol_analysis: Option<SymbolTable>,
+    pub control_flow_analysis: Option<ControlFlowAnalysis>,
+    pub vulnerability_analysis: Option<VulnerabilityDetectionResult>,
+    pub code_quality_analysis: Option<CodeQualityAnalysis>,
+    pub dependency_analysis: Option<DependencyAnalysisResult>,
+    pub entropy_analysis: Option<EntropyAnalysis>,
+    pub disassembly: Option<DisassemblyResult>,
+    pub threat_analysis: Option<ThreatAnalysis>,
+    pub behavioral_analysis: Option<BehavioralAnalysis>,
+    pub yara_indicators: Option<YaraIndicators>,
 }
 
 impl FileMetadata {
@@ -44,6 +66,7 @@ impl FileMetadata {
             file_path: path.to_path_buf(),
             file_name,
             file_size: 0,
+            size: 0,
             created: None,
             modified: None,
             accessed: None,
@@ -57,6 +80,16 @@ impl FileMetadata {
             hex_dump: None,
             owner_uid: 0,
             group_gid: 0,
+            symbol_analysis: None,
+            control_flow_analysis: None,
+            vulnerability_analysis: None,
+            code_quality_analysis: None,
+            dependency_analysis: None,
+            entropy_analysis: None,
+            disassembly: None,
+            threat_analysis: None,
+            behavioral_analysis: None,
+            yara_indicators: None,
         })
     }
 
@@ -64,6 +97,7 @@ impl FileMetadata {
         let metadata = fs::metadata(&self.file_path)?;
 
         self.file_size = metadata.len();
+        self.size = metadata.len(); // Keep both for compatibility
 
         #[cfg(unix)]
         {
