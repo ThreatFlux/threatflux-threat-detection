@@ -350,6 +350,11 @@ mod tests {
     fn test_hash_permission_denied() {
         use std::os::unix::fs::PermissionsExt;
 
+        if unsafe { libc::geteuid() } == 0 {
+            // Skip test when running as root since permission checks won't fail
+            return;
+        }
+
         let content = b"Permission test";
         let (_temp_dir, file_path) = create_test_file(content).unwrap();
 

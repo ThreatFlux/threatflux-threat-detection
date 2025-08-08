@@ -246,8 +246,10 @@ mod tests {
         assert_eq!(metadata.file_size, 13);
         #[cfg(unix)]
         {
-            assert!(metadata.owner_uid > 0);
-            assert!(metadata.group_gid > 0);
+            if unsafe { libc::geteuid() } != 0 {
+                assert!(metadata.owner_uid > 0);
+                assert!(metadata.group_gid > 0);
+            }
         }
         #[cfg(windows)]
         {
