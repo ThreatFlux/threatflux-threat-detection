@@ -1400,6 +1400,55 @@ mod tests {
         assert!(yara_rule.contains("filesize"));
     }
 
+    #[tokio::test]
+    async fn test_analyze_file_llm_wrapper() {
+        let content = b"Wrapper LLM analysis test";
+        let (_temp_dir, file_path) = create_test_file(content).unwrap();
+
+        let request = LlmFileAnalysisRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            token_limit: Some(1000),
+            min_string_length: Some(4),
+            max_strings: Some(10),
+            max_imports: Some(5),
+            max_opcodes: Some(5),
+            hex_pattern_size: Some(16),
+            suggest_yara_rule: Some(false),
+        };
+
+        let result = analyze_file_llm(request).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_yara_scan_files_wrapper() {
+        let content = b"this is a test";
+        let (_temp_dir, file_path) = create_test_file(content).unwrap();
+
+        let rule = r#"
+rule TestRule {
+    strings:
+        $a = "test"
+    condition:
+        $a
+}
+"#.to_string();
+
+        let request = YaraScanRequest {
+            path: file_path.to_string_lossy().to_string(),
+            yara_rule: rule,
+            recursive: Some(false),
+            max_file_size: None,
+            detailed_matches: Some(true),
+        };
+
+        let result = yara_scan_files(request).await;
+        assert!(result.is_ok());
+        let scan = result.unwrap();
+        assert_eq!(scan.total_files_scanned, 1);
+        assert!(scan.total_matches >= 1);
+    }
+
     #[test]
     fn test_extract_key_strings() {
         let mcp = FileScannerMcp::new();

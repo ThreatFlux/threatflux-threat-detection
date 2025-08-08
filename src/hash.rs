@@ -285,6 +285,13 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_calculate_md5_async_nonexistent_file() {
+        let path = Path::new("/nonexistent/file/path");
+        let result = calculate_md5(path).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
     async fn test_concurrent_hash_calculation() {
         let content = b"Concurrent hash test";
         let (_temp_dir, file_path) = create_test_file(content).unwrap();
