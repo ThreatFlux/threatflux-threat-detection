@@ -73,7 +73,7 @@ url = "2.5"  # For URL parsing and validation
 edit-distance = "2.1"  # Additional string distance algorithms
 
 # OLE and VBA parsing
-cfb = "0.10"  # Compound File Binary format (OLE storage)
+cfb = "0.11"  # Compound File Binary format (OLE storage)
 zip = "3.0"  # For OOXML format support and Java archives
 
 # NPM package analysis
