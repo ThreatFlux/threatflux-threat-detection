@@ -30,12 +30,32 @@ async fn test_handle_jsonrpc_request_integration() {
 }
 
 #[tokio::test]
-async fn test_handle_jsonrpc_tools_list_integration() {
+async fn test_handle_jsonrpc_initialized_integration() {
     let server = McpTransportServer::new();
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         id: Some(json!(2)),
+        method: "initialized".to_string(),
+        params: None,
+    };
+
+    let response = server.handle_jsonrpc_request(request).await;
+    assert_eq!(response.jsonrpc, "2.0");
+    assert!(response.result.is_some());
+    assert!(response.error.is_none());
+
+    let result = response.result.unwrap();
+    assert_eq!(result, json!({}));
+}
+
+#[tokio::test]
+async fn test_handle_jsonrpc_tools_list_integration() {
+    let server = McpTransportServer::new();
+
+    let request = JsonRpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: Some(json!(3)),
         method: "tools/list".to_string(),
         params: None,
     };
@@ -47,7 +67,7 @@ async fn test_handle_jsonrpc_tools_list_integration() {
 
     let result = response.result.unwrap();
     let tools = result.get("tools").unwrap().as_array().unwrap();
-    assert_eq!(tools.len(), 2);
+    assert_eq!(tools.len(), 6);
 
     let tool_names: Vec<&str> = tools
         .iter()
@@ -55,6 +75,10 @@ async fn test_handle_jsonrpc_tools_list_integration() {
         .collect();
     assert!(tool_names.contains(&"analyze_file"));
     assert!(tool_names.contains(&"llm_analyze_file"));
+    assert!(tool_names.contains(&"yara_scan_file"));
+    assert!(tool_names.contains(&"analyze_java_file"));
+    assert!(tool_names.contains(&"analyze_npm_package"));
+    assert!(tool_names.contains(&"analyze_python_package"));
 }
 
 #[tokio::test]
@@ -71,7 +95,7 @@ async fn test_handle_jsonrpc_tools_call_analyze_file_integration() {
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
-        id: Some(json!(3)),
+        id: Some(json!(4)),
         method: "tools/call".to_string(),
         params: Some(json!({
             "name": "analyze_file",
@@ -115,7 +139,7 @@ async fn test_handle_jsonrpc_tools_call_llm_analyze_file_integration() {
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
-        id: Some(json!(4)),
+        id: Some(json!(5)),
         method: "tools/call".to_string(),
         params: Some(json!({
             "name": "llm_analyze_file",
@@ -150,7 +174,7 @@ async fn test_handle_jsonrpc_tools_call_invalid_params_integration() {
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
-        id: Some(json!(5)),
+        id: Some(json!(6)),
         method: "tools/call".to_string(),
         params: Some(json!({
             "invalid": "params_structure"
@@ -173,7 +197,7 @@ async fn test_handle_jsonrpc_tools_call_missing_params_integration() {
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
-        id: Some(json!(6)),
+        id: Some(json!(7)),
         method: "tools/call".to_string(),
         params: None,
     };
@@ -194,7 +218,7 @@ async fn test_handle_jsonrpc_unknown_method_integration() {
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
-        id: Some(json!(7)),
+        id: Some(json!(8)),
         method: "unknown/method".to_string(),
         params: None,
     };

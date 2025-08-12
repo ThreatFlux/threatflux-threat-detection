@@ -316,6 +316,15 @@ impl McpTransportServer {
                     error: None,
                 }
             }
+            "initialized" => {
+                // For initialized notification, return an empty success response
+                JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: request.id,
+                    result: Some(json!({})),
+                    error: None,
+                }
+            }
             "tools/list" => JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
                 id: request.id,
@@ -330,6 +339,10 @@ impl McpTransportServer {
                                     "file_path": {
                                         "type": "string",
                                         "description": "Path to the file to analyze"
+                                    },
+                                    "all": {
+                                        "type": "boolean",
+                                        "description": "Enable all analysis options (overrides individual flags)"
                                     },
                                     "metadata": {
                                         "type": "boolean",
@@ -353,7 +366,7 @@ impl McpTransportServer {
                                     },
                                     "hex_dump_size": {
                                         "type": "integer",
-                                        "description": "Hex dump size in bytes (default: 256)"
+                                        "description": "Hex dump size in bytes (default: 256, or entire file up to 100MB when 'all' is true)"
                                     },
                                     "hex_dump_offset": {
                                         "type": "integer",
@@ -451,6 +464,78 @@ impl McpTransportServer {
                                     }
                                 },
                                 "required": ["file_path"]
+                            }
+                        },
+                        {
+                            "name": "yara_scan_file",
+                            "description": "Scan files or directories with custom YARA rules",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {
+                                        "type": "string",
+                                        "description": "Path to the file or directory to scan"
+                                    },
+                                    "yara_rule": {
+                                        "type": "string",
+                                        "description": "YARA rule content to use for scanning"
+                                    },
+                                    "recursive": {
+                                        "type": "boolean",
+                                        "description": "If true, recursively scan directories (default: true)"
+                                    },
+                                    "max_file_size": {
+                                        "type": "integer",
+                                        "description": "Maximum file size to scan in bytes (default: 100MB)"
+                                    },
+                                    "detailed_matches": {
+                                        "type": "boolean",
+                                        "description": "Include detailed match information (default: true)"
+                                    }
+                                },
+                                "required": ["path", "yara_rule"]
+                            }
+                        },
+                        {
+                            "name": "analyze_java_file",
+                            "description": "Analyze Java archives (JAR/WAR/EAR/APK/AAR) and class files",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "file_path": {
+                                        "type": "string",
+                                        "description": "Path to the Java file to analyze (JAR/WAR/EAR/APK/AAR/CLASS)"
+                                    }
+                                },
+                                "required": ["file_path"]
+                            }
+                        },
+                        {
+                            "name": "analyze_npm_package",
+                            "description": "Analyze npm packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "package_path": {
+                                        "type": "string",
+                                        "description": "Path to npm package (can be .tgz file or directory with package.json)"
+                                    }
+                                },
+                                "required": ["package_path"]
+                            }
+                        },
+                        {
+                            "name": "analyze_python_package",
+                            "description": "Analyze Python packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "package_path": {
+                                        "type": "string",
+                                        "description": "Path to Python package (can be .whl, .tar.gz, .zip file or directory with setup.py/pyproject.toml)"
+                                    }
+                                },
+                                "required": ["package_path"]
                             }
                         }
                     ]
@@ -633,6 +718,170 @@ impl McpTransportServer {
                     }
                 }
             }
+            "yara_scan_file" => {
+                // Convert the arguments to YaraScanRequest
+                match serde_json::from_value::<crate::mcp_server::YaraScanRequest>(
+                    serde_json::json!(params.arguments),
+                ) {
+                    Ok(request) => {
+                        // Call the yara_scan_file method
+                        match self.handler.yara_scan_file(request).await {
+                            Ok(Json(result)) => {
+                                // Cache the result
+                                if let Some(path) =
+                                    params.arguments.get("path").and_then(|v| v.as_str())
+                                {
+                                    let entry = CacheEntry {
+                                        file_path: path.to_string(),
+                                        file_hash: "yara_scan".to_string(), // Special hash for scans
+                                        tool_name: "yara_scan_file".to_string(),
+                                        tool_args: params.arguments.clone(),
+                                        result: serde_json::to_value(&result).unwrap_or_default(),
+                                        timestamp: Utc::now(),
+                                        file_size: 0, // Not applicable for scans
+                                        execution_time_ms: start_time.elapsed().as_millis() as u64,
+                                    };
+                                    let cache_clone = self.cache.clone();
+                                    tokio::spawn(async move {
+                                        let _ = cache_clone.add_entry(entry).await;
+                                    });
+                                }
+
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                                    }]
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": format!("Error: {}", e)
+                                    }]
+                                })
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("Error parsing request: {}", e)
+                            }]
+                        })
+                    }
+                }
+            }
+            "analyze_java_file" => {
+                // Convert the arguments to JavaAnalysisRequest
+                match serde_json::from_value::<crate::mcp_server::JavaAnalysisRequest>(
+                    serde_json::json!(params.arguments),
+                ) {
+                    Ok(request) => {
+                        // Call the analyze_java_file method
+                        match self.handler.analyze_java_file(request).await {
+                            Ok(Json(result)) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                                    }]
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": format!("Error: {}", e)
+                                    }]
+                                })
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("Error parsing request: {}", e)
+                            }]
+                        })
+                    }
+                }
+            }
+            "analyze_npm_package" => {
+                // Convert the arguments to NpmAnalysisRequest
+                match serde_json::from_value::<crate::mcp_server::NpmAnalysisRequest>(
+                    serde_json::json!(params.arguments),
+                ) {
+                    Ok(request) => {
+                        // Call the analyze_npm_package method
+                        match self.handler.analyze_npm_package(request).await {
+                            Ok(Json(result)) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                                    }]
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": format!("Error: {}", e)
+                                    }]
+                                })
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("Error parsing request: {}", e)
+                            }]
+                        })
+                    }
+                }
+            }
+            "analyze_python_package" => {
+                // Convert the arguments to PythonAnalysisRequest
+                match serde_json::from_value::<crate::mcp_server::PythonAnalysisRequest>(
+                    serde_json::json!(params.arguments),
+                ) {
+                    Ok(request) => {
+                        // Call the analyze_python_package method
+                        match self.handler.analyze_python_package(request).await {
+                            Ok(Json(result)) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                                    }]
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "content": [{
+                                        "type": "text",
+                                        "text": format!("Error: {}", e)
+                                    }]
+                                })
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("Error parsing request: {}", e)
+                            }]
+                        })
+                    }
+                }
+            }
             _ => {
                 json!({"content": [{"type": "text", "text": format!("Error: Unknown tool: {}", params.name)}]})
             }
@@ -680,6 +929,22 @@ async fn handle_tools_list(
                 {
                     "name": "llm_analyze_file",
                     "description": "LLM-optimized file analysis for YARA rule generation - returns focused, token-limited output"
+                },
+                {
+                    "name": "yara_scan_file",
+                    "description": "Scan files or directories with custom YARA rules"
+                },
+                {
+                    "name": "analyze_java_file",
+                    "description": "Analyze Java archives (JAR/WAR/EAR/APK/AAR) and class files"
+                },
+                {
+                    "name": "analyze_npm_package",
+                    "description": "Analyze npm packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks"
+                },
+                {
+                    "name": "analyze_python_package",
+                    "description": "Analyze Python packages for vulnerabilities, malicious code, typosquatting, and supply chain attacks"
                 }
             ]
         }
@@ -1164,6 +1429,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_handle_jsonrpc_initialized() {
+        let server = create_test_transport_server();
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(Value::Number(2.into())),
+            method: "initialized".to_string(),
+            params: None,
+        };
+
+        let response = server.handle_jsonrpc_request(request).await;
+
+        assert_eq!(response.jsonrpc, "2.0");
+        assert_eq!(response.id, Some(Value::Number(2.into())));
+        assert!(response.result.is_some());
+        assert!(response.error.is_none());
+
+        let result = response.result.unwrap();
+        assert_eq!(result, json!({}));
+    }
+
+    #[tokio::test]
     async fn test_handle_jsonrpc_tools_list() {
         let server = create_test_transport_server();
 
@@ -1183,7 +1470,7 @@ mod tests {
 
         let result = response.result.unwrap();
         let tools = result.get("tools").unwrap().as_array().unwrap();
-        assert_eq!(tools.len(), 2);
+        assert_eq!(tools.len(), 6);
 
         let tool_names: Vec<&str> = tools
             .iter()
@@ -1191,6 +1478,10 @@ mod tests {
             .collect();
         assert!(tool_names.contains(&"analyze_file"));
         assert!(tool_names.contains(&"llm_analyze_file"));
+        assert!(tool_names.contains(&"yara_scan_file"));
+        assert!(tool_names.contains(&"analyze_java_file"));
+        assert!(tool_names.contains(&"analyze_npm_package"));
+        assert!(tool_names.contains(&"analyze_python_package"));
     }
 
     #[tokio::test]
@@ -1357,7 +1648,7 @@ mod tests {
 
         let result = value.get("result").unwrap();
         let tools = result.get("tools").unwrap().as_array().unwrap();
-        assert_eq!(tools.len(), 2);
+        assert_eq!(tools.len(), 6);
 
         let tool_names: Vec<&str> = tools
             .iter()
@@ -1365,6 +1656,10 @@ mod tests {
             .collect();
         assert!(tool_names.contains(&"analyze_file"));
         assert!(tool_names.contains(&"llm_analyze_file"));
+        assert!(tool_names.contains(&"yara_scan_file"));
+        assert!(tool_names.contains(&"analyze_java_file"));
+        assert!(tool_names.contains(&"analyze_npm_package"));
+        assert!(tool_names.contains(&"analyze_python_package"));
     }
 
     #[tokio::test]
