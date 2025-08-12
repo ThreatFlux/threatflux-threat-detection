@@ -291,6 +291,14 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_detect_mime_type_nonexistent_file() {
+        let mut metadata = FileMetadata::new(Path::new("/nonexistent/file")).unwrap();
+        let result = metadata.detect_mime_type();
+        assert!(result.is_ok());
+        assert!(metadata.mime_type.is_none());
+    }
+
     #[test_case(b"\x7FELF\x02\x01\x01\x00", "application/x-elf"; "ELF binary")]
     #[test_case(b"MZ\x90\x00\x03\x00\x00\x00", "application/x-dosexec"; "PE binary")]
     #[test_case(b"\xCA\xFE\xBA\xBE", "application/x-mach-binary"; "Mach-O binary BE")]
