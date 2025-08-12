@@ -2,7 +2,7 @@ use anyhow::Result;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    response::{Json as AxumJson, Sse},
+    response::{IntoResponse, Json as AxumJson, Sse},
     routing::{get, post},
     Router,
 };
@@ -318,6 +318,8 @@ impl McpTransportServer {
             }
             "initialized" => {
                 // For initialized notification, return an empty success response
+                // This is a notification, so technically no response is required,
+                // but we return an empty result for compatibility
                 JsonRpcResponse {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -893,14 +895,22 @@ impl McpTransportServer {
 async fn handle_mcp_http_request(
     State(state): State<McpServerState>,
     AxumJson(request): AxumJson<JsonRpcRequest>,
-) -> Result<AxumJson<JsonRpcResponse>, StatusCode> {
+) -> Result<axum::response::Response, StatusCode> {
+    // Special handling for initialized notification - return 202 Accepted
+    if request.method == "initialized" {
+        return Ok(axum::response::Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .body(axum::body::Body::empty())
+            .unwrap());
+    }
+
     let server = McpTransportServer {
         handler: state.handler,
         cache: state.cache.clone(),
         string_tracker: state.string_tracker.clone(),
     };
     let response = server.handle_jsonrpc_request(request).await;
-    Ok(AxumJson(response))
+    Ok(axum::response::Json(response).into_response())
 }
 
 async fn handle_initialize(

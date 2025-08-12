@@ -16,11 +16,14 @@ The file-scanner MCP server was not handling the `initialized` notification corr
 
 ### 1. Added `initialized` Handler
 
-In `src/mcp_transport.rs`, added a handler for the `initialized` method:
+In `src/mcp_transport.rs`, added handlers for the `initialized` method:
 
+#### For STDIO Transport:
 ```rust
 "initialized" => {
     // For initialized notification, return an empty success response
+    // This is a notification, so technically no response is required,
+    // but we return an empty result for compatibility
     JsonRpcResponse {
         jsonrpc: "2.0".to_string(),
         id: request.id,
@@ -29,6 +32,25 @@ In `src/mcp_transport.rs`, added a handler for the `initialized` method:
     }
 }
 ```
+
+#### For HTTP Transport:
+```rust
+async fn handle_mcp_http_request(
+    State(state): State<McpServerState>,
+    AxumJson(request): AxumJson<JsonRpcRequest>,
+) -> Result<axum::response::Response, StatusCode> {
+    // Special handling for initialized notification - return 202 Accepted
+    if request.method == "initialized" {
+        return Ok(axum::response::Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .body(axum::body::Body::empty())
+            .unwrap());
+    }
+    // ... handle other requests normally
+}
+```
+
+The HTTP transport correctly returns HTTP 202 Accepted for the `initialized` notification, as expected by the rmcp protocol.
 
 ### 2. Updated Tool Lists
 
@@ -71,8 +93,9 @@ Added `test_handle_jsonrpc_initialized_integration` in the integration test suit
 
 ### Manual Testing
 
-Created `test_rmcp_fix.sh` script to verify the protocol flow:
+Created test scripts to verify the protocol flow:
 
+#### STDIO Transport Test (`test_rmcp_fix.sh`):
 ```bash
 # Initialize
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | ./target/release/file-scanner mcp-stdio
@@ -82,6 +105,17 @@ echo '{"jsonrpc":"2.0","id":2,"method":"initialized","params":{}}' | ./target/re
 
 # List tools
 echo '{"jsonrpc":"2.0","id":3,"method":"tools/list"}' | ./target/release/file-scanner mcp-stdio
+```
+
+#### HTTP Transport Test (`test_http_initialized.sh`):
+```bash
+# Test that initialized returns HTTP 202
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:3001/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialized","params":{}}')
+
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+# Should be 202
 ```
 
 ## Best Practices
