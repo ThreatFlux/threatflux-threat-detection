@@ -4,6 +4,12 @@
 
 set -e
 
+# If running in CI, use the CI-optimized script
+if [ -n "$CI" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    exec "$SCRIPT_DIR/test-parallel-ci.sh" "$@"
+fi
+
 echo "⚡ Running parallel test suite with maximum performance..."
 
 # Detect number of CPU cores

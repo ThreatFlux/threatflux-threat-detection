@@ -162,6 +162,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup swap space
+        run: |
+          echo "📊 Current memory and swap:"
+          free -h
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "📊 Memory and swap after setup:"
+          free -h
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -190,8 +201,20 @@ jobs:
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
 
+      - name: Free disk space before tests
+        run: |
+          echo "📊 Initial disk space:"
+          df -h
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo apt-get clean || true
+          echo "📊 Disk space after cleanup:"
+          df -h
+
       - name: Run comprehensive parallel tests
-        run: ./scripts/test-parallel.sh
+        run: ./scripts/test-parallel-ci.sh
 
   coverage:
     name: Code Coverage
