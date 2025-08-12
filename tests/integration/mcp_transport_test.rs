@@ -64,12 +64,16 @@ mod tests {
 
         let result = response.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 2);
+        assert_eq!(tools.len(), 6);
 
         // Check tool names
         let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(tool_names.contains(&"analyze_file"));
         assert!(tool_names.contains(&"llm_analyze_file"));
+        assert!(tool_names.contains(&"yara_scan_file"));
+        assert!(tool_names.contains(&"analyze_java_file"));
+        assert!(tool_names.contains(&"analyze_npm_package"));
+        assert!(tool_names.contains(&"analyze_python_package"));
     }
 
     #[tokio::test]

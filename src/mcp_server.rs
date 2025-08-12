@@ -1432,7 +1432,8 @@ rule TestRule {
     condition:
         $a
 }
-"#.to_string();
+"#
+        .to_string();
 
         let request = YaraScanRequest {
             path: file_path.to_string_lossy().to_string(),

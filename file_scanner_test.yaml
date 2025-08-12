@@ -1,0 +1,54 @@
+name: File Scanner CLI Test Suite
+tests:
+  - name: Basic file analysis
+    command: ./target/release/file-scanner /bin/echo --format json
+    expected_keys:
+      - file_name
+      - file_size
+      - hashes
+      - binary_info
+
+  - name: All analysis options
+    command: ./target/release/file-scanner /bin/echo --all --format json
+    expected_keys:
+      - file_name
+      - hashes
+      - extracted_strings
+      - entropy_analysis
+      - symbol_analysis
+      - threat_analysis
+      - yara_indicators
+
+  - name: Specific analysis flags
+    command: ./target/release/file-scanner /bin/echo --symbols --entropy --format json
+    expected_keys:
+      - symbol_analysis
+      - entropy_analysis
+    not_expected_keys:
+      - extracted_strings
+      - threat_analysis
+
+  - name: LLM analysis subcommand
+    command: ./target/release/file-scanner llm-analyze /bin/echo --suggest-yara-rule
+    expected_keys:
+      - md5
+      - file_size
+      - key_strings
+      - yara_rule_suggestion
+
+  - name: YARA scan with inline rule
+    command: ./target/release/file-scanner yara-scan /bin/echo --rule 'rule test { condition: true }'
+    expected_keys:
+      - total_files_scanned
+      - total_matches
+      - matches
+
+  - name: NPM analysis (with test package)
+    setup: |
+      mkdir -p test-pkg && echo '{"name":"test","version":"1.0.0"}' > test-pkg/package.json
+    command: ./target/release/file-scanner analyze-npm test-pkg
+    cleanup: rm -rf test-pkg
+    expected_keys:
+      - package_info
+      - security_analysis
+      - malicious_indicators
