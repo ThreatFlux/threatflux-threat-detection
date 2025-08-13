@@ -51,18 +51,18 @@ futures-util = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
 
 # OpenAPI documentation
-utoipa = { version = "4.2", features = ["axum_extras", "chrono", "uuid"] }
+utoipa = { version = "5.4", features = ["axum_extras", "chrono", "uuid"] }
 utoipa-redoc = { version = "6.0", features = ["axum"] }
 utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 
 # Static analysis dependencies
-addr2line = "0.24"
+addr2line = "0.25"
 memmap2 = "0.9"
 capstone = "0.13"
 petgraph = "0.8.2"
 
 # Threat detection
-yara-x = "1.4.0"
+yara-x = "1.5.0"
 walkdir = "2.4"
 
 # Semgrep integration and static analysis enhancements
@@ -74,7 +74,7 @@ edit-distance = "2.1"  # Additional string distance algorithms
 
 # OLE and VBA parsing
 cfb = "0.11"  # Compound File Binary format (OLE storage)
-zip = "3.0"  # For OOXML format support and Java archives
+zip = "4.3"  # For OOXML format support and Java archives
 
 # NPM package analysis
 flate2 = "1.0"  # For gzip decompression
