@@ -1,0 +1,51 @@
+# Clippy configuration for file-scanner project
+# See https://doc.rust-lang.org/clippy/configuration.html for options
+
+# Complexity limits
+cognitive-complexity-threshold = 30
+type-complexity-threshold = 250
+too-many-arguments-threshold = 8
+too-many-lines-threshold = 150
+large-error-threshold = 128
+
+# String literal limits  
+max-suggested-slice-pattern-length = 3
+
+# Documentation requirements
+missing-docs-in-crate-items = false
+
+# Allow certain patterns common in this codebase
+# These can be customized based on project needs
+allowed-scripts = ["Latin", "Arabic", "Cyrillic"]
+
+# Specific lint configurations for file scanner patterns
+# Allow clippy::module_inception for nested modules
+# Allow clippy::large_enum_variant for analysis result enums
+# Allow clippy::too_many_arguments for analysis functions with many optional parameters
+
+# Performance-related
+vec-box-size-threshold = 4096
+trivial-copy-size-threshold = 128
+
+# Error handling patterns
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+
+# Documentation patterns
+doc-valid-idents = [
+    "FileScanner", "MCP", "YARA", "NPM", "SHA256", "MD5", "BLAKE3", 
+    "JSON", "YAML", "API", "HTTP", "SSE", "STDIO", "CLI", "UUID",
+    "PE", "ELF", "Mach-O", "VBA", "PDF", "OLE", "CVE", "CVSS"
+]
+
+# Naming patterns
+upper-case-acronyms-aggressive = false
+enum-variant-name-threshold = 3
+struct-excessive-bools = 3
+
+# Import patterns
+max-trait-bounds = 3
+single-char-binding-names-threshold = 4
+
+# Allow certain clippy lints that are common in security/analysis tools
+allow-mixed-uninlined-format-args = true
