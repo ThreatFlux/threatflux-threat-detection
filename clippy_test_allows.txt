@@ -1,5 +1,0 @@
-#\![allow(clippy::assertions_on_constants)]
-#\![allow(deprecated)]
-#\![allow(unused_imports)]
-#\![allow(clippy::useless_vec)]
-#\![allow(clippy::len_zero)]
