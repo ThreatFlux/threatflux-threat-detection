@@ -1,9 +1,8 @@
 //! Example showing custom entry metadata and search functionality
 
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use threatflux_cache::prelude::*;
-use threatflux_cache::{BasicMetadata, SearchQuery};
+use threatflux_cache::{entry::BasicMetadata, EvictionPolicy, PersistenceConfig, SearchQuery};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Document {
