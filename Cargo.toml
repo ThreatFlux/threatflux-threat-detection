@@ -5,7 +5,19 @@ edition = "2021"
 authors = ["File Scanner Project"]
 
 [dependencies]
-# Hash calculations
+# Hash calculations - using external library
+threatflux-hashing = { path = "./threatflux-hashing", features = ["serde"] }
+# String analysis - using external library
+threatflux-string-analysis = { path = "./threatflux-string-analysis" }
+# Cache functionality - using external library
+threatflux-cache = { path = "./threatflux-cache", features = ["openapi"] }
+# Binary analysis - using external library (temporarily disabled due to compilation errors)
+# threatflux-binary-analysis = { path = "./threatflux-binary-analysis", features = ["elf", "pe", "macho"] }
+# Threat detection - using external library (temporarily disabled due to compilation errors)
+# threatflux-threat-detection = { path = "./threatflux-threat-detection", features = ["builtin-rules", "pattern-matching"] }
+# Package security analysis - using external library (temporarily disabled due to compilation errors)
+# threatflux-package-security = { path = "./threatflux-package-security" }
+# Keep individual dependencies for now during migration
 sha2 = "0.10"
 md-5 = "0.10"
 blake3 = "1.5"
@@ -32,6 +44,9 @@ serde_yaml = "0.9"
 anyhow = "1.0"
 thiserror = "2.0"
 
+# Async trait support
+async-trait = "0.1"
+
 # Async runtime (optional, for parallel processing)
 tokio = { version = "1.47", features = ["full"] }
 
@@ -45,6 +60,7 @@ schemars = "1.0"
 # HTTP server for MCP
 axum = { version = "0.8", features = ["ws"] }
 tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
 hyper = "1.5"
 tokio-stream = "0.1"
 futures-util = "0.3"

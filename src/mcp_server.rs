@@ -28,6 +28,9 @@ use crate::{
     vulnerability_detection::{analyze_vulnerabilities, VulnerabilityDetectionResult},
 };
 
+// Re-export YARA types from threat_detection module
+pub use crate::threat_detection::{YaraFileMatch, YaraRuleMatch, YaraStringMatch, YaraScanError};
+
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FileAnalysisRequest {
     #[schemars(description = "Path to the file to analyze")]
@@ -192,34 +195,7 @@ pub struct YaraScanResult {
     pub errors: Vec<YaraScanError>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct YaraFileMatch {
-    pub file_path: String,
-    pub file_size: u64,
-    pub matches: Vec<YaraRuleMatch>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct YaraRuleMatch {
-    pub rule_identifier: String,
-    pub tags: Vec<String>,
-    pub metadata: std::collections::HashMap<String, String>,
-    pub strings: Vec<YaraStringMatch>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct YaraStringMatch {
-    pub identifier: String,
-    pub offset: u64,
-    pub length: usize,
-    pub value: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct YaraScanError {
-    pub file_path: String,
-    pub error: String,
-}
+// YARA types imported above
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct JavaAnalysisRequest {

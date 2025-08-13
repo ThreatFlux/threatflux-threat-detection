@@ -24,7 +24,7 @@ use uuid::Uuid;
 // use crate::api_docs::ApiDoc;
 use crate::cache::{AnalysisCache, CacheEntry, CacheSearchQuery};
 use crate::mcp_server::FileScannerMcp;
-use crate::string_tracker::{StringFilter, StringTracker};
+use crate::string_tracker_compat::{StringFilter, StringTracker};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -1277,7 +1277,7 @@ mod tests {
     use super::*;
     use crate::cache::{AnalysisCache, CacheSearchQuery};
     use crate::mcp_server::FileScannerMcp;
-    use crate::string_tracker::{StringFilter, StringTracker};
+    use crate::string_tracker_compat::{StringFilter, StringTracker};
     use serde_json::{json, Value};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};

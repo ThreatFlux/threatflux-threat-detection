@@ -1,0 +1,85 @@
+[package]
+name = "threatflux-threat-detection"
+version = "0.1.0"
+edition = "2021"
+authors = ["ThreatFlux Team"]
+description = "Comprehensive threat detection library with YARA integration and malware analysis"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ThreatFlux/threatflux-threat-detection"
+keywords = ["threat", "detection", "yara", "malware", "security"]
+categories = ["cryptography", "network-programming", "development-tools"]
+readme = "README.md"
+
+[features]
+default = ["yara-engine", "builtin-rules"]
+yara-engine = ["yara-x"]
+clamav-engine = ["clamav-rs"]
+pattern-matching = ["aho-corasick", "regex"]
+rule-management = ["git2", "reqwest"]
+builtin-rules = []
+metrics = ["prometheus"]
+async-scanning = ["tokio"]
+serde-support = ["serde", "serde_json"]
+
+[dependencies]
+# Core dependencies
+anyhow = "1.0"
+thiserror = "1.0"
+log = "0.4"
+walkdir = "2.3"
+
+# Detection engines
+yara-x = { version = "0.9", optional = true }
+clamav-rs = { version = "0.3", optional = true }
+
+# Pattern matching (optional)
+aho-corasick = { version = "1.1", optional = true }
+regex = { version = "1.10", optional = true }
+
+# Rule management (optional)
+git2 = { version = "0.19", optional = true }
+reqwest = { version = "0.12", features = ["json"], optional = true }
+
+# Async support (optional)
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+# Serialization (optional)
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+# Metrics (optional)
+prometheus = { version = "0.13", optional = true }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.8", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.0"
+tokio-test = "0.4"
+
+[[example]]
+name = "basic_scanning"
+path = "examples/basic_scanning.rs"
+
+[[example]]
+name = "rule_management"
+path = "examples/rule_management.rs"
+required-features = ["rule-management"]
+
+[[example]]
+name = "async_scanning"
+path = "examples/async_scanning.rs"
+required-features = ["async-scanning"]
+
+[[bench]]
+name = "scanning_performance"
+path = "benches/scanning_performance.rs"
+harness = false
+
+[[bench]]
+name = "rule_compilation"
+path = "benches/rule_compilation.rs"
+harness = false

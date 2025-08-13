@@ -149,3 +149,32 @@ scan_output/
 # Package lock file (use Cargo.lock instead)
 package-lock.json
 test_results.log
+
+# ThreatFlux library build artifacts
+threatflux-*/target/
+**/target/criterion/
+**/target/doc/
+
+# Library-specific test outputs
+threatflux-*/*.test.yaml
+threatflux-*/*_test.log
+threatflux-*/test_output/
+
+# Documentation build artifacts  
+threatflux-*/doc/
+**/doc/book/
+
+# Example outputs
+examples/output/
+**/examples/output/
+
+# Cache data from libraries
+**/cache/
+**/.cache/
+threatflux-cache/cache_data/
+
+# Additional backup patterns for refactoring
+*.rs.backup
+*.toml.backup
+*_old.rs.bak
+*_refactored.rs

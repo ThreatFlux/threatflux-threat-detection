@@ -6,6 +6,36 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
+// YARA-related types for scanning
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraFileMatch {
+    pub file_path: String,
+    pub file_size: u64,
+    pub matches: Vec<YaraRuleMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraRuleMatch {
+    pub rule_identifier: String,
+    pub tags: Vec<String>,
+    pub metadata: std::collections::HashMap<String, String>,
+    pub strings: Vec<YaraStringMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraStringMatch {
+    pub identifier: String,
+    pub offset: u64,
+    pub length: usize,
+    pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct YaraScanError {
+    pub file_path: String,
+    pub error: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreatAnalysis {
     pub matches: Vec<YaraMatch>,
@@ -614,8 +644,8 @@ pub fn generate_recommendations(
 pub struct CustomYaraScanResult {
     pub total_files_scanned: usize,
     pub total_matches: usize,
-    pub matches: Vec<crate::mcp_server::YaraFileMatch>,
-    pub errors: Vec<crate::mcp_server::YaraScanError>,
+    pub matches: Vec<YaraFileMatch>,
+    pub errors: Vec<YaraScanError>,
 }
 
 pub async fn scan_with_custom_rule(
@@ -673,13 +703,13 @@ pub async fn scan_with_custom_rule(
                 }
             }
             Ok(Err(e)) => {
-                result.errors.push(crate::mcp_server::YaraScanError {
+                result.errors.push(YaraScanError {
                     file_path: file_path.display().to_string(),
                     error: e.to_string(),
                 });
             }
             Err(e) => {
-                result.errors.push(crate::mcp_server::YaraScanError {
+                result.errors.push(YaraScanError {
                     file_path: file_path.display().to_string(),
                     error: format!("Task error: {}", e),
                 });
@@ -740,7 +770,7 @@ fn scan_single_file(
     file_path: &Path,
     rules_bytes: &[u8],
     detailed_matches: bool,
-) -> Result<crate::mcp_server::YaraFileMatch> {
+) -> Result<YaraFileMatch> {
     // Read file
     let file_data = fs::read(file_path)?;
     let file_size = file_data.len() as u64;
@@ -759,7 +789,7 @@ fn scan_single_file(
     let matching_rules = scan_results.matching_rules();
 
     for matching_rule in matching_rules {
-        let mut rule_match = crate::mcp_server::YaraRuleMatch {
+        let mut rule_match = YaraRuleMatch {
             rule_identifier: matching_rule.identifier().to_string(),
             tags: Vec::new(),
             metadata: HashMap::new(),
@@ -800,7 +830,7 @@ fn scan_single_file(
                         None
                     };
 
-                    rule_match.strings.push(crate::mcp_server::YaraStringMatch {
+                    rule_match.strings.push(YaraStringMatch {
                         identifier: pattern.identifier().to_string(),
                         offset,
                         length,
@@ -813,7 +843,7 @@ fn scan_single_file(
         matches.push(rule_match);
     }
 
-    Ok(crate::mcp_server::YaraFileMatch {
+    Ok(YaraFileMatch {
         file_path: file_path.display().to_string(),
         file_size,
         matches,

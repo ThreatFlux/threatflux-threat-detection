@@ -1315,6 +1315,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "assert_fs",
+ "async-trait",
  "axum",
  "base64",
  "blake3",
@@ -1359,10 +1360,14 @@ dependencies = [
  "tempfile",
  "test-case",
  "thiserror 2.0.14",
+ "threatflux-cache",
+ "threatflux-hashing",
+ "threatflux-string-analysis",
  "tokio",
  "tokio-stream",
  "tokio-test",
  "tower",
+ "tower-http",
  "url",
  "utoipa",
  "utoipa-redoc",
@@ -4321,6 +4326,43 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "threatflux-cache"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.14",
+ "tokio",
+ "utoipa",
+]
+
+[[package]]
+name = "threatflux-hashing"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "futures",
+ "md-5",
+ "serde",
+ "sha2",
+ "thiserror 2.0.14",
+ "tokio",
+]
+
+[[package]]
+name = "threatflux-string-analysis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

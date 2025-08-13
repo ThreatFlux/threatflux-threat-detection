@@ -18,6 +18,7 @@ mod function_analysis;
 mod hash;
 mod hexdump;
 mod java_analysis;
+mod mcp;
 mod mcp_server;
 mod mcp_transport;
 mod metadata;
@@ -32,7 +33,8 @@ pub mod repository_integrity;
 mod script_analysis;
 mod sevenz_analysis;
 mod signature;
-mod string_tracker;
+mod string_tracker_compat;
+use string_tracker_compat as string_tracker;
 mod strings;
 pub mod taint_tracking;
 mod tar_analysis;
@@ -49,6 +51,7 @@ use entropy_analysis::analyze_entropy;
 use function_analysis::analyze_symbols;
 use hexdump::{extract_footer_hex, extract_header_hex, generate_hex_dump, HexDumpOptions};
 use java_analysis::{analyze_class_file, analyze_java_archive};
+use mcp::McpHandler;
 use mcp_server::YaraIndicators;
 use mcp_transport::McpTransportServer;
 use metadata::FileMetadata;
@@ -467,58 +470,28 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+// TODO: Temporarily disabled during refactoring
 async fn handle_llm_analyze(
-    file_path: PathBuf,
-    token_limit: usize,
-    min_string_length: usize,
-    max_strings: usize,
-    max_imports: usize,
-    suggest_yara_rule: bool,
+    _file_path: PathBuf,
+    _token_limit: usize,
+    _min_string_length: usize,
+    _max_strings: usize,
+    _max_imports: usize,
+    _suggest_yara_rule: bool,
 ) -> Result<()> {
-    use crate::mcp_server::{analyze_file_llm, LlmFileAnalysisRequest};
-
-    let request = LlmFileAnalysisRequest {
-        file_path: file_path.to_string_lossy().to_string(),
-        token_limit: Some(token_limit),
-        min_string_length: Some(min_string_length),
-        max_strings: Some(max_strings),
-        max_imports: Some(max_imports),
-        max_opcodes: None,
-        hex_pattern_size: None,
-        suggest_yara_rule: Some(suggest_yara_rule),
-    };
-
-    let result = analyze_file_llm(request).await?;
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    println!("LLM analysis temporarily disabled during refactoring");
     Ok(())
 }
 
+// TODO: Temporarily disabled during refactoring  
 async fn handle_yara_scan(
-    path: PathBuf,
-    rule: String,
-    recursive: bool,
-    max_file_size_mb: u64,
-    detailed: bool,
+    _path: PathBuf,
+    _rule: String,
+    _recursive: bool,
+    _max_file_size_mb: u64,
+    _detailed: bool,
 ) -> Result<()> {
-    use crate::mcp_server::{yara_scan_files, YaraScanRequest};
-
-    // Read rule from file if it's a path, otherwise use as inline rule
-    let yara_rule = if std::fs::metadata(&rule).is_ok() {
-        std::fs::read_to_string(&rule)?
-    } else {
-        rule
-    };
-
-    let request = YaraScanRequest {
-        path: path.to_string_lossy().to_string(),
-        yara_rule,
-        recursive: Some(recursive),
-        max_file_size: Some(max_file_size_mb * 1024 * 1024),
-        detailed_matches: Some(detailed),
-    };
-
-    let result = yara_scan_files(request).await?;
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    println!("YARA scanning temporarily disabled during refactoring");
     Ok(())
 }
 

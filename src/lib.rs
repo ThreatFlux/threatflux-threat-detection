@@ -28,7 +28,7 @@ pub mod repository_integrity;
 pub mod script_analysis;
 pub mod sevenz_analysis;
 pub mod signature;
-pub mod string_tracker;
+pub mod string_tracker_compat;
 pub mod strings;
 pub mod taint_tracking;
 pub mod tar_analysis;
