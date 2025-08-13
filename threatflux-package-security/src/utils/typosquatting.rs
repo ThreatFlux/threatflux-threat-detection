@@ -1,7 +1,7 @@
 //! Typosquatting detection utilities
 
-use strsim::levenshtein;
 use std::collections::HashSet;
+use strsim::levenshtein;
 
 /// Typosquatting detector
 pub struct TyposquattingDetector {
@@ -12,22 +12,22 @@ impl TyposquattingDetector {
     /// Create a new typosquatting detector
     pub fn new() -> Self {
         let mut popular_packages = HashSet::new();
-        
+
         // Add popular npm packages
         for pkg in NPM_POPULAR_PACKAGES {
             popular_packages.insert(pkg.to_string());
         }
-        
+
         // Add popular Python packages
         for pkg in PYTHON_POPULAR_PACKAGES {
             popular_packages.insert(pkg.to_string());
         }
-        
+
         // Add popular Java packages
         for pkg in JAVA_POPULAR_PACKAGES {
             popular_packages.insert(pkg.to_string());
         }
-        
+
         Self { popular_packages }
     }
 
@@ -71,8 +71,18 @@ impl TyposquattingDetector {
     /// Check for suspicious suffixes
     fn has_suspicious_suffix(&self, name: &str) -> bool {
         const SUSPICIOUS_SUFFIXES: &[&str] = &[
-            "-dev", "-test", "-beta", "-alpha", "-rc", "-snapshot",
-            "js", "-js", "2", "-official", "-real", "-new",
+            "-dev",
+            "-test",
+            "-beta",
+            "-alpha",
+            "-rc",
+            "-snapshot",
+            "js",
+            "-js",
+            "2",
+            "-official",
+            "-real",
+            "-new",
         ];
 
         for suffix in SUSPICIOUS_SUFFIXES {
@@ -90,9 +100,8 @@ impl TyposquattingDetector {
 
     /// Check for suspicious prefixes
     fn has_suspicious_prefix(&self, name: &str) -> bool {
-        const SUSPICIOUS_PREFIXES: &[&str] = &[
-            "fake-", "test-", "my-", "new-", "real-", "official-",
-        ];
+        const SUSPICIOUS_PREFIXES: &[&str] =
+            &["fake-", "test-", "my-", "new-", "real-", "official-"];
 
         for prefix in SUSPICIOUS_PREFIXES {
             if name.starts_with(prefix) {
@@ -152,21 +161,69 @@ impl Default for TyposquattingDetector {
 
 // Popular NPM packages
 const NPM_POPULAR_PACKAGES: &[&str] = &[
-    "react", "express", "axios", "lodash", "moment", "webpack", "typescript",
-    "vue", "angular", "jquery", "bootstrap", "eslint", "babel-core", "jest",
-    "mocha", "chai", "gulp", "grunt", "nodemon", "prettier", "commander",
+    "react",
+    "express",
+    "axios",
+    "lodash",
+    "moment",
+    "webpack",
+    "typescript",
+    "vue",
+    "angular",
+    "jquery",
+    "bootstrap",
+    "eslint",
+    "babel-core",
+    "jest",
+    "mocha",
+    "chai",
+    "gulp",
+    "grunt",
+    "nodemon",
+    "prettier",
+    "commander",
 ];
 
 // Popular Python packages
 const PYTHON_POPULAR_PACKAGES: &[&str] = &[
-    "numpy", "pandas", "requests", "flask", "django", "tensorflow", "matplotlib",
-    "scipy", "scikit-learn", "pytest", "pillow", "beautifulsoup4", "selenium",
-    "pytorch", "keras", "sqlalchemy", "celery", "scrapy", "opencv-python",
+    "numpy",
+    "pandas",
+    "requests",
+    "flask",
+    "django",
+    "tensorflow",
+    "matplotlib",
+    "scipy",
+    "scikit-learn",
+    "pytest",
+    "pillow",
+    "beautifulsoup4",
+    "selenium",
+    "pytorch",
+    "keras",
+    "sqlalchemy",
+    "celery",
+    "scrapy",
+    "opencv-python",
 ];
 
 // Popular Java packages
 const JAVA_POPULAR_PACKAGES: &[&str] = &[
-    "spring-core", "spring-boot", "junit", "log4j", "commons-lang", "guava",
-    "jackson-core", "gson", "okhttp", "retrofit", "hibernate-core", "mockito",
-    "slf4j-api", "logback-classic", "apache-commons", "jetty", "tomcat",
+    "spring-core",
+    "spring-boot",
+    "junit",
+    "log4j",
+    "commons-lang",
+    "guava",
+    "jackson-core",
+    "gson",
+    "okhttp",
+    "retrofit",
+    "hibernate-core",
+    "mockito",
+    "slf4j-api",
+    "logback-classic",
+    "apache-commons",
+    "jetty",
+    "tomcat",
 ];

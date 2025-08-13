@@ -2,11 +2,11 @@
 
 use crate::{
     types::{
-        Architecture, BinaryFormat as Format, BinaryMetadata, Section, Symbol, Import, Export,
-        SectionType, SectionPermissions, SymbolType, SymbolBinding, SymbolVisibility,
-        SecurityFeatures, Endianness, FunctionType
+        Architecture, BinaryFormat as Format, BinaryMetadata, Endianness, Export, FunctionType,
+        Import, Section, SectionPermissions, SectionType, SecurityFeatures, Symbol, SymbolBinding,
+        SymbolType, SymbolVisibility,
     },
-    BinaryFormatTrait, BinaryFormatParser, Result, BinaryError,
+    BinaryError, BinaryFormatParser, BinaryFormatTrait, Result,
 };
 use goblin::elf::{Elf, SectionHeader, Sym};
 use std::collections::HashMap;
@@ -39,7 +39,7 @@ pub struct ElfBinary {
 impl ElfBinary {
     fn new(elf: Elf<'_>, data: &[u8]) -> Result<Self> {
         let data = data.to_vec();
-        
+
         // Convert architecture
         let architecture = match elf.header.e_machine {
             goblin::elf::header::EM_386 => Architecture::X86,
@@ -66,9 +66,13 @@ impl ElfBinary {
             size: data.len(),
             format: Format::Elf,
             architecture,
-            entry_point: if elf.entry != 0 { Some(elf.entry) } else { None },
+            entry_point: if elf.entry != 0 {
+                Some(elf.entry)
+            } else {
+                None
+            },
             base_address: None, // ELF doesn't have a fixed base address
-            timestamp: None, // Not available in ELF headers
+            timestamp: None,    // Not available in ELF headers
             compiler_info: extract_compiler_info(&elf),
             endian,
             security_features,
@@ -85,9 +89,7 @@ impl ElfBinary {
 
         // We need to handle lifetime issues with the Elf struct
         // For now, we'll store the essential data and reconstruct what we need
-        let elf_owned = unsafe {
-            std::mem::transmute::<Elf<'_>, Elf<'static>>(elf)
-        };
+        let elf_owned = unsafe { std::mem::transmute::<Elf<'_>, Elf<'static>>(elf) };
 
         Ok(Self {
             elf: elf_owned,
@@ -139,7 +141,9 @@ fn parse_sections(elf: &Elf, data: &[u8]) -> Result<Vec<Section>> {
     let mut sections = Vec::new();
 
     for (i, section_header) in elf.section_headers.iter().enumerate() {
-        let name = elf.shdr_strtab.get_at(section_header.sh_name)
+        let name = elf
+            .shdr_strtab
+            .get_at(section_header.sh_name)
             .unwrap_or(&format!(".section_{}", i))
             .to_string();
 
@@ -156,7 +160,9 @@ fn parse_sections(elf: &Elf, data: &[u8]) -> Result<Vec<Section>> {
             goblin::elf::section_header::SHT_NOBITS => SectionType::Bss,
             goblin::elf::section_header::SHT_SYMTAB => SectionType::Symbol,
             goblin::elf::section_header::SHT_STRTAB => SectionType::String,
-            goblin::elf::section_header::SHT_RELA | goblin::elf::section_header::SHT_REL => SectionType::Relocation,
+            goblin::elf::section_header::SHT_RELA | goblin::elf::section_header::SHT_REL => {
+                SectionType::Relocation
+            }
             goblin::elf::section_header::SHT_DYNAMIC => SectionType::Dynamic,
             goblin::elf::section_header::SHT_NOTE => SectionType::Note,
             _ => SectionType::Other(format!("SHT_{}", section_header.sh_type)),
@@ -169,7 +175,9 @@ fn parse_sections(elf: &Elf, data: &[u8]) -> Result<Vec<Section>> {
         };
 
         // Extract small section data
-        let section_data = if section_header.sh_size <= 1024 && section_header.sh_type != goblin::elf::section_header::SHT_NOBITS {
+        let section_data = if section_header.sh_size <= 1024
+            && section_header.sh_type != goblin::elf::section_header::SHT_NOBITS
+        {
             let start = section_header.sh_offset as usize;
             let end = start + section_header.sh_size as usize;
             if end <= data.len() {
@@ -199,7 +207,9 @@ fn parse_symbols(elf: &Elf) -> Result<Vec<Symbol>> {
     let mut symbols = Vec::new();
 
     for sym in &elf.syms {
-        let name = elf.strtab.get_at(sym.st_name)
+        let name = elf
+            .strtab
+            .get_at(sym.st_name)
             .unwrap_or("unknown")
             .to_string();
 
@@ -260,7 +270,9 @@ fn parse_imports_exports(elf: &Elf) -> Result<(Vec<Import>, Vec<Export>)> {
 
     // Parse dynamic symbols for imports/exports
     for sym in &elf.dynsyms {
-        let name = elf.dynstrtab.get_at(sym.st_name)
+        let name = elf
+            .dynstrtab
+            .get_at(sym.st_name)
             .unwrap_or("unknown")
             .to_string();
 
@@ -312,7 +324,7 @@ fn analyze_security_features(elf: &Elf, _data: &[u8]) -> SecurityFeatures {
 
     // Other features would need more complex analysis
     features.aslr = features.pie; // PIE enables ASLR
-    
+
     features
 }
 

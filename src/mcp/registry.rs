@@ -20,7 +20,7 @@ pub struct ToolMetadata {
 pub trait McpTool: Send + Sync {
     /// Get tool metadata
     fn metadata(&self) -> ToolMetadata;
-    
+
     /// Execute the tool with given arguments
     async fn execute(&self, arguments: HashMap<String, Value>) -> McpResult<Value>;
 }
@@ -50,10 +50,7 @@ impl ToolRegistry {
 
     /// List all registered tools
     pub fn list(&self) -> Vec<ToolMetadata> {
-        self.tools
-            .values()
-            .map(|tool| tool.metadata())
-            .collect()
+        self.tools.values().map(|tool| tool.metadata()).collect()
     }
 
     /// Check if a tool is registered

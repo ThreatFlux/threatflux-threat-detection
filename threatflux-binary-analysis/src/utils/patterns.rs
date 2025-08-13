@@ -3,7 +3,7 @@
 //! This module provides advanced pattern matching capabilities for identifying
 //! specific byte sequences, strings, and structural patterns in binary data.
 
-use crate::{Result, BinaryError};
+use crate::{BinaryError, Result};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
@@ -178,20 +178,20 @@ impl PatternMatcher {
 
         for pattern in &self.patterns {
             let pattern_matches = self.search_pattern(data, pattern)?;
-            
+
             for pattern_match in pattern_matches {
                 by_category
                     .entry(pattern_match.pattern.category.clone())
                     .or_insert_with(Vec::new)
                     .push(pattern_match.clone());
-                
+
                 matches.push(pattern_match);
-                
+
                 if matches.len() >= self.config.max_matches {
                     break;
                 }
             }
-            
+
             if matches.len() >= self.config.max_matches {
                 break;
             }
@@ -222,17 +222,18 @@ impl PatternMatcher {
     /// Search for exact byte sequences
     fn search_bytes(&self, data: &[u8], pattern: &Pattern) -> Result<Vec<PatternMatch>> {
         let mut matches = Vec::new();
-        
+
         if let PatternData::Bytes(pattern_bytes) = &pattern.data {
             if pattern_bytes.len() < self.config.min_pattern_length {
                 return Ok(matches);
             }
-            
+
             let mut start = 0;
             while start + pattern_bytes.len() <= data.len() {
-                if let Some(pos) = data[start..].windows(pattern_bytes.len())
-                    .position(|window| window == pattern_bytes) {
-                    
+                if let Some(pos) = data[start..]
+                    .windows(pattern_bytes.len())
+                    .position(|window| window == pattern_bytes)
+                {
                     let offset = start + pos;
                     matches.push(PatternMatch {
                         pattern: pattern.clone(),
@@ -241,9 +242,9 @@ impl PatternMatcher {
                         data: data[offset..offset + pattern_bytes.len()].to_vec(),
                         confidence: 1.0,
                     });
-                    
+
                     start = offset + 1;
-                    
+
                     if matches.len() >= self.config.max_matches {
                         break;
                     }
@@ -252,27 +253,27 @@ impl PatternMatcher {
                 }
             }
         }
-        
+
         Ok(matches)
     }
 
     /// Search for string patterns
     fn search_string(&self, data: &[u8], pattern: &Pattern) -> Result<Vec<PatternMatch>> {
         let mut matches = Vec::new();
-        
+
         if let PatternData::String(pattern_str) = &pattern.data {
             if pattern_str.len() < self.config.min_pattern_length {
                 return Ok(matches);
             }
-            
+
             let search_str = if self.config.case_sensitive {
                 pattern_str.clone()
             } else {
                 pattern_str.to_lowercase()
             };
-            
+
             let search_bytes = search_str.as_bytes();
-            
+
             // Convert data to string for searching
             if let Ok(data_str) = String::from_utf8(data.to_vec()) {
                 let search_data = if self.config.case_sensitive {
@@ -280,7 +281,7 @@ impl PatternMatcher {
                 } else {
                     data_str.to_lowercase()
                 };
-                
+
                 let mut start = 0;
                 while let Some(pos) = search_data[start..].find(&search_str) {
                     let offset = start + pos;
@@ -291,29 +292,32 @@ impl PatternMatcher {
                         data: data[offset..offset + search_bytes.len()].to_vec(),
                         confidence: 1.0,
                     });
-                    
+
                     start = offset + 1;
-                    
+
                     if matches.len() >= self.config.max_matches {
                         break;
                     }
                 }
             }
         }
-        
+
         Ok(matches)
     }
 
     /// Search for hex patterns with wildcards
     fn search_hex_wildcard(&self, data: &[u8], pattern: &Pattern) -> Result<Vec<PatternMatch>> {
         let mut matches = Vec::new();
-        
+
         if let PatternData::HexWildcard(hex_pattern) = &pattern.data {
             let compiled_pattern = compile_hex_wildcard(hex_pattern)?;
-            
+
             let mut start = 0;
             while start + compiled_pattern.len() <= data.len() {
-                if hex_wildcard_matches(&data[start..start + compiled_pattern.len()], &compiled_pattern) {
+                if hex_wildcard_matches(
+                    &data[start..start + compiled_pattern.len()],
+                    &compiled_pattern,
+                ) {
                     matches.push(PatternMatch {
                         pattern: pattern.clone(),
                         offset: start,
@@ -321,7 +325,7 @@ impl PatternMatcher {
                         data: data[start..start + compiled_pattern.len()].to_vec(),
                         confidence: 1.0,
                     });
-                    
+
                     if matches.len() >= self.config.max_matches {
                         break;
                     }
@@ -329,7 +333,7 @@ impl PatternMatcher {
                 start += 1;
             }
         }
-        
+
         Ok(matches)
     }
 
@@ -337,7 +341,7 @@ impl PatternMatcher {
     fn search_magic(&self, data: &[u8], pattern: &Pattern) -> Result<Vec<PatternMatch>> {
         // Magic signatures are typically at the beginning of files
         let mut matches = Vec::new();
-        
+
         if let PatternData::Bytes(magic_bytes) = &pattern.data {
             if data.len() >= magic_bytes.len() && &data[..magic_bytes.len()] == magic_bytes {
                 matches.push(PatternMatch {
@@ -349,7 +353,7 @@ impl PatternMatcher {
                 });
             }
         }
-        
+
         Ok(matches)
     }
 
@@ -372,23 +376,26 @@ impl PatternMatcher {
 fn compile_hex_wildcard(pattern: &str) -> Result<Vec<Option<u8>>> {
     let mut compiled = Vec::new();
     let clean_pattern = pattern.replace(" ", "").replace("\n", "");
-    
+
     if clean_pattern.len() % 2 != 0 {
-        return Err(BinaryError::invalid_data("Hex pattern must have even length"));
+        return Err(BinaryError::invalid_data(
+            "Hex pattern must have even length",
+        ));
     }
-    
+
     for i in (0..clean_pattern.len()).step_by(2) {
         let hex_byte = &clean_pattern[i..i + 2];
-        
+
         if hex_byte == "??" {
             compiled.push(None); // Wildcard
         } else {
-            let byte_value = u8::from_str_radix(hex_byte, 16)
-                .map_err(|_| BinaryError::invalid_data(format!("Invalid hex byte: {}", hex_byte)))?;
+            let byte_value = u8::from_str_radix(hex_byte, 16).map_err(|_| {
+                BinaryError::invalid_data(format!("Invalid hex byte: {}", hex_byte))
+            })?;
             compiled.push(Some(byte_value));
         }
     }
-    
+
     Ok(compiled)
 }
 
@@ -397,7 +404,7 @@ fn hex_wildcard_matches(data: &[u8], pattern: &[Option<u8>]) -> bool {
     if data.len() != pattern.len() {
         return false;
     }
-    
+
     for (i, &byte) in data.iter().enumerate() {
         match pattern[i] {
             Some(expected) if expected != byte => return false,
@@ -405,7 +412,7 @@ fn hex_wildcard_matches(data: &[u8], pattern: &[Option<u8>]) -> bool {
             _ => continue,
         }
     }
-    
+
     true
 }
 
@@ -478,54 +485,46 @@ fn get_compiler_patterns() -> Vec<Pattern> {
 
 /// Packer signature patterns
 fn get_packer_patterns() -> Vec<Pattern> {
-    vec![
-        Pattern {
-            name: "UPX".to_string(),
-            pattern_type: PatternType::String,
-            data: PatternData::String("UPX!".to_string()),
-            category: PatternCategory::Packer,
-            description: "UPX packer signature".to_string(),
-        },
-    ]
+    vec![Pattern {
+        name: "UPX".to_string(),
+        pattern_type: PatternType::String,
+        data: PatternData::String("UPX!".to_string()),
+        category: PatternCategory::Packer,
+        description: "UPX packer signature".to_string(),
+    }]
 }
 
 /// Cryptographic constants patterns
 fn get_crypto_patterns() -> Vec<Pattern> {
-    vec![
-        Pattern {
-            name: "MD5_Init".to_string(),
-            pattern_type: PatternType::Bytes,
-            data: PatternData::Bytes(vec![0x01, 0x23, 0x45, 0x67]), // MD5 initial value
-            category: PatternCategory::Crypto,
-            description: "MD5 initialization constants".to_string(),
-        },
-    ]
+    vec![Pattern {
+        name: "MD5_Init".to_string(),
+        pattern_type: PatternType::Bytes,
+        data: PatternData::Bytes(vec![0x01, 0x23, 0x45, 0x67]), // MD5 initial value
+        category: PatternCategory::Crypto,
+        description: "MD5 initialization constants".to_string(),
+    }]
 }
 
 /// Malware signature patterns
 fn get_malware_patterns() -> Vec<Pattern> {
-    vec![
-        Pattern {
-            name: "Suspicious_API".to_string(),
-            pattern_type: PatternType::String,
-            data: PatternData::String("VirtualAllocEx".to_string()),
-            category: PatternCategory::Malware,
-            description: "Suspicious Windows API call".to_string(),
-        },
-    ]
+    vec![Pattern {
+        name: "Suspicious_API".to_string(),
+        pattern_type: PatternType::String,
+        data: PatternData::String("VirtualAllocEx".to_string()),
+        category: PatternCategory::Malware,
+        description: "Suspicious Windows API call".to_string(),
+    }]
 }
 
 /// API string patterns
 fn get_api_patterns() -> Vec<Pattern> {
-    vec![
-        Pattern {
-            name: "CreateProcess".to_string(),
-            pattern_type: PatternType::String,
-            data: PatternData::String("CreateProcessA".to_string()),
-            category: PatternCategory::Api,
-            description: "Windows CreateProcess API".to_string(),
-        },
-    ]
+    vec![Pattern {
+        name: "CreateProcess".to_string(),
+        pattern_type: PatternType::String,
+        data: PatternData::String("CreateProcessA".to_string()),
+        category: PatternCategory::Api,
+        description: "Windows CreateProcess API".to_string(),
+    }]
 }
 
 #[cfg(test)]
@@ -542,7 +541,7 @@ mod tests {
     fn test_hex_wildcard_compilation() {
         let pattern = "48 65 ?? 6c 6f";
         let compiled = compile_hex_wildcard(pattern).unwrap();
-        
+
         assert_eq!(compiled.len(), 5);
         assert_eq!(compiled[0], Some(0x48));
         assert_eq!(compiled[1], Some(0x65));
@@ -555,9 +554,9 @@ mod tests {
     fn test_hex_wildcard_matching() {
         let data = &[0x48, 0x65, 0x78, 0x6c, 0x6f]; // "Hexlo"
         let pattern = vec![Some(0x48), Some(0x65), None, Some(0x6c), Some(0x6f)];
-        
+
         assert!(hex_wildcard_matches(data, &pattern));
-        
+
         let wrong_pattern = vec![Some(0x48), Some(0x65), None, Some(0x6c), Some(0x70)];
         assert!(!hex_wildcard_matches(data, &wrong_pattern));
     }
@@ -566,7 +565,7 @@ mod tests {
     fn test_builtin_patterns() {
         let patterns = get_file_format_patterns();
         assert!(!patterns.is_empty());
-        
+
         // Check for PE signature
         let pe_pattern = patterns.iter().find(|p| p.name == "PE_MZ");
         assert!(pe_pattern.is_some());
@@ -575,7 +574,7 @@ mod tests {
     #[test]
     fn test_byte_pattern_search() {
         let mut matcher = PatternMatcher::new();
-        
+
         let pattern = Pattern {
             name: "test".to_string(),
             pattern_type: PatternType::Bytes,
@@ -583,12 +582,12 @@ mod tests {
             category: PatternCategory::Custom,
             description: "Test pattern".to_string(),
         };
-        
+
         matcher.add_pattern(pattern);
-        
+
         let data = b"This is a hello world test";
         let results = matcher.search(data).unwrap();
-        
+
         assert_eq!(results.matches.len(), 1);
         assert_eq!(results.matches[0].offset, 10);
     }

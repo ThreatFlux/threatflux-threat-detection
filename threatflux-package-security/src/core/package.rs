@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::{RiskAssessment, DependencyAnalysis, Vulnerability, MaliciousPattern};
+use super::{DependencyAnalysis, MaliciousPattern, RiskAssessment, Vulnerability};
 
 /// Basic package information common to all package types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,10 +26,10 @@ pub struct PackageMetadata {
 pub trait PackageInfo: Send + Sync {
     /// Get basic metadata
     fn metadata(&self) -> &PackageMetadata;
-    
+
     /// Get package type identifier
     fn package_type(&self) -> &str;
-    
+
     /// Get custom attributes specific to this package type
     fn custom_attributes(&self) -> HashMap<String, serde_json::Value>;
 }
@@ -38,19 +38,19 @@ pub trait PackageInfo: Send + Sync {
 pub trait AnalysisResult: Send + Sync {
     /// Get the package info
     fn package_info(&self) -> &dyn PackageInfo;
-    
+
     /// Get risk assessment
     fn risk_assessment(&self) -> &RiskAssessment;
-    
+
     /// Get dependency analysis
     fn dependency_analysis(&self) -> &DependencyAnalysis;
-    
+
     /// Get detected vulnerabilities
     fn vulnerabilities(&self) -> &[Vulnerability];
-    
+
     /// Get detected malicious patterns
     fn malicious_patterns(&self) -> &[MaliciousPattern];
-    
+
     /// Convert to JSON representation
     fn to_json(&self) -> Result<serde_json::Value>;
 }
@@ -60,19 +60,19 @@ pub trait AnalysisResult: Send + Sync {
 pub trait PackageAnalyzer: Send + Sync {
     /// The specific package type this analyzer handles
     type Package: PackageInfo;
-    
+
     /// The analysis result type
     type Analysis: AnalysisResult;
-    
+
     /// Analyze a package from the given path
     async fn analyze(&self, path: &Path) -> Result<Self::Analysis>;
-    
+
     /// Check if this analyzer can handle the given path
     fn can_analyze(&self, path: &Path) -> bool;
-    
+
     /// Get analyzer name
     fn name(&self) -> &str;
-    
+
     /// Get supported file extensions
     fn supported_extensions(&self) -> Vec<&str>;
 }
@@ -82,19 +82,19 @@ pub trait PackageAnalyzer: Send + Sync {
 pub struct AnalysisOptions {
     /// Enable deep dependency analysis
     pub analyze_dependencies: bool,
-    
+
     /// Check against vulnerability databases
     pub check_vulnerabilities: bool,
-    
+
     /// Scan for malicious patterns
     pub scan_malicious_patterns: bool,
-    
+
     /// Enable typosquatting detection
     pub detect_typosquatting: bool,
-    
+
     /// Maximum dependency depth to analyze
     pub max_dependency_depth: usize,
-    
+
     /// Timeout for analysis in seconds
     pub timeout_seconds: u64,
 }

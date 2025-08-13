@@ -1,23 +1,19 @@
 //! ThreatFlux Package Security Library
-//! 
+//!
 //! A unified framework for analyzing package security across multiple package managers
 //! including npm, Python (PyPI), Java (Maven), and more.
 
-pub mod core;
 pub mod analyzers;
-pub mod vulnerability_db;
+pub mod core;
 pub mod utils;
+pub mod vulnerability_db;
 
 pub use core::{
-    PackageInfo, PackageAnalyzer, AnalysisResult, RiskLevel, RiskScore,
-    Vulnerability, VulnerabilitySeverity, MaliciousPattern,
+    AnalysisResult, MaliciousPattern, PackageAnalyzer, PackageInfo, RiskLevel, RiskScore,
+    Vulnerability, VulnerabilitySeverity,
 };
 
-pub use analyzers::{
-    npm::NpmAnalyzer,
-    python::PythonAnalyzer,
-    java::JavaAnalyzer,
-};
+pub use analyzers::{java::JavaAnalyzer, npm::NpmAnalyzer, python::PythonAnalyzer};
 
 pub use vulnerability_db::VulnerabilityDatabase;
 
@@ -53,7 +49,7 @@ impl PackageSecurityAnalyzer {
     /// Analyze a package file or directory
     pub async fn analyze(&self, path: impl AsRef<Path>) -> Result<Box<dyn AnalysisResult>> {
         let path = path.as_ref();
-        
+
         // Detect package type based on file extension or contents
         if self.is_npm_package(path) {
             Ok(Box::new(self.npm_analyzer.analyze(path).await?))
@@ -80,13 +76,14 @@ impl PackageSecurityAnalyzer {
     /// Check if path is a Python package
     fn is_python_package(&self, path: &Path) -> bool {
         if path.is_dir() {
-            path.join("setup.py").exists() 
-                || path.join("pyproject.toml").exists() 
+            path.join("setup.py").exists()
+                || path.join("pyproject.toml").exists()
                 || path.join("setup.cfg").exists()
         } else if let Some(ext) = path.extension() {
-            ext == "whl" || ext == "egg" || 
-            (ext == "gz" && path.to_string_lossy().contains(".tar.gz")) ||
-            (ext == "zip" && !self.is_java_package(path))
+            ext == "whl"
+                || ext == "egg"
+                || (ext == "gz" && path.to_string_lossy().contains(".tar.gz"))
+                || (ext == "zip" && !self.is_java_package(path))
         } else {
             false
         }
@@ -95,7 +92,10 @@ impl PackageSecurityAnalyzer {
     /// Check if path is a Java package
     fn is_java_package(&self, path: &Path) -> bool {
         if let Some(ext) = path.extension() {
-            matches!(ext.to_str(), Some("jar") | Some("war") | Some("ear") | Some("apk") | Some("aar"))
+            matches!(
+                ext.to_str(),
+                Some("jar") | Some("war") | Some("ear") | Some("apk") | Some("aar")
+            )
         } else {
             false
         }
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn test_package_detection() {
         let analyzer = PackageSecurityAnalyzer::new().unwrap();
-        
+
         assert!(analyzer.is_npm_package(Path::new("package.tgz")));
         assert!(analyzer.is_python_package(Path::new("package.whl")));
         assert!(analyzer.is_java_package(Path::new("app.jar")));

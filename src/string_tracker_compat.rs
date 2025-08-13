@@ -5,7 +5,7 @@ use anyhow::Result;
 
 // Re-export types from the library that match the original API
 pub use threatflux_string_analysis::{
-    StringContext, StringEntry, StringOccurrence, StringStatistics, StringFilter
+    StringContext, StringEntry, StringFilter, StringOccurrence, StringStatistics,
 };
 
 /// Wrapper around the threatflux-string-analysis StringTracker
@@ -25,12 +25,11 @@ impl StringTracker {
     /// Create a new StringTracker with file-scanner specific configuration
     pub fn new() -> Self {
         // Create the tracker with file-scanner specific patterns
-        let tracker = threatflux_string_analysis::StringTracker::new()
-            .with_max_occurrences(1000);
-        
+        let tracker = threatflux_string_analysis::StringTracker::new().with_max_occurrences(1000);
+
         Self { inner: tracker }
     }
-    
+
     /// Track a string occurrence
     pub fn track_string(
         &self,
@@ -40,9 +39,10 @@ impl StringTracker {
         tool_name: &str,
         context: StringContext,
     ) -> Result<()> {
-        self.inner.track_string(value, file_path, file_hash, tool_name, context)
+        self.inner
+            .track_string(value, file_path, file_hash, tool_name, context)
     }
-    
+
     /// Track multiple strings from results
     pub fn track_strings_from_results(
         &self,
@@ -51,29 +51,30 @@ impl StringTracker {
         file_hash: &str,
         tool_name: &str,
     ) -> Result<()> {
-        self.inner.track_strings_from_results(strings, file_path, file_hash, tool_name)
+        self.inner
+            .track_strings_from_results(strings, file_path, file_hash, tool_name)
     }
-    
+
     /// Get statistics about tracked strings
     pub fn get_statistics(&self, filter: Option<&StringFilter>) -> StringStatistics {
         self.inner.get_statistics(filter)
     }
-    
+
     /// Get detailed information about a specific string
     pub fn get_string_details(&self, value: &str) -> Option<StringEntry> {
         self.inner.get_string_details(value)
     }
-    
+
     /// Search for strings matching a query
     pub fn search_strings(&self, query: &str, limit: usize) -> Vec<StringEntry> {
         self.inner.search_strings(query, limit)
     }
-    
+
     /// Get strings related to a given string
     pub fn get_related_strings(&self, value: &str, limit: usize) -> Vec<(String, f64)> {
         self.inner.get_related_strings(value, limit)
     }
-    
+
     /// Clear all tracked strings
     #[allow(dead_code)]
     pub fn clear(&self) {

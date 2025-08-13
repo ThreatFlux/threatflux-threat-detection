@@ -58,28 +58,32 @@ impl PatternMatcher {
     /// Create a new pattern matcher with default patterns
     pub fn new() -> Result<Self> {
         let patterns = Self::default_patterns();
-        let compiled = patterns.into_iter()
+        let compiled = patterns
+            .into_iter()
             .map(|p| Self::compile_pattern(p))
             .collect::<Result<Vec<_>>>()?;
-        
+
         Ok(Self { patterns: compiled })
     }
 
     /// Create matcher with custom patterns
     pub fn with_patterns(patterns: Vec<MaliciousPattern>) -> Result<Self> {
-        let compiled = patterns.into_iter()
+        let compiled = patterns
+            .into_iter()
             .map(|p| Self::compile_pattern(p))
             .collect::<Result<Vec<_>>>()?;
-        
+
         Ok(Self { patterns: compiled })
     }
 
     /// Compile a pattern
     fn compile_pattern(pattern: MaliciousPattern) -> Result<CompiledPattern> {
-        let regex_matchers = pattern.regex_patterns.iter()
+        let regex_matchers = pattern
+            .regex_patterns
+            .iter()
             .map(|p| Regex::new(p))
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         Ok(CompiledPattern {
             pattern,
             regex_matchers,
@@ -98,8 +102,11 @@ impl PatternMatcher {
             for regex in &compiled.regex_matchers {
                 if let Some(m) = regex.find(content) {
                     matches = true;
-                    evidence.push(format!("Pattern '{}' found at position {}", 
-                        regex.as_str(), m.start()));
+                    evidence.push(format!(
+                        "Pattern '{}' found at position {}",
+                        regex.as_str(),
+                        m.start()
+                    ));
                 }
             }
 
@@ -148,7 +155,6 @@ impl PatternMatcher {
                 file_patterns: vec![],
                 evidence: vec![],
             },
-            
             // Data exfiltration patterns
             MaliciousPattern {
                 pattern_id: "EXFIL_001".to_string(),
@@ -156,10 +162,7 @@ impl PatternMatcher {
                 description: "Detects attempts to access environment variables".to_string(),
                 category: PatternCategory::DataExfiltration,
                 severity: PatternSeverity::High,
-                indicators: vec![
-                    "process.env".to_string(),
-                    "os.environ".to_string(),
-                ],
+                indicators: vec!["process.env".to_string(), "os.environ".to_string()],
                 regex_patterns: vec![
                     r"process\.env\.[A-Z_]+".to_string(),
                     r"os\.environ\[".to_string(),
@@ -168,7 +171,6 @@ impl PatternMatcher {
                 file_patterns: vec![],
                 evidence: vec![],
             },
-            
             // Backdoor patterns
             MaliciousPattern {
                 pattern_id: "BACK_001".to_string(),
@@ -190,7 +192,6 @@ impl PatternMatcher {
                 file_patterns: vec![],
                 evidence: vec![],
             },
-            
             // Crypto mining patterns
             MaliciousPattern {
                 pattern_id: "MINE_001".to_string(),
@@ -211,7 +212,6 @@ impl PatternMatcher {
                 file_patterns: vec![],
                 evidence: vec![],
             },
-            
             // Obfuscation patterns
             MaliciousPattern {
                 pattern_id: "OBFU_001".to_string(),
@@ -219,11 +219,7 @@ impl PatternMatcher {
                 description: "Detects base64 encoded/decoded content".to_string(),
                 category: PatternCategory::Obfuscation,
                 severity: PatternSeverity::Medium,
-                indicators: vec![
-                    "base64".to_string(),
-                    "atob".to_string(),
-                    "btoa".to_string(),
-                ],
+                indicators: vec!["base64".to_string(), "atob".to_string(), "btoa".to_string()],
                 regex_patterns: vec![
                     r"base64\.(b64)?decode".to_string(),
                     r"atob\s*\(".to_string(),
@@ -249,12 +245,12 @@ impl PatternDatabase {
             patterns: HashMap::new(),
             categories: HashMap::new(),
         };
-        
+
         // Load default patterns
         for pattern in PatternMatcher::default_patterns() {
             db.add_pattern(pattern);
         }
-        
+
         db
     }
 
@@ -262,7 +258,7 @@ impl PatternDatabase {
     pub fn add_pattern(&mut self, pattern: MaliciousPattern) {
         let id = pattern.pattern_id.clone();
         let category = pattern.category.clone();
-        
+
         self.patterns.insert(id.clone(), pattern);
         self.categories.entry(category).or_default().push(id);
     }
@@ -274,12 +270,9 @@ impl PatternDatabase {
 
     /// Get patterns by category
     pub fn get_by_category(&self, category: &PatternCategory) -> Vec<&MaliciousPattern> {
-        self.categories.get(category)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.patterns.get(id))
-                    .collect()
-            })
+        self.categories
+            .get(category)
+            .map(|ids| ids.iter().filter_map(|id| self.patterns.get(id)).collect())
             .unwrap_or_default()
     }
 
@@ -298,11 +291,11 @@ impl PatternDatabase {
     pub fn import_json(&mut self, json: &str) -> Result<usize> {
         let patterns: Vec<MaliciousPattern> = serde_json::from_str(json)?;
         let count = patterns.len();
-        
+
         for pattern in patterns {
             self.add_pattern(pattern);
         }
-        
+
         Ok(count)
     }
 }

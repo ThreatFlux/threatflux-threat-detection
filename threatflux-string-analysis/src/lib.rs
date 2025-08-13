@@ -43,11 +43,12 @@ mod tracker;
 mod types;
 
 // Re-export main types
-pub use analyzer::{StringAnalyzer, StringAnalysis, SuspiciousIndicator, DefaultStringAnalyzer};
-pub use categorizer::{Categorizer, CategoryRule, StringCategory, DefaultCategorizer};
-pub use patterns::{Pattern, PatternProvider, DefaultPatternProvider, PatternDef};
-pub use tracker::{StringTracker, StringEntry, StringOccurrence, StringContext, 
-                  StringStatistics, StringFilter};
+pub use analyzer::{DefaultStringAnalyzer, StringAnalysis, StringAnalyzer, SuspiciousIndicator};
+pub use categorizer::{Categorizer, CategoryRule, DefaultCategorizer, StringCategory};
+pub use patterns::{DefaultPatternProvider, Pattern, PatternDef, PatternProvider};
+pub use tracker::{
+    StringContext, StringEntry, StringFilter, StringOccurrence, StringStatistics, StringTracker,
+};
 pub use types::*;
 
 // Version information

@@ -20,9 +20,9 @@
 //! # #[tokio::main]
 //! # async fn main() -> anyhow::Result<()> {
 //! let detector = ThreatDetector::new().await?;
-//! 
+//!
 //! let result = detector.scan_file("suspicious_file.exe").await?;
-//! 
+//!
 //! println!("Threat Level: {:?}", result.threat_level);
 //! println!("Classifications: {:?}", result.classifications);
 //! println!("Matches: {}", result.matches.len());
@@ -30,18 +30,17 @@
 //! # }
 //! ```
 
-pub mod error;
-pub mod types;
-pub mod engines;
-pub mod rules;
 pub mod analysis;
+pub mod engines;
+pub mod error;
+pub mod rules;
+pub mod types;
 
 // Re-export main types
-pub use error::{ThreatError, Result};
+pub use error::{Result, ThreatError};
 pub use types::{
-    ThreatLevel, ThreatClassification, ThreatIndicator, ThreatAnalysis,
-    YaraMatch, ScanStatistics, IndicatorType, Severity, ScanTarget,
-    DetectionEngine, EngineConfig, ScanConfig
+    DetectionEngine, EngineConfig, IndicatorType, ScanConfig, ScanStatistics, ScanTarget, Severity,
+    ThreatAnalysis, ThreatClassification, ThreatIndicator, ThreatLevel, YaraMatch,
 };
 
 use std::path::Path;
@@ -79,7 +78,7 @@ impl Default for ThreatDetectorConfig {
             enable_clamav: false,
             enable_patterns: true,
             max_file_size: 100 * 1024 * 1024, // 100MB
-            scan_timeout: 300, // 5 minutes
+            scan_timeout: 300,                // 5 minutes
             max_concurrent_scans: 4,
             rule_sources: Vec::new(),
         }
@@ -147,7 +146,7 @@ impl ThreatDetector {
     /// Scan a directory recursively
     pub async fn scan_directory<P: AsRef<Path>>(&self, path: P) -> Result<Vec<ThreatAnalysis>> {
         let target = ScanTarget::Directory(path.as_ref().to_path_buf());
-        
+
         // This would implement directory scanning logic
         // For now, return a placeholder
         let single_result = self.scan(target).await?;
@@ -162,7 +161,7 @@ impl ThreatDetector {
                 return engine.scan_with_custom_rule(target, rule).await;
             }
         }
-        
+
         Err(ThreatError::engine_not_available("YARA"))
     }
 
@@ -188,15 +187,17 @@ impl ThreatDetector {
         }
 
         let scan_duration = start_time.elapsed();
-        
+
         // Analyze results
         let threat_level = analysis::calculate_threat_level(&all_matches, &all_indicators);
-        let recommendations = analysis::generate_recommendations(&threat_level, &all_matches, &classifications.iter().cloned().collect());
+        let recommendations = analysis::generate_recommendations(
+            &threat_level,
+            &all_matches,
+            &classifications.iter().cloned().collect(),
+        );
 
         let file_size = match &target {
-            ScanTarget::File(path) => {
-                std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
-            }
+            ScanTarget::File(path) => std::fs::metadata(path).map(|m| m.len()).unwrap_or(0),
             ScanTarget::Memory { data, .. } => data.len() as u64,
             ScanTarget::Directory(_) => 0,
         };
@@ -208,7 +209,7 @@ impl ThreatDetector {
             indicators: all_indicators,
             scan_stats: ScanStatistics {
                 scan_duration,
-                rules_evaluated: 0, // Would be populated by engines
+                rules_evaluated: 0,  // Would be populated by engines
                 patterns_matched: 0, // Would be populated by engines
                 file_size_scanned: file_size,
             },

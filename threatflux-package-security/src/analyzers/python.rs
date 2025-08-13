@@ -7,12 +7,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::core::{
-    PackageAnalyzer, PackageInfo, PackageMetadata, AnalysisResult,
-    RiskAssessment, RiskCalculator, DependencyAnalysis, Dependency, DependencyType,
-    Vulnerability, MaliciousPattern, PatternMatcher,
+    AnalysisResult, Dependency, DependencyAnalysis, DependencyType, MaliciousPattern,
+    PackageAnalyzer, PackageInfo, PackageMetadata, PatternMatcher, RiskAssessment, RiskCalculator,
+    Vulnerability,
 };
-use crate::vulnerability_db::VulnerabilityDatabase;
 use crate::utils::typosquatting::TyposquattingDetector;
+use crate::vulnerability_db::VulnerabilityDatabase;
 
 /// Python package information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,14 +45,22 @@ impl PackageInfo for PythonPackage {
 
     fn custom_attributes(&self) -> HashMap<String, serde_json::Value> {
         let mut attrs = HashMap::new();
-        attrs.insert("package_format".to_string(), 
-            serde_json::json!(self.package_format));
-        attrs.insert("python_requires".to_string(), 
-            serde_json::json!(self.python_requires));
-        attrs.insert("classifiers".to_string(), 
-            serde_json::json!(self.classifiers));
-        attrs.insert("project_urls".to_string(), 
-            serde_json::json!(self.project_urls));
+        attrs.insert(
+            "package_format".to_string(),
+            serde_json::json!(self.package_format),
+        );
+        attrs.insert(
+            "python_requires".to_string(),
+            serde_json::json!(self.python_requires),
+        );
+        attrs.insert(
+            "classifiers".to_string(),
+            serde_json::json!(self.classifiers),
+        );
+        attrs.insert(
+            "project_urls".to_string(),
+            serde_json::json!(self.project_urls),
+        );
         attrs
     }
 }
@@ -147,7 +155,10 @@ impl PythonAnalyzer {
                 (self.parse_setup_py(&content)?, PackageFormat::Directory)
             } else if path.join("pyproject.toml").exists() {
                 let content = tokio::fs::read_to_string(path.join("pyproject.toml")).await?;
-                (self.parse_pyproject_toml(&content)?, PackageFormat::Directory)
+                (
+                    self.parse_pyproject_toml(&content)?,
+                    PackageFormat::Directory,
+                )
             } else if path.join("setup.cfg").exists() {
                 let content = tokio::fs::read_to_string(path.join("setup.cfg")).await?;
                 (self.parse_setup_cfg(&content)?, PackageFormat::Directory)
@@ -175,7 +186,7 @@ impl PythonAnalyzer {
         // Simple regex-based extraction
         let name = self.extract_setup_field(content, "name")?;
         let version = self.extract_setup_field(content, "version")?;
-        
+
         Ok(PackageMetadata {
             name,
             version,
@@ -192,32 +203,38 @@ impl PythonAnalyzer {
     /// Parse pyproject.toml file
     fn parse_pyproject_toml(&self, content: &str) -> Result<PackageMetadata> {
         let toml_value: toml::Value = toml::from_str(content)?;
-        
+
         let project = toml_value
             .get("project")
             .ok_or_else(|| anyhow::anyhow!("No [project] section in pyproject.toml"))?;
 
         Ok(PackageMetadata {
-            name: project.get("name")
+            name: project
+                .get("name")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow::anyhow!("Missing project name"))?
                 .to_string(),
-            version: project.get("version")
+            version: project
+                .get("version")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow::anyhow!("Missing project version"))?
                 .to_string(),
-            description: project.get("description")
+            description: project
+                .get("description")
                 .and_then(|v| v.as_str())
                 .map(String::from),
             author: None, // TODO: Parse authors array
-            license: project.get("license")
+            license: project
+                .get("license")
                 .and_then(|v| v.as_str())
                 .map(String::from),
-            homepage: project.get("homepage")
+            homepage: project
+                .get("homepage")
                 .and_then(|v| v.as_str())
                 .map(String::from),
             repository: None,
-            keywords: project.get("keywords")
+            keywords: project
+                .get("keywords")
                 .and_then(|v| v.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -245,7 +262,7 @@ impl PythonAnalyzer {
         };
 
         let mut in_metadata_section = false;
-        
+
         for line in content.lines() {
             if line.trim() == "[metadata]" {
                 in_metadata_section = true;
@@ -254,12 +271,12 @@ impl PythonAnalyzer {
             if line.starts_with('[') {
                 in_metadata_section = false;
             }
-            
+
             if in_metadata_section {
                 if let Some((key, value)) = line.split_once('=') {
                     let key = key.trim();
                     let value = value.trim();
-                    
+
                     match key {
                         "name" => metadata.name = value.to_string(),
                         "version" => metadata.version = value.to_string(),
@@ -284,7 +301,7 @@ impl PythonAnalyzer {
     fn extract_setup_field(&self, content: &str, field: &str) -> Result<String> {
         let pattern = format!(r#"{}\s*=\s*["']([^"']+)["']"#, field);
         let re = regex::Regex::new(&pattern)?;
-        
+
         re.captures(content)
             .and_then(|cap| cap.get(1))
             .map(|m| m.as_str().to_string())
@@ -304,7 +321,9 @@ impl PythonAnalyzer {
         // Check for custom commands
         if content.contains("cmdclass") {
             analysis.has_custom_commands = true;
-            analysis.dangerous_operations.push("Custom setup commands detected".to_string());
+            analysis
+                .dangerous_operations
+                .push("Custom setup commands detected".to_string());
         }
 
         // Check for dangerous operations
@@ -327,7 +346,9 @@ impl PythonAnalyzer {
 
         // Check for external downloads
         if content.contains("urlopen") || content.contains("requests.get") {
-            analysis.external_downloads.push("External download detected".to_string());
+            analysis
+                .external_downloads
+                .push("External download detected".to_string());
         }
 
         analysis
@@ -368,7 +389,10 @@ impl PythonAnalyzer {
                 (line, "*")
             };
 
-            let vulns = self.vuln_db.check_package(name, version_spec, "python").await?;
+            let vulns = self
+                .vuln_db
+                .check_package(name, version_spec, "python")
+                .await?;
 
             let dependency = Dependency {
                 name: name.to_string(),
@@ -422,7 +446,7 @@ impl PackageAnalyzer for PythonAnalyzer {
     async fn analyze(&self, path: &Path) -> Result<Self::Analysis> {
         let package = self.parse_package_metadata(path).await?;
         let dependency_analysis = self.analyze_dependencies(path).await?;
-        
+
         // Analyze setup.py if present
         let setup_analysis = if path.join("setup.py").exists() {
             let content = tokio::fs::read_to_string(path.join("setup.py")).await?;
@@ -463,8 +487,12 @@ impl PackageAnalyzer for PythonAnalyzer {
 
         // Calculate risk assessment
         let risk_calculator = RiskCalculator::new();
-        let supply_chain_score = if setup_analysis.code_execution_risk { 50.0 } else { 0.0 };
-        
+        let supply_chain_score = if setup_analysis.code_execution_risk {
+            50.0
+        } else {
+            0.0
+        };
+
         let risk_score = risk_calculator.calculate(
             &vulnerabilities,
             &malicious_patterns,
@@ -506,7 +534,7 @@ impl PackageAnalyzer for PythonAnalyzer {
 
     fn can_analyze(&self, path: &Path) -> bool {
         if path.is_dir() {
-            path.join("setup.py").exists() 
+            path.join("setup.py").exists()
                 || path.join("pyproject.toml").exists()
                 || path.join("setup.cfg").exists()
         } else {

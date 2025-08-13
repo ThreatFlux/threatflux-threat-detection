@@ -4,10 +4,10 @@ use thiserror::Error;
 pub enum HashError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Failed to acquire semaphore")]
     SemaphoreError,
-    
+
     #[error("Task join error: {0}")]
     JoinError(#[from] tokio::task::JoinError),
 }

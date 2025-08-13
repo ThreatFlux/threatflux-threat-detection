@@ -8,11 +8,11 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 
-**A blazing fast, comprehensive file analysis framework for security research, malware detection,
+**A blazing fast, modular file analysis framework for security research, malware detection,
 and forensic investigation**
 
 [Documentation](docs/) • [Installation](docs/INSTALLATION.md) • [Usage](docs/USAGE.md) •
-[API](docs/API.md) • [Contributing](CONTRIBUTING.md)
+[API](docs/API.md) • [Library Overview](LIBRARY_OVERVIEW.md) • [Migration Guide](MIGRATION_GUIDE.md) • [Contributing](CONTRIBUTING.md)
 
 ---
 
@@ -23,6 +23,10 @@ into file contents, structure, and behavior. Designed for security researchers, 
 investigators, it combines traditional static analysis with advanced pattern recognition and behavioral analysis
 capabilities.
 
+**🧩 Modular Architecture**: File Scanner is built using a collection of specialized ThreatFlux libraries, each
+optimized for specific analysis tasks. This modular approach allows you to use individual components in your own
+projects or integrate the full scanner into existing workflows.
+
 ### 🚀 Key Features
 
 - **⚡ Lightning Fast** - Async hash calculations and parallel processing
@@ -32,10 +36,27 @@ capabilities.
 - **🔧 Extensible** - Modular architecture for easy feature additions
 - **📦 Multi-Format** - PE, ELF, Mach-O binary analysis with compiler detection
 
+### 📚 ThreatFlux Libraries
+
+File Scanner is powered by specialized libraries that can be used independently:
+
+| Library | Purpose | Status |
+|---------|---------|--------|
+| **[threatflux-hashing](threatflux-hashing/)** | High-performance cryptographic hash calculations | ✅ Stable |
+| **[threatflux-cache](threatflux-cache/)** | Flexible caching system with multiple backends | ✅ Stable |
+| **[threatflux-string-analysis](threatflux-string-analysis/)** | String extraction and pattern analysis | ✅ Stable |
+| **[threatflux-binary-analysis](threatflux-binary-analysis/)** | Binary format parsing (PE/ELF/Mach-O) | 🚧 Beta |
+| **[threatflux-package-security](threatflux-package-security/)** | Package vulnerability and security analysis | 🚧 Beta |
+| **[threatflux-threat-detection](threatflux-threat-detection/)** | Advanced threat and malware detection | 🚧 Beta |
+
+See the [Library Overview](LIBRARY_OVERVIEW.md) for detailed comparisons and use cases.
+
 ## 🚀 Quick Start
 
+### Full Scanner Application
+
 ```bash
-# Clone and build
+# Clone and build the complete scanner
 git clone https://github.com/ThreatFlux/file-scanner.git
 cd file-scanner
 cargo build --release
@@ -51,16 +72,46 @@ cargo build --release
 ./target/release/file-scanner mcp-stdio
 ```
 
+### Using Individual Libraries
+
+```toml
+# Add to your Cargo.toml
+[dependencies]
+threatflux-hashing = "0.1.0"
+threatflux-string-analysis = "0.1.0"
+```
+
+```rust
+// Example: Hash a file using threatflux-hashing
+use threatflux_hashing::calculate_all_hashes;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let hashes = calculate_all_hashes("file.bin").await?;
+    println!("SHA256: {}", hashes.sha256);
+    Ok(())
+}
+```
+
 See [Installation Guide](docs/INSTALLATION.md) for detailed setup instructions.
 
 ## 📖 Documentation
 
+### Core Documentation
 - **[Installation Guide](docs/INSTALLATION.md)** - Prerequisites, building, Docker support
 - **[Usage Guide](docs/USAGE.md)** - Examples, CLI options, output formats
-- **[MCP Integration](docs/MCP.md)** - AI tool integration, configuration, API
 - **[Architecture](docs/ARCHITECTURE.md)** - Design, components, extending
 - **[API Reference](docs/API.md)** - Rust API documentation
-- **[Performance](docs/PERFORMANCE.md)** - Benchmarks, optimization tips
+
+### Library Documentation
+- **[Library Overview](LIBRARY_OVERVIEW.md)** - Complete guide to all ThreatFlux libraries
+- **[Migration Guide](MIGRATION_GUIDE.md)** - Upgrading from monolithic to modular
+- **[Performance Guide](PERFORMANCE_GUIDE.md)** - Optimization across all libraries
+- **[Security Considerations](SECURITY_CONSIDERATIONS.md)** - Security best practices
+
+### Integration & Deployment
+- **[MCP Integration](docs/MCP.md)** - AI tool integration, configuration, API
+- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Production deployment instructions
 - **[FAQ](docs/FAQ.md)** - Common questions and answers
 
 ## ✨ Core Capabilities
@@ -112,7 +163,7 @@ See [Installation Guide](docs/INSTALLATION.md) for detailed setup instructions.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions to both the main scanner and individual libraries! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ```bash
 # Fork, clone, and create a feature branch
@@ -121,17 +172,23 @@ cd file-scanner
 git checkout -b feature/amazing-feature
 
 # Install pre-commit hooks (recommended for developers)
-# This ensures code quality checks run automatically before commits
 pip install pre-commit
 pre-commit install
 
-# Make changes and test
-cargo test
-cargo fmt
-cargo clippy
+# Build the entire workspace
+cargo build --workspace
+
+# Test all libraries
+cargo test --workspace
+cargo fmt --all
+cargo clippy --workspace
 
 # Submit a pull request
 ```
+
+### Contributing to Individual Libraries
+
+Each ThreatFlux library accepts contributions independently. See individual library README files for specific guidelines. Library contributions follow the same process but focus on the specific library directory.
 
 ## 🔒 Security
 

@@ -150,7 +150,7 @@ threatflux-cache = { path = "./threatflux-cache", features = ["openapi"] }
 # Note: Some libraries temporarily disabled due to compilation issues during transition
 # threatflux-binary-analysis = { path = "./threatflux-binary-analysis", features = ["elf", "pe", "macho"] }
 # threatflux-threat-detection = { path = "./threatflux-threat-detection", features = ["builtin-rules", "pattern-matching"] }
-# threatflux-package-security = { path = "./threatflux-package-security" }
+threatflux-package-security = { path = "./threatflux-package-security" }
 
 # Core dependencies (using workspace versions)
 tokio = { workspace = true }

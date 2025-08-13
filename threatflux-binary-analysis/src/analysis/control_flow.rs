@@ -6,15 +6,15 @@
 
 use crate::{
     types::{
-        BasicBlock, ControlFlowGraph, ComplexityMetrics, Instruction, Function,
-        Architecture, ControlFlow as FlowType, InstructionCategory
+        Architecture, BasicBlock, ComplexityMetrics, ControlFlow as FlowType, ControlFlowGraph,
+        Function, Instruction, InstructionCategory,
     },
-    BinaryFile, Result, BinaryError,
+    BinaryError, BinaryFile, Result,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
 #[cfg(feature = "control-flow")]
-use petgraph::{Graph, Directed};
+use petgraph::{Directed, Graph};
 
 /// Control flow analyzer
 pub struct ControlFlowAnalyzer {
@@ -68,34 +68,38 @@ impl ControlFlowAnalyzer {
     /// Analyze control flow for all functions in a binary
     pub fn analyze_binary(&self, binary: &BinaryFile) -> Result<Vec<ControlFlowGraph>> {
         let mut cfgs = Vec::new();
-        
+
         // Get functions from symbols
         let functions = self.extract_functions(binary)?;
-        
+
         for function in functions {
             if let Ok(cfg) = self.analyze_function(binary, &function) {
                 cfgs.push(cfg);
             }
         }
-        
+
         Ok(cfgs)
     }
 
     /// Analyze control flow for a specific function
-    pub fn analyze_function(&self, binary: &BinaryFile, function: &Function) -> Result<ControlFlowGraph> {
+    pub fn analyze_function(
+        &self,
+        binary: &BinaryFile,
+        function: &Function,
+    ) -> Result<ControlFlowGraph> {
         // Get instructions for the function
         let instructions = self.get_function_instructions(binary, function)?;
-        
+
         // Build basic blocks
         let basic_blocks = self.build_basic_blocks(&instructions)?;
-        
+
         // Calculate complexity metrics
         let complexity = if self.config.calculate_metrics {
             self.calculate_complexity(&basic_blocks)
         } else {
             ComplexityMetrics::default()
         };
-        
+
         Ok(ControlFlowGraph {
             function: function.clone(),
             basic_blocks,
@@ -106,7 +110,7 @@ impl ControlFlowAnalyzer {
     /// Extract functions from binary symbols
     fn extract_functions(&self, binary: &BinaryFile) -> Result<Vec<Function>> {
         let mut functions = Vec::new();
-        
+
         for symbol in binary.symbols() {
             if matches!(symbol.symbol_type, crate::types::SymbolType::Function) {
                 let function = Function {
@@ -122,7 +126,7 @@ impl ControlFlowAnalyzer {
                 functions.push(function);
             }
         }
-        
+
         // If no function symbols, try to find functions from entry point
         if functions.is_empty() {
             if let Some(entry_point) = binary.entry_point() {
@@ -139,16 +143,20 @@ impl ControlFlowAnalyzer {
                 functions.push(function);
             }
         }
-        
+
         Ok(functions)
     }
 
     /// Get instructions for a function (placeholder - would need disassembly)
-    fn get_function_instructions(&self, _binary: &BinaryFile, function: &Function) -> Result<Vec<Instruction>> {
+    fn get_function_instructions(
+        &self,
+        _binary: &BinaryFile,
+        function: &Function,
+    ) -> Result<Vec<Instruction>> {
         // This would normally use the disassembly module
         // For now, return a minimal set of placeholder instructions
         let mut instructions = Vec::new();
-        
+
         // Create some sample instructions for demonstration
         for i in 0..10 {
             let addr = function.start_address + (i * 4);
@@ -166,7 +174,7 @@ impl ControlFlowAnalyzer {
                 size: 4,
             });
         }
-        
+
         Ok(instructions)
     }
 
@@ -178,14 +186,16 @@ impl ControlFlowAnalyzer {
 
         let mut basic_blocks = Vec::new();
         let mut block_starts = HashSet::new();
-        
+
         // First instruction is always a block start
         block_starts.insert(instructions[0].address);
-        
+
         // Find all block boundaries
         for (i, instr) in instructions.iter().enumerate() {
             match &instr.flow {
-                FlowType::Jump(target) | FlowType::ConditionalJump(target) | FlowType::Call(target) => {
+                FlowType::Jump(target)
+                | FlowType::ConditionalJump(target)
+                | FlowType::Call(target) => {
                     // Target of jump/call is a block start
                     block_starts.insert(*target);
                     // Instruction after conditional jump/call is also a block start
@@ -202,38 +212,39 @@ impl ControlFlowAnalyzer {
                 _ => {}
             }
         }
-        
+
         // Build basic blocks
         let mut current_block_id = 0;
         let mut current_block_start = 0;
-        
+
         for (i, instr) in instructions.iter().enumerate() {
             if block_starts.contains(&instr.address) && i > current_block_start {
                 // End current block
                 let block_instructions = instructions[current_block_start..i].to_vec();
                 let start_addr = instructions[current_block_start].address;
                 let end_addr = instructions[i - 1].address + instructions[i - 1].size as u64;
-                
+
                 basic_blocks.push(BasicBlock {
                     id: current_block_id,
                     start_address: start_addr,
                     end_address: end_addr,
                     instructions: block_instructions,
-                    successors: Vec::new(), // Will be filled later
+                    successors: Vec::new(),   // Will be filled later
                     predecessors: Vec::new(), // Will be filled later
                 });
-                
+
                 current_block_id += 1;
                 current_block_start = i;
             }
         }
-        
+
         // Add the last block
         if current_block_start < instructions.len() {
             let block_instructions = instructions[current_block_start..].to_vec();
             let start_addr = instructions[current_block_start].address;
-            let end_addr = instructions.last().unwrap().address + instructions.last().unwrap().size as u64;
-            
+            let end_addr =
+                instructions.last().unwrap().address + instructions.last().unwrap().size as u64;
+
             basic_blocks.push(BasicBlock {
                 id: current_block_id,
                 start_address: start_addr,
@@ -243,22 +254,22 @@ impl ControlFlowAnalyzer {
                 predecessors: Vec::new(),
             });
         }
-        
+
         // Build successor/predecessor relationships
         self.build_cfg_edges(&mut basic_blocks)?;
-        
+
         Ok(basic_blocks)
     }
 
     /// Build control flow graph edges between basic blocks
     fn build_cfg_edges(&self, basic_blocks: &mut [BasicBlock]) -> Result<()> {
         let mut addr_to_block: HashMap<u64, usize> = HashMap::new();
-        
+
         // Build address to block ID mapping
         for (i, block) in basic_blocks.iter().enumerate() {
             addr_to_block.insert(block.start_address, i);
         }
-        
+
         // Build edges
         for i in 0..basic_blocks.len() {
             let block = &basic_blocks[i];
@@ -311,7 +322,7 @@ impl ControlFlowAnalyzer {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -319,12 +330,12 @@ impl ControlFlowAnalyzer {
     fn calculate_complexity(&self, basic_blocks: &[BasicBlock]) -> ComplexityMetrics {
         let basic_block_count = basic_blocks.len() as u32;
         let mut edge_count = 0;
-        
+
         // Count edges
         for block in basic_blocks {
             edge_count += block.successors.len() as u32;
         }
-        
+
         // Cyclomatic complexity = E - N + 2P
         // Where E = edges, N = nodes, P = connected components (assume 1)
         let cyclomatic_complexity = if basic_block_count > 0 {
@@ -332,13 +343,13 @@ impl ControlFlowAnalyzer {
         } else {
             0
         };
-        
+
         // Detect loops (simplified)
         let loop_count = self.detect_loops(basic_blocks);
-        
+
         // Calculate nesting depth (simplified)
         let nesting_depth = self.calculate_nesting_depth(basic_blocks);
-        
+
         ComplexityMetrics {
             cyclomatic_complexity,
             basic_block_count,
@@ -353,18 +364,18 @@ impl ControlFlowAnalyzer {
         if !self.config.detect_loops {
             return 0;
         }
-        
+
         let mut loop_count = 0;
         let mut visited = vec![false; basic_blocks.len()];
         let mut in_stack = vec![false; basic_blocks.len()];
-        
+
         // Use DFS to detect back edges (indicating loops)
         for i in 0..basic_blocks.len() {
             if !visited[i] {
                 loop_count += self.dfs_detect_loops(i, basic_blocks, &mut visited, &mut in_stack);
             }
         }
-        
+
         loop_count
     }
 
@@ -379,7 +390,7 @@ impl ControlFlowAnalyzer {
         visited[node] = true;
         in_stack[node] = true;
         let mut loops = 0;
-        
+
         for &successor in &basic_blocks[node].successors {
             if !visited[successor] {
                 loops += self.dfs_detect_loops(successor, basic_blocks, visited, in_stack);
@@ -388,7 +399,7 @@ impl ControlFlowAnalyzer {
                 loops += 1;
             }
         }
-        
+
         in_stack[node] = false;
         loops
     }
@@ -396,7 +407,7 @@ impl ControlFlowAnalyzer {
     /// Calculate nesting depth (simplified heuristic)
     fn calculate_nesting_depth(&self, basic_blocks: &[BasicBlock]) -> u32 {
         let mut max_depth = 0;
-        
+
         // Simple heuristic: depth based on indegree
         for block in basic_blocks {
             let depth = block.predecessors.len() as u32;
@@ -404,7 +415,7 @@ impl ControlFlowAnalyzer {
                 max_depth = depth;
             }
         }
-        
+
         max_depth
     }
 }
@@ -466,7 +477,7 @@ mod tests {
 
         let analyzer = ControlFlowAnalyzer::new(Architecture::X86_64);
         let blocks = analyzer.build_basic_blocks(&instructions).unwrap();
-        
+
         assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0].instructions.len(), 2);
         assert_eq!(blocks[0].start_address, 0x1000);

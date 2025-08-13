@@ -25,7 +25,7 @@ allowed-scripts = ["Latin", "Arabic", "Cyrillic"]
 
 # Performance-related
 vec-box-size-threshold = 4096
-trivial-copy-size-threshold = 128
+trivial-copy-size-limit = 128
 
 # Error handling patterns
 allow-expect-in-tests = true
@@ -41,7 +41,6 @@ doc-valid-idents = [
 # Naming patterns
 upper-case-acronyms-aggressive = false
 enum-variant-name-threshold = 3
-struct-excessive-bools = 3
 
 # Import patterns
 max-trait-bounds = 3

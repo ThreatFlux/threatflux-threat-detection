@@ -1,17 +1,14 @@
 //! Filesystem storage backend
 
 use async_trait::async_trait;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
 
-use crate::{
-    StorageBackend, CacheEntry, Result, EntryMetadata,
-    storage::SerializationFormat,
-};
+use crate::{storage::SerializationFormat, CacheEntry, EntryMetadata, Result, StorageBackend};
 
 /// Filesystem storage backend
 pub struct FilesystemBackend<K, V, M = ()>
@@ -35,7 +32,7 @@ where
     pub async fn new<P: AsRef<Path>>(base_path: P) -> Result<Self> {
         let base_path = base_path.as_ref().to_path_buf();
         fs::create_dir_all(&base_path).await?;
-        
+
         Ok(Self {
             base_path,
             #[cfg(feature = "json-serialization")]
@@ -45,21 +42,23 @@ where
             _phantom: std::marker::PhantomData,
         })
     }
-    
+
     /// Set the serialization format
     pub fn with_format(mut self, format: SerializationFormat) -> Self {
         self.format = format;
         self
     }
-    
+
     /// Get the path for a cache file
     fn get_cache_file_path(&self, key: &str) -> PathBuf {
-        self.base_path.join(format!("{}.{}", key, self.format.extension()))
+        self.base_path
+            .join(format!("{}.{}", key, self.format.extension()))
     }
-    
+
     /// Get the metadata file path
     fn get_metadata_path(&self) -> PathBuf {
-        self.base_path.join(format!("metadata.{}", self.format.extension()))
+        self.base_path
+            .join(format!("metadata.{}", self.format.extension()))
     }
 }
 
@@ -73,58 +72,53 @@ where
     type Key = K;
     type Value = V;
     type Metadata = M;
-    
-    async fn save(
-        &self,
-        entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>
-    ) -> Result<()> {
+
+    async fn save(&self, entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>) -> Result<()> {
         // Save each key's entries to a separate file
         for (key, entry_vec) in entries {
             let file_path = self.get_cache_file_path(&key.to_string());
             let data = self.format.serialize(entry_vec)?;
-            
+
             let mut file = File::create(&file_path).await?;
             file.write_all(&data).await?;
             file.flush().await?;
         }
-        
+
         // Save metadata about the cache
         let metadata = CacheMetadata {
             total_keys: entries.len(),
             last_updated: chrono::Utc::now(),
         };
-        
+
         let metadata_path = self.get_metadata_path();
         let data = self.format.serialize(&metadata)?;
-        
+
         let mut file = File::create(&metadata_path).await?;
         file.write_all(&data).await?;
         file.flush().await?;
-        
+
         Ok(())
     }
-    
-    async fn load(
-        &self
-    ) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
+
+    async fn load(&self) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
         let mut entries = HashMap::new();
-        
+
         // Read all cache files
         let mut dir_entries = fs::read_dir(&self.base_path).await?;
-        
+
         while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
-            
+
             // Skip non-cache files
             if path.extension().and_then(|s| s.to_str()) != Some(self.format.extension()) {
                 continue;
             }
-            
+
             // Skip metadata file
             if path.file_stem().and_then(|s| s.to_str()) == Some("metadata") {
                 continue;
             }
-            
+
             // Read and deserialize the file
             match fs::read(&path).await {
                 Ok(data) => {
@@ -146,10 +140,10 @@ where
                 }
             }
         }
-        
+
         Ok(entries)
     }
-    
+
     async fn remove(&self, key: &K) -> Result<()> {
         let file_path = self.get_cache_file_path(&key.to_string());
         if file_path.exists() {
@@ -157,40 +151,40 @@ where
         }
         Ok(())
     }
-    
+
     async fn clear(&self) -> Result<()> {
         let mut dir_entries = fs::read_dir(&self.base_path).await?;
-        
+
         while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
-            
+
             // Only remove cache files
             if path.extension().and_then(|s| s.to_str()) == Some(self.format.extension()) {
                 fs::remove_file(&path).await?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     async fn contains(&self, key: &K) -> Result<bool> {
         let file_path = self.get_cache_file_path(&key.to_string());
         Ok(file_path.exists())
     }
-    
+
     async fn size_bytes(&self) -> Result<u64> {
         let mut total_size = 0u64;
         let mut dir_entries = fs::read_dir(&self.base_path).await?;
-        
+
         while let Some(entry) = dir_entries.next_entry().await? {
             if let Ok(metadata) = entry.metadata().await {
                 total_size += metadata.len();
             }
         }
-        
+
         Ok(total_size)
     }
-    
+
     async fn compact(&self) -> Result<()> {
         // For filesystem backend, compaction could involve:
         // - Removing expired entries
@@ -212,88 +206,89 @@ struct CacheMetadata {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    
+
     #[tokio::test]
     async fn test_filesystem_backend_operations() {
         let temp_dir = TempDir::new().unwrap();
-        let backend: FilesystemBackend<String, String> = 
+        let backend: FilesystemBackend<String, String> =
             FilesystemBackend::new(temp_dir.path()).await.unwrap();
-        
+
         // Test empty state
         let loaded = backend.load().await.unwrap();
         assert!(loaded.is_empty());
-        
+
         // Test save and load
         let mut entries = HashMap::new();
         let entry = CacheEntry::new("key1".to_string(), "value1".to_string());
         entries.insert("key1".to_string(), vec![entry]);
-        
+
         backend.save(&entries).await.unwrap();
         let loaded = backend.load().await.unwrap();
         assert_eq!(loaded.len(), 1);
         assert!(loaded.contains_key("key1"));
-        
+
         // Test contains
         assert!(backend.contains(&"key1".to_string()).await.unwrap());
         assert!(!backend.contains(&"key2".to_string()).await.unwrap());
-        
+
         // Test remove
         backend.remove(&"key1".to_string()).await.unwrap();
         assert!(!backend.contains(&"key1".to_string()).await.unwrap());
-        
+
         // Test clear
         backend.save(&entries).await.unwrap();
         backend.clear().await.unwrap();
         let loaded = backend.load().await.unwrap();
         assert!(loaded.is_empty());
     }
-    
+
     #[tokio::test]
     async fn test_filesystem_backend_persistence() {
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path().to_path_buf();
-        
+
         // Save data with one backend instance
         {
-            let backend: FilesystemBackend<String, String> = 
+            let backend: FilesystemBackend<String, String> =
                 FilesystemBackend::new(&path).await.unwrap();
-            
+
             let mut entries = HashMap::new();
-            let entry = CacheEntry::new("persistent_key".to_string(), "persistent_value".to_string());
+            let entry =
+                CacheEntry::new("persistent_key".to_string(), "persistent_value".to_string());
             entries.insert("persistent_key".to_string(), vec![entry]);
-            
+
             backend.save(&entries).await.unwrap();
         }
-        
+
         // Load data with a new backend instance
         {
-            let backend: FilesystemBackend<String, String> = 
+            let backend: FilesystemBackend<String, String> =
                 FilesystemBackend::new(&path).await.unwrap();
-            
+
             let loaded = backend.load().await.unwrap();
             assert_eq!(loaded.len(), 1);
             assert!(loaded.contains_key("persistent_key"));
-            
+
             let entries = &loaded["persistent_key"];
             assert_eq!(entries[0].value, "persistent_value");
         }
     }
-    
+
     #[tokio::test]
     async fn test_filesystem_backend_size() {
         let temp_dir = TempDir::new().unwrap();
-        let backend: FilesystemBackend<String, String> = 
+        let backend: FilesystemBackend<String, String> =
             FilesystemBackend::new(temp_dir.path()).await.unwrap();
-        
+
         // Save some data
         let mut entries = HashMap::new();
         for i in 0..5 {
             let entry = CacheEntry::new(format!("key{}", i), format!("value{}", i));
             entries.insert(format!("key{}", i), vec![entry]);
         }
-        
+
         backend.save(&entries).await.unwrap();
-        
+
         // Check size is non-zero
         let size = backend.size_bytes().await.unwrap();
         assert!(size > 0);

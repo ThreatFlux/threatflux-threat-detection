@@ -1,14 +1,14 @@
 //! Example of using custom patterns for domain-specific analysis
 
 use threatflux_string_analysis::{
-    StringTracker, StringContext, PatternDef, 
-    DefaultPatternProvider, DefaultStringAnalyzer, PatternProvider
+    DefaultPatternProvider, DefaultStringAnalyzer, PatternDef, PatternProvider, StringContext,
+    StringTracker,
 };
 
 fn main() -> anyhow::Result<()> {
     // Create a pattern provider with custom patterns for cryptocurrency analysis
     let mut pattern_provider = DefaultPatternProvider::empty();
-    
+
     // Add cryptocurrency-related patterns
     pattern_provider.add_pattern(PatternDef {
         name: "bitcoin_address".to_string(),
@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
         is_suspicious: true,
         severity: 7,
     })?;
-    
+
     pattern_provider.add_pattern(PatternDef {
         name: "ethereum_address".to_string(),
         regex: r"^0x[a-fA-F0-9]{40}$".to_string(),
@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
         is_suspicious: true,
         severity: 7,
     })?;
-    
+
     pattern_provider.add_pattern(PatternDef {
         name: "crypto_mining_pool".to_string(),
         regex: r"(?i)(pool\.minexmr|nanopool|2miners|ethermine)".to_string(),
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
         is_suspicious: true,
         severity: 8,
     })?;
-    
+
     pattern_provider.add_pattern(PatternDef {
         name: "monero_address".to_string(),
         regex: r"^4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}$".to_string(),
@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
         is_suspicious: true,
         severity: 8,
     })?;
-    
+
     // Add ransomware-specific patterns
     pattern_provider.add_pattern(PatternDef {
         name: "ransomware_extension".to_string(),
@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
         is_suspicious: true,
         severity: 9,
     })?;
-    
+
     pattern_provider.add_pattern(PatternDef {
         name: "ransom_note_keyword".to_string(),
         regex: r"(?i)(decrypt|restore|bitcoin|payment|ransom|encrypted)".to_string(),
@@ -64,21 +64,21 @@ fn main() -> anyhow::Result<()> {
         is_suspicious: true,
         severity: 8,
     })?;
-    
+
     // Create analyzer with custom patterns
     let analyzer = DefaultStringAnalyzer::new()
         .with_patterns(pattern_provider.get_patterns())
         .with_entropy_threshold(4.2);
-    
+
     // Create tracker
     let tracker = StringTracker::with_components(
         Box::new(analyzer),
         Box::new(threatflux_string_analysis::DefaultCategorizer::new()),
     );
-    
+
     // Simulate analyzing a crypto-mining malware
     println!("Analyzing suspected crypto-mining malware...\n");
-    
+
     let suspicious_strings = vec![
         "stratum+tcp://pool.minexmr.com:4444",
         "43QVqFAMNDhj3rFvjLqSqMBgkTQXvqCKheFCaWtmgBcE3XzM5vw52fQjcqBW6ixmBFjdMvDn3YSLBK7mfXg3bQTqmqFbPfC",
@@ -90,17 +90,19 @@ fn main() -> anyhow::Result<()> {
         "Send 0.5 Bitcoin to decrypt your files",
         "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
     ];
-    
+
     for (i, string) in suspicious_strings.iter().enumerate() {
         tracker.track_string(
             string,
             "/tmp/miner.exe",
             "abc123def456",
             "malware_scanner",
-            StringContext::FileString { offset: Some(i * 100) }
+            StringContext::FileString {
+                offset: Some(i * 100),
+            },
         )?;
     }
-    
+
     // Add some benign strings for comparison
     let benign_strings = vec![
         "Mozilla/5.0",
@@ -108,23 +110,25 @@ fn main() -> anyhow::Result<()> {
         "Content-Type: application/json",
         "Accept-Language: en-US",
     ];
-    
+
     for string in benign_strings {
         tracker.track_string(
             string,
             "/usr/bin/firefox",
             "xyz789uvw456",
             "file_scanner",
-            StringContext::Metadata { field: "header".to_string() }
+            StringContext::Metadata {
+                field: "header".to_string(),
+            },
         )?;
     }
-    
+
     // Analyze results
     let stats = tracker.get_statistics(None);
-    
+
     println!("=== Analysis Results ===");
     println!("Total strings analyzed: {}", stats.total_unique_strings);
-    
+
     // Look for cryptocurrency-related strings
     println!("\n=== Cryptocurrency Indicators ===");
     let crypto_filter = threatflux_string_analysis::StringFilter {
@@ -141,14 +145,14 @@ fn main() -> anyhow::Result<()> {
         max_entropy: None,
         date_range: None,
     };
-    
+
     let crypto_stats = tracker.get_statistics(Some(&crypto_filter));
     for (string, _) in crypto_stats.most_common {
         if let Some(details) = tracker.get_string_details(&string) {
             println!("  - {} (categories: {:?})", string, details.categories);
         }
     }
-    
+
     // Look for ransomware indicators
     println!("\n=== Ransomware Indicators ===");
     let ransomware_filter = threatflux_string_analysis::StringFilter {
@@ -165,21 +169,24 @@ fn main() -> anyhow::Result<()> {
         max_entropy: None,
         date_range: None,
     };
-    
+
     let ransomware_stats = tracker.get_statistics(Some(&ransomware_filter));
     for (string, _) in ransomware_stats.most_common {
         println!("  - {}", string);
     }
-    
+
     // Summary of threats
     println!("\n=== Threat Summary ===");
-    println!("Suspicious strings found: {}", stats.suspicious_strings.len());
+    println!(
+        "Suspicious strings found: {}",
+        stats.suspicious_strings.len()
+    );
     println!("\nThreat categories detected:");
     for (category, count) in stats.category_distribution {
         if category == "cryptocurrency" || category == "mining" || category == "ransomware" {
             println!("  - {}: {} indicators", category, count);
         }
     }
-    
+
     Ok(())
 }

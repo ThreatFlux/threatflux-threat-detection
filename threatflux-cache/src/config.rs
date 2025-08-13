@@ -1,6 +1,6 @@
 //! Configuration types for the cache
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -46,44 +46,44 @@ impl CacheConfig {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set maximum entries per key
     pub fn with_max_entries_per_key(mut self, max: usize) -> Self {
         self.max_entries_per_key = max;
         self
     }
-    
+
     /// Set maximum total entries
     pub fn with_max_total_entries(mut self, max: usize) -> Self {
         self.max_total_entries = max;
         self
     }
-    
+
     /// Set eviction policy
     pub fn with_eviction_policy(mut self, policy: EvictionPolicy) -> Self {
         self.eviction_policy = policy;
         self
     }
-    
+
     /// Set persistence configuration
     pub fn with_persistence(mut self, persistence: PersistenceConfig) -> Self {
         self.persistence = persistence;
         self
     }
-    
+
     /// Set default TTL for entries
     pub fn with_default_ttl(mut self, ttl: Duration) -> Self {
         self.default_ttl = Some(ttl);
         self
     }
-    
+
     /// Enable compression with given configuration
     #[cfg(feature = "compression")]
     pub fn with_compression(mut self, compression: CompressionConfig) -> Self {
         self.compression = Some(compression);
         self
     }
-    
+
     /// Enable metrics collection
     #[cfg(feature = "metrics")]
     pub fn with_metrics(mut self, enable: bool) -> Self {
@@ -143,7 +143,7 @@ impl PersistenceConfig {
             ..Default::default()
         }
     }
-    
+
     /// Disable persistence
     pub fn disabled() -> Self {
         Self {
@@ -191,7 +191,7 @@ pub enum CompressionAlgorithm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default_config() {
         let config = CacheConfig::default();
@@ -200,7 +200,7 @@ mod tests {
         assert_eq!(config.eviction_policy, EvictionPolicy::Lru);
         assert!(!config.persistence.enabled);
     }
-    
+
     #[test]
     fn test_config_builder() {
         let config = CacheConfig::new()
@@ -208,13 +208,13 @@ mod tests {
             .with_max_total_entries(5000)
             .with_eviction_policy(EvictionPolicy::Lfu)
             .with_default_ttl(Duration::from_secs(300));
-        
+
         assert_eq!(config.max_entries_per_key, 50);
         assert_eq!(config.max_total_entries, 5000);
         assert_eq!(config.eviction_policy, EvictionPolicy::Lfu);
         assert_eq!(config.default_ttl, Some(Duration::from_secs(300)));
     }
-    
+
     #[test]
     fn test_persistence_config() {
         let persistence = PersistenceConfig::with_path("/tmp/cache");
@@ -224,7 +224,7 @@ mod tests {
         assert!(persistence.save_on_drop);
         assert!(persistence.load_on_startup);
     }
-    
+
     #[cfg(feature = "compression")]
     #[test]
     fn test_compression_config() {

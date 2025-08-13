@@ -1,10 +1,13 @@
 //! Analysis and scoring logic for threat detection
 
-use crate::types::{ThreatLevel, ThreatClassification, ThreatIndicator, YaraMatch, Severity};
+use crate::types::{Severity, ThreatClassification, ThreatIndicator, ThreatLevel, YaraMatch};
 use std::collections::HashMap;
 
 /// Calculate overall threat level based on matches and indicators
-pub fn calculate_threat_level(matches: &[YaraMatch], indicators: &[ThreatIndicator]) -> ThreatLevel {
+pub fn calculate_threat_level(
+    matches: &[YaraMatch],
+    indicators: &[ThreatIndicator],
+) -> ThreatLevel {
     if matches.is_empty() && indicators.is_empty() {
         return ThreatLevel::Clean;
     }
@@ -40,7 +43,7 @@ pub fn calculate_threat_level(matches: &[YaraMatch], indicators: &[ThreatIndicat
             Severity::Medium => 30.0,
             Severity::Low => 10.0,
         };
-        
+
         score += indicator_score * indicator.confidence;
     }
 
@@ -66,7 +69,9 @@ pub fn generate_recommendations(
 
     match threat_level {
         ThreatLevel::Critical => {
-            recommendations.push("IMMEDIATE ACTION REQUIRED: Isolate the affected system immediately".to_string());
+            recommendations.push(
+                "IMMEDIATE ACTION REQUIRED: Isolate the affected system immediately".to_string(),
+            );
             recommendations.push("Disconnect from network to prevent lateral movement".to_string());
             recommendations.push("Initiate incident response procedures".to_string());
             recommendations.push("Preserve forensic evidence before remediation".to_string());
@@ -81,7 +86,8 @@ pub fn generate_recommendations(
             recommendations.push("CAUTION: Further analysis recommended".to_string());
             recommendations.push("Submit to additional analysis tools or sandbox".to_string());
             recommendations.push("Monitor system for unusual activity".to_string());
-            recommendations.push("Consider temporary isolation pending further analysis".to_string());
+            recommendations
+                .push("Consider temporary isolation pending further analysis".to_string());
         }
         ThreatLevel::Clean => {
             recommendations.push("No immediate threats detected".to_string());
@@ -93,24 +99,29 @@ pub fn generate_recommendations(
     for classification in classifications {
         match classification {
             ThreatClassification::Ransomware => {
-                recommendations.push("RANSOMWARE DETECTED: Immediately disconnect from network".to_string());
+                recommendations
+                    .push("RANSOMWARE DETECTED: Immediately disconnect from network".to_string());
                 recommendations.push("Check backup integrity and availability".to_string());
                 recommendations.push("Do NOT pay ransom - contact law enforcement".to_string());
             }
             ThreatClassification::Apt => {
                 recommendations.push("APT ACTIVITY: Assume persistent compromise".to_string());
-                recommendations.push("Engage threat hunting team for comprehensive analysis".to_string());
+                recommendations
+                    .push("Engage threat hunting team for comprehensive analysis".to_string());
                 recommendations.push("Review all privileged accounts and access logs".to_string());
             }
             ThreatClassification::InfoStealer => {
-                recommendations.push("DATA THEFT RISK: Change all passwords immediately".to_string());
-                recommendations.push("Review data access logs for unauthorized activity".to_string());
+                recommendations
+                    .push("DATA THEFT RISK: Change all passwords immediately".to_string());
+                recommendations
+                    .push("Review data access logs for unauthorized activity".to_string());
                 recommendations.push("Enable additional authentication factors".to_string());
             }
             ThreatClassification::Banker => {
                 recommendations.push("BANKING TROJAN: Secure all financial accounts".to_string());
                 recommendations.push("Use separate, clean device for banking".to_string());
-                recommendations.push("Monitor financial accounts for unauthorized transactions".to_string());
+                recommendations
+                    .push("Monitor financial accounts for unauthorized transactions".to_string());
             }
             ThreatClassification::Rootkit => {
                 recommendations.push("ROOTKIT DETECTED: Deep system analysis required".to_string());
@@ -118,8 +129,10 @@ pub fn generate_recommendations(
                 recommendations.push("Consider complete OS reinstallation".to_string());
             }
             ThreatClassification::Cryptominer => {
-                recommendations.push("CRYPTOMINER: Monitor system performance and network usage".to_string());
-                recommendations.push("Check for unauthorized cryptocurrency wallet addresses".to_string());
+                recommendations
+                    .push("CRYPTOMINER: Monitor system performance and network usage".to_string());
+                recommendations
+                    .push("Check for unauthorized cryptocurrency wallet addresses".to_string());
                 recommendations.push("Review scheduled tasks and startup programs".to_string());
             }
             _ => {}
@@ -195,9 +208,8 @@ pub fn calculate_confidence_score(
 
     // Factor 2: Quality of indicators
     if !indicators.is_empty() {
-        let avg_indicator_confidence: f32 = indicators.iter()
-            .map(|i| i.confidence)
-            .sum::<f32>() / indicators.len() as f32;
+        let avg_indicator_confidence: f32 =
+            indicators.iter().map(|i| i.confidence).sum::<f32>() / indicators.len() as f32;
         confidence += avg_indicator_confidence;
         factors += 1;
     }
@@ -212,11 +224,11 @@ pub fn calculate_confidence_score(
 
     // Factor 4: Rule metadata quality
     let has_quality_metadata = matches.iter().any(|m| {
-        m.metadata.contains_key("author") || 
-        m.metadata.contains_key("description") ||
-        m.metadata.contains_key("family")
+        m.metadata.contains_key("author")
+            || m.metadata.contains_key("description")
+            || m.metadata.contains_key("family")
     });
-    
+
     if has_quality_metadata {
         confidence += 0.1;
     }
@@ -257,7 +269,7 @@ mod tests {
             "banker".to_string(),
             "unknown_tag".to_string(),
         ];
-        
+
         let classifications = extract_classifications_from_tags(&tags);
         assert_eq!(classifications.len(), 2);
         assert!(classifications.contains(&ThreatClassification::Trojan));
@@ -272,7 +284,7 @@ mod tests {
             metadata: HashMap::new(),
             strings: vec![],
         }];
-        
+
         let indicators = vec![ThreatIndicator {
             indicator_type: IndicatorType::KnownMalwareFamily,
             description: "Test".to_string(),

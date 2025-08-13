@@ -27,7 +27,7 @@ async-trait = "0.1"
 thiserror = "2.0"
 
 # Package-specific dependencies
-zip = "2.2"  # For Java archives
+zip = "4.3"  # For Java archives
 tar = "0.4"  # For Python packages
 flate2 = "1.0"  # For compressed archives
 toml = "0.8"  # For parsing pyproject.toml

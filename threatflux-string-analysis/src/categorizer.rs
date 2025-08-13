@@ -30,13 +30,13 @@ pub struct CategoryRule {
 pub trait Categorizer: Send + Sync {
     /// Categorize a string
     fn categorize(&self, value: &str) -> Vec<StringCategory>;
-    
+
     /// Add a categorization rule
     fn add_rule(&mut self, rule: CategoryRule) -> AnalysisResult<()>;
-    
+
     /// Remove a rule by name
     fn remove_rule(&mut self, name: &str) -> AnalysisResult<()>;
-    
+
     /// Get all categories
     fn get_categories(&self) -> Vec<StringCategory>;
 }
@@ -50,19 +50,19 @@ impl DefaultCategorizer {
     /// Create a new categorizer with default rules
     pub fn new() -> Self {
         let mut categorizer = Self { rules: Vec::new() };
-        
+
         // Add default rules
         categorizer.add_default_rules();
-        
+
         categorizer
     }
-    
+
     /// Create an empty categorizer
     #[allow(dead_code)]
     pub fn empty() -> Self {
         Self { rules: Vec::new() }
     }
-    
+
     fn add_default_rules(&mut self) {
         // URL categorization
         self.rules.push(CategoryRule {
@@ -77,13 +77,13 @@ impl DefaultCategorizer {
             },
             priority: 100,
         });
-        
+
         // File path categorization
         self.rules.push(CategoryRule {
             name: "path_rule".to_string(),
             matcher: Box::new(|s| {
-                (s.contains('/') || s.contains('\\')) && 
-                (s.starts_with("/") || s.starts_with("\\") || s.contains(":\\"))
+                (s.contains('/') || s.contains('\\'))
+                    && (s.starts_with("/") || s.starts_with("\\") || s.contains(":\\"))
             }),
             category: StringCategory {
                 name: "path".to_string(),
@@ -92,13 +92,11 @@ impl DefaultCategorizer {
             },
             priority: 90,
         });
-        
+
         // Registry key categorization
         self.rules.push(CategoryRule {
             name: "registry_rule".to_string(),
-            matcher: Box::new(|s| {
-                s.starts_with("HKEY_") || s.contains("\\SOFTWARE\\")
-            }),
+            matcher: Box::new(|s| s.starts_with("HKEY_") || s.contains("\\SOFTWARE\\")),
             category: StringCategory {
                 name: "registry".to_string(),
                 parent: Some("windows".to_string()),
@@ -106,7 +104,7 @@ impl DefaultCategorizer {
             },
             priority: 95,
         });
-        
+
         // Library/DLL categorization
         self.rules.push(CategoryRule {
             name: "library_rule".to_string(),
@@ -120,12 +118,15 @@ impl DefaultCategorizer {
             },
             priority: 85,
         });
-        
+
         // Command categorization
         self.rules.push(CategoryRule {
             name: "command_rule".to_string(),
             matcher: Box::new(|s| {
-                s.contains("cmd") || s.contains("powershell") || s.contains("bash") || s.contains("/bin/")
+                s.contains("cmd")
+                    || s.contains("powershell")
+                    || s.contains("bash")
+                    || s.contains("/bin/")
             }),
             category: StringCategory {
                 name: "command".to_string(),
@@ -134,7 +135,7 @@ impl DefaultCategorizer {
             },
             priority: 80,
         });
-        
+
         // IP address categorization
         self.rules.push(CategoryRule {
             name: "ip_rule".to_string(),
@@ -150,15 +151,16 @@ impl DefaultCategorizer {
             },
             priority: 95,
         });
-        
+
         // Email categorization
         self.rules.push(CategoryRule {
             name: "email_rule".to_string(),
             matcher: Box::new(|s| {
-                s.contains('@') && s.contains('.') && 
-                regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-                    .unwrap()
-                    .is_match(s)
+                s.contains('@')
+                    && s.contains('.')
+                    && regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+                        .unwrap()
+                        .is_match(s)
             }),
             category: StringCategory {
                 name: "email".to_string(),
@@ -167,7 +169,7 @@ impl DefaultCategorizer {
             },
             priority: 85,
         });
-        
+
         // Sort rules by priority (descending)
         self.rules.sort_by(|a, b| b.priority.cmp(&a.priority));
     }
@@ -176,13 +178,13 @@ impl DefaultCategorizer {
 impl Categorizer for DefaultCategorizer {
     fn categorize(&self, value: &str) -> Vec<StringCategory> {
         let mut categories = Vec::new();
-        
+
         for rule in &self.rules {
             if (rule.matcher)(value) {
                 categories.push(rule.category.clone());
             }
         }
-        
+
         // If no specific category matched, return generic
         if categories.is_empty() {
             categories.push(StringCategory {
@@ -191,31 +193,31 @@ impl Categorizer for DefaultCategorizer {
                 description: "Generic string".to_string(),
             });
         }
-        
+
         categories
     }
-    
+
     fn add_rule(&mut self, rule: CategoryRule) -> AnalysisResult<()> {
         self.rules.push(rule);
         self.rules.sort_by(|a, b| b.priority.cmp(&a.priority));
         Ok(())
     }
-    
+
     fn remove_rule(&mut self, name: &str) -> AnalysisResult<()> {
         self.rules.retain(|r| r.name != name);
         Ok(())
     }
-    
+
     fn get_categories(&self) -> Vec<StringCategory> {
         let mut categories = Vec::new();
         let mut seen = std::collections::HashSet::new();
-        
+
         for rule in &self.rules {
             if seen.insert(rule.category.name.clone()) {
                 categories.push(rule.category.clone());
             }
         }
-        
+
         categories
     }
 }

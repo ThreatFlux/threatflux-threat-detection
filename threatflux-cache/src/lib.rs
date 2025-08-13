@@ -44,38 +44,38 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+pub mod backends;
 pub mod cache;
+pub mod config;
 pub mod entry;
 pub mod error;
-pub mod storage;
-pub mod backends;
-pub mod config;
 pub mod eviction;
 pub mod search;
+pub mod storage;
 
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
 // Re-export main types
-pub use cache::{Cache, AsyncCache};
+pub use cache::{AsyncCache, Cache};
+pub use config::{CacheConfig, EvictionPolicy, PersistenceConfig};
 pub use entry::{CacheEntry, EntryMetadata};
 pub use error::{CacheError, Result};
-pub use config::{CacheConfig, EvictionPolicy, PersistenceConfig};
+pub use search::{SearchQuery, Searchable};
 pub use storage::StorageBackend;
-pub use search::{Searchable, SearchQuery};
 
 // Re-export backend implementations
-pub use backends::memory::MemoryBackend;
 #[cfg(feature = "filesystem-backend")]
 pub use backends::filesystem::FilesystemBackend;
+pub use backends::memory::MemoryBackend;
 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        AsyncCache, Cache, CacheConfig, CacheEntry, CacheError, Result,
-        EntryMetadata, StorageBackend, Searchable,
+        AsyncCache, Cache, CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, Searchable,
+        StorageBackend,
     };
-    
+
     #[cfg(feature = "filesystem-backend")]
     pub use crate::FilesystemBackend;
     pub use crate::MemoryBackend;

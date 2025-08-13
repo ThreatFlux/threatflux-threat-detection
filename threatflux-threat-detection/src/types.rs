@@ -29,6 +29,7 @@ pub struct ThreatAnalysis {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub enum ThreatLevel {
+    None,
     Clean,
     Suspicious,
     Malicious,
@@ -38,6 +39,7 @@ pub enum ThreatLevel {
 impl std::fmt::Display for ThreatLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ThreatLevel::None => write!(f, "None"),
             ThreatLevel::Clean => write!(f, "Clean"),
             ThreatLevel::Suspicious => write!(f, "Suspicious"),
             ThreatLevel::Malicious => write!(f, "Malicious"),
@@ -213,10 +215,7 @@ pub enum ScanTarget {
     /// Scan a file on disk
     File(PathBuf),
     /// Scan data in memory
-    Memory {
-        data: Vec<u8>,
-        name: Option<String>,
-    },
+    Memory { data: Vec<u8>, name: Option<String> },
     /// Scan a directory recursively
     Directory(PathBuf),
 }
@@ -226,19 +225,23 @@ pub enum ScanTarget {
 pub trait DetectionEngine: Send + Sync {
     /// Get engine type name
     fn engine_type(&self) -> &str;
-    
+
     /// Get engine version
     fn version(&self) -> &str;
-    
+
     /// Scan a target
     async fn scan(&self, target: ScanTarget) -> crate::Result<ThreatAnalysis>;
-    
+
     /// Scan with a custom rule
-    async fn scan_with_custom_rule(&self, target: ScanTarget, rule: &str) -> crate::Result<ThreatAnalysis>;
-    
+    async fn scan_with_custom_rule(
+        &self,
+        target: ScanTarget,
+        rule: &str,
+    ) -> crate::Result<ThreatAnalysis>;
+
     /// Update engine rules
     async fn update_rules(&mut self) -> crate::Result<()>;
-    
+
     /// Check if engine is available
     fn is_available(&self) -> bool;
 }
@@ -342,7 +345,7 @@ impl Default for Severity {
 impl Default for ScanConfig {
     fn default() -> Self {
         Self {
-            max_file_size: 100 * 1024 * 1024, // 100MB
+            max_file_size: 100 * 1024 * 1024,       // 100MB
             scan_timeout: Duration::from_secs(300), // 5 minutes
             max_concurrent_scans: 4,
         }

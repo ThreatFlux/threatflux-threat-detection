@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-use super::{Vulnerability, VulnerabilitySeverity, MaliciousPattern};
+use super::{MaliciousPattern, Vulnerability, VulnerabilitySeverity};
 
 /// Risk level categories
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -182,7 +182,7 @@ impl RiskCalculator {
         weights.insert(RiskCategory::License, 0.3);
         weights.insert(RiskCategory::Privacy, 0.8);
         weights.insert(RiskCategory::Quality, 0.4);
-        
+
         Self { weights }
     }
 
@@ -207,7 +207,8 @@ impl RiskCalculator {
                 description: format!("{} vulnerabilities found", vulnerabilities.len()),
                 severity: RiskLevel::from_score(vuln_score),
                 score_contribution: vuln_score * self.weights[&RiskCategory::Vulnerability],
-                evidence: vulnerabilities.iter()
+                evidence: vulnerabilities
+                    .iter()
                     .map(|v| format!("{}: {}", v.id, v.title))
                     .collect(),
                 mitigation: Some("Update to patched versions".to_string()),
@@ -223,7 +224,8 @@ impl RiskCalculator {
                 description: format!("{} malicious patterns detected", malicious_patterns.len()),
                 severity: RiskLevel::Critical,
                 score_contribution: malicious_score * self.weights[&RiskCategory::MaliciousCode],
-                evidence: malicious_patterns.iter()
+                evidence: malicious_patterns
+                    .iter()
                     .map(|p| p.pattern_name.clone())
                     .collect(),
                 mitigation: Some("Remove package immediately".to_string()),
@@ -258,15 +260,14 @@ impl RiskCalculator {
         }
 
         // Calculate total
-        let total_score: f32 = components.values()
-            .zip(components.keys().map(|k| {
-                match k.as_str() {
-                    "vulnerabilities" => self.weights[&RiskCategory::Vulnerability],
-                    "malicious_code" => self.weights[&RiskCategory::MaliciousCode],
-                    "typosquatting" => self.weights[&RiskCategory::Typosquatting],
-                    "supply_chain" => self.weights[&RiskCategory::SupplyChain],
-                    _ => 1.0,
-                }
+        let total_score: f32 = components
+            .values()
+            .zip(components.keys().map(|k| match k.as_str() {
+                "vulnerabilities" => self.weights[&RiskCategory::Vulnerability],
+                "malicious_code" => self.weights[&RiskCategory::MaliciousCode],
+                "typosquatting" => self.weights[&RiskCategory::Typosquatting],
+                "supply_chain" => self.weights[&RiskCategory::SupplyChain],
+                _ => 1.0,
             }))
             .map(|(score, weight)| score * weight)
             .sum::<f32>()
@@ -281,7 +282,8 @@ impl RiskCalculator {
     }
 
     fn calculate_vulnerability_score(&self, vulnerabilities: &[Vulnerability]) -> f32 {
-        vulnerabilities.iter()
+        vulnerabilities
+            .iter()
             .map(|v| v.severity.weight())
             .sum::<f32>()
             .min(100.0)

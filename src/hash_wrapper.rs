@@ -2,11 +2,7 @@
 // This file can replace the current hash.rs to use the external library
 
 // Re-export all public types and functions from the library
-pub use threatflux_hashing::{
-    calculate_all_hashes,
-    calculate_md5,
-    Hashes,
-};
+pub use threatflux_hashing::{calculate_all_hashes, calculate_md5, Hashes};
 
 // For backward compatibility with anyhow::Result
 use anyhow::Result;
@@ -27,9 +23,10 @@ pub async fn calculate_md5_compat(path: &Path) -> Result<String> {
 
 // Additional compatibility layer to handle the change from non-optional to optional fields
 pub async fn calculate_all_hashes_legacy(path: &Path) -> Result<LegacyHashes> {
-    let hashes = calculate_all_hashes(path).await
+    let hashes = calculate_all_hashes(path)
+        .await
         .map_err(|e| anyhow::anyhow!("Hash calculation error: {}", e))?;
-    
+
     Ok(LegacyHashes {
         md5: hashes.md5.unwrap_or_else(|| "error".to_string()),
         sha256: hashes.sha256.unwrap_or_else(|| "error".to_string()),

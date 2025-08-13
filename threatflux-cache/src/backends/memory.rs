@@ -1,15 +1,16 @@
 //! In-memory storage backend
 
 use async_trait::async_trait;
+use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Serialize, de::DeserializeOwned};
 
-use crate::{
-    StorageBackend, CacheEntry, Result, EntryMetadata,
-};
+use crate::{CacheEntry, EntryMetadata, Result, StorageBackend};
+
+/// Type alias for complex entry storage
+type EntryStorage<K, V, M> = Arc<RwLock<HashMap<K, Vec<CacheEntry<K, V, M>>>>>;
 
 /// In-memory storage backend
 pub struct MemoryBackend<K, V, M = ()>
@@ -18,7 +19,7 @@ where
     V: Clone + Send + Sync,
     M: Clone + Send + Sync,
 {
-    data: Arc<RwLock<HashMap<K, Vec<CacheEntry<K, V, M>>>>>,
+    data: EntryStorage<K, V, M>,
 }
 
 impl<K, V, M> MemoryBackend<K, V, M>
@@ -69,47 +70,42 @@ where
     type Key = K;
     type Value = V;
     type Metadata = M;
-    
-    async fn save(
-        &self,
-        entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>
-    ) -> Result<()> {
+
+    async fn save(&self, entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>) -> Result<()> {
         let mut data = self.data.write().await;
         *data = entries.clone();
         Ok(())
     }
-    
-    async fn load(
-        &self
-    ) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
+
+    async fn load(&self) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
         let data = self.data.read().await;
         Ok(data.clone())
     }
-    
+
     async fn remove(&self, key: &K) -> Result<()> {
         let mut data = self.data.write().await;
         data.remove(key);
         Ok(())
     }
-    
+
     async fn clear(&self) -> Result<()> {
         let mut data = self.data.write().await;
         data.clear();
         Ok(())
     }
-    
+
     async fn contains(&self, key: &K) -> Result<bool> {
         let data = self.data.read().await;
         Ok(data.contains_key(key))
     }
-    
+
     async fn size_bytes(&self) -> Result<u64> {
         let data = self.data.read().await;
-        
+
         // Estimate size based on number of entries
         let total_entries: usize = data.values().map(|v| v.len()).sum();
         let estimated_size = total_entries * std::mem::size_of::<CacheEntry<K, V, M>>();
-        
+
         Ok(estimated_size as u64)
     }
 }
@@ -117,50 +113,50 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_memory_backend_operations() {
         let backend: MemoryBackend<String, String> = MemoryBackend::new();
-        
+
         // Test empty state
         let loaded = backend.load().await.unwrap();
         assert!(loaded.is_empty());
-        
+
         // Test save and load
         let mut entries = HashMap::new();
         let entry = CacheEntry::new("key1".to_string(), "value1".to_string());
         entries.insert("key1".to_string(), vec![entry]);
-        
+
         backend.save(&entries).await.unwrap();
         let loaded = backend.load().await.unwrap();
         assert_eq!(loaded.len(), 1);
         assert!(loaded.contains_key("key1"));
-        
+
         // Test contains
         assert!(backend.contains(&"key1".to_string()).await.unwrap());
         assert!(!backend.contains(&"key2".to_string()).await.unwrap());
-        
+
         // Test remove
         backend.remove(&"key1".to_string()).await.unwrap();
         assert!(!backend.contains(&"key1".to_string()).await.unwrap());
-        
+
         // Test clear
         backend.save(&entries).await.unwrap();
         backend.clear().await.unwrap();
         let loaded = backend.load().await.unwrap();
         assert!(loaded.is_empty());
     }
-    
+
     #[tokio::test]
     async fn test_memory_backend_clone() {
         let backend1: MemoryBackend<String, String> = MemoryBackend::new();
         let backend2 = backend1.clone();
-        
+
         // Changes in one should be reflected in the other
         let mut entries = HashMap::new();
         let entry = CacheEntry::new("key1".to_string(), "value1".to_string());
         entries.insert("key1".to_string(), vec![entry]);
-        
+
         backend1.save(&entries).await.unwrap();
         assert!(backend2.contains(&"key1".to_string()).await.unwrap());
     }

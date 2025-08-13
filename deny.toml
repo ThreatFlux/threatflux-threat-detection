@@ -1,0 +1,78 @@
+# Configuration for cargo-deny
+# See https://embarkstudios.github.io/cargo-deny/checks/cfg.html
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "warn"
+notice = "warn"
+ignore = [
+    # Add any advisory IDs to ignore here
+    # Example: "RUSTSEC-2020-0001",
+]
+
+[licenses]
+unlicensed = "deny"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+]
+deny = [
+    "GPL-2.0",
+    "GPL-3.0",
+    "AGPL-1.0",
+    "AGPL-3.0",
+]
+copyleft = "warn"
+allow-osi-fsf-free = "neither"
+default = "deny"
+confidence-threshold = 0.8
+exceptions = [
+    # Allow specific packages with incompatible licenses if necessary
+    # { allow = ["ISC"], name = "package-name" },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow = [
+    # Add any specifically allowed crates here
+]
+deny = [
+    # Add any specifically denied crates here
+    # { name = "openssl", version = "*" },  # Example: prefer rustls
+]
+skip = [
+    # Skip these crates from multiple-version checks
+    { name = "windows_x86_64_msvc", version = "*" },
+    { name = "windows_x86_64_gnu", version = "*" },
+    { name = "windows_i686_msvc", version = "*" },
+    { name = "syn", version = "*" },
+    { name = "hashbrown", version = "*" },
+    { name = "gimli", version = "*" },
+    { name = "object", version = "*" },
+]
+skip-tree = [
+    # Skip entire dependency trees
+    # { name = "windows-sys", version = "*" },
+]
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = [
+    # Add any allowed git sources here
+    # "https://github.com/example/repo",
+]

@@ -483,7 +483,7 @@ async fn handle_llm_analyze(
     Ok(())
 }
 
-// TODO: Temporarily disabled during refactoring  
+// TODO: Temporarily disabled during refactoring
 async fn handle_yara_scan(
     _path: PathBuf,
     _rule: String,

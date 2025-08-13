@@ -8,12 +8,12 @@ use std::path::Path;
 use zip::ZipArchive;
 
 use crate::core::{
-    PackageAnalyzer, PackageInfo, PackageMetadata, AnalysisResult,
-    RiskAssessment, RiskCalculator, DependencyAnalysis, Dependency, DependencyType,
-    Vulnerability, MaliciousPattern, PatternMatcher,
+    AnalysisResult, Dependency, DependencyAnalysis, DependencyType, MaliciousPattern,
+    PackageAnalyzer, PackageInfo, PackageMetadata, PatternMatcher, RiskAssessment, RiskCalculator,
+    Vulnerability,
 };
-use crate::vulnerability_db::VulnerabilityDatabase;
 use crate::utils::typosquatting::TyposquattingDetector;
+use crate::vulnerability_db::VulnerabilityDatabase;
 
 /// Java package information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,15 +55,14 @@ impl PackageInfo for JavaPackage {
 
     fn custom_attributes(&self) -> HashMap<String, serde_json::Value> {
         let mut attrs = HashMap::new();
-        attrs.insert("archive_type".to_string(), 
-            serde_json::json!(self.archive_type));
-        attrs.insert("main_class".to_string(), 
-            serde_json::json!(self.main_class));
-        attrs.insert("is_signed".to_string(), 
-            serde_json::json!(self.is_signed));
+        attrs.insert(
+            "archive_type".to_string(),
+            serde_json::json!(self.archive_type),
+        );
+        attrs.insert("main_class".to_string(), serde_json::json!(self.main_class));
+        attrs.insert("is_signed".to_string(), serde_json::json!(self.is_signed));
         if let Some(android) = &self.android_info {
-            attrs.insert("android_info".to_string(), 
-                serde_json::json!(android));
+            attrs.insert("android_info".to_string(), serde_json::json!(android));
         }
         attrs
     }
@@ -171,13 +170,13 @@ impl JavaAnalyzer {
         if let Ok(mut manifest_file) = archive.by_name("META-INF/MANIFEST.MF") {
             let mut content = String::new();
             std::io::Read::read_to_string(&mut manifest_file, &mut content)?;
-            
+
             for line in content.lines() {
                 if let Some((key, value)) = line.split_once(':') {
                     let key = key.trim();
                     let value = value.trim();
                     manifest_attributes.insert(key.to_string(), value.to_string());
-                    
+
                     if key == "Main-Class" {
                         main_class = Some(value.to_string());
                     }
@@ -189,8 +188,9 @@ impl JavaAnalyzer {
         for i in 0..archive.len() {
             let file = archive.by_index(i)?;
             let name = file.name();
-            if name.starts_with("META-INF/") && 
-               (name.ends_with(".RSA") || name.ends_with(".DSA") || name.ends_with(".EC")) {
+            if name.starts_with("META-INF/")
+                && (name.ends_with(".RSA") || name.ends_with(".DSA") || name.ends_with(".EC"))
+            {
                 is_signed = true;
                 break;
             }
@@ -198,18 +198,22 @@ impl JavaAnalyzer {
 
         // Extract metadata
         let metadata = PackageMetadata {
-            name: path.file_stem()
+            name: path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("unknown")
                 .to_string(),
-            version: manifest_attributes.get("Implementation-Version")
+            version: manifest_attributes
+                .get("Implementation-Version")
                 .or_else(|| manifest_attributes.get("Bundle-Version"))
                 .cloned()
                 .unwrap_or_else(|| "unknown".to_string()),
-            description: manifest_attributes.get("Bundle-Description")
+            description: manifest_attributes
+                .get("Bundle-Description")
                 .or_else(|| manifest_attributes.get("Implementation-Title"))
                 .cloned(),
-            author: manifest_attributes.get("Implementation-Vendor")
+            author: manifest_attributes
+                .get("Implementation-Vendor")
                 .or_else(|| manifest_attributes.get("Bundle-Vendor"))
                 .cloned(),
             license: manifest_attributes.get("Bundle-License").cloned(),
@@ -236,12 +240,15 @@ impl JavaAnalyzer {
         // - pom.xml for Maven projects
         // - build.gradle for Gradle projects
         // - lib/ directories in archives
-        
+
         Ok(DependencyAnalysis::default())
     }
 
     /// Analyze security aspects
-    fn analyze_security(&self, archive: &mut ZipArchive<std::fs::File>) -> Result<JavaSecurityAnalysis> {
+    fn analyze_security(
+        &self,
+        archive: &mut ZipArchive<std::fs::File>,
+    ) -> Result<JavaSecurityAnalysis> {
         let mut analysis = JavaSecurityAnalysis {
             uses_reflection: false,
             uses_jni: false,
@@ -255,11 +262,11 @@ impl JavaAnalyzer {
         for i in 0..archive.len() {
             let file = archive.by_index(i)?;
             let name = file.name();
-            
+
             if name.ends_with(".so") || name.ends_with(".dll") || name.ends_with(".dylib") {
                 analysis.has_native_libraries = true;
             }
-            
+
             // TODO: Parse class files to detect reflection and suspicious API usage
         }
 
@@ -275,7 +282,7 @@ impl PackageAnalyzer for JavaAnalyzer {
     async fn analyze(&self, path: &Path) -> Result<Self::Analysis> {
         let package = self.parse_archive(path).await?;
         let dependency_analysis = self.analyze_dependencies(path).await?;
-        
+
         // Open archive for security analysis
         let file = std::fs::File::open(path)?;
         let mut archive = ZipArchive::new(file)?;
@@ -283,7 +290,9 @@ impl PackageAnalyzer for JavaAnalyzer {
 
         // Check for malicious patterns in manifest
         let manifest_content = serde_json::to_string(&package.manifest_attributes)?;
-        let malicious_patterns = self.pattern_matcher.scan(&manifest_content, Some("MANIFEST.MF"));
+        let malicious_patterns = self
+            .pattern_matcher
+            .scan(&manifest_content, Some("MANIFEST.MF"));
 
         // Collect all vulnerabilities
         let mut vulnerabilities = vec![];
@@ -293,8 +302,12 @@ impl PackageAnalyzer for JavaAnalyzer {
 
         // Calculate risk assessment
         let risk_calculator = RiskCalculator::new();
-        let supply_chain_score = if security_analysis.has_native_libraries { 30.0 } else { 0.0 };
-        
+        let supply_chain_score = if security_analysis.has_native_libraries {
+            30.0
+        } else {
+            0.0
+        };
+
         let risk_score = risk_calculator.calculate(
             &vulnerabilities,
             &malicious_patterns,

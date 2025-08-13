@@ -34,17 +34,17 @@ impl HttpTransport {
         eprintln!("Protocol: {}", info.protocol_version);
         eprintln!("Listening on: http://0.0.0.0:{}", self.port);
         eprintln!("MCP endpoint: http://0.0.0.0:{}/mcp", self.port);
-        eprintln!("Use with: npx @modelcontextprotocol/inspector http://localhost:{}/mcp", self.port);
+        eprintln!(
+            "Use with: npx @modelcontextprotocol/inspector http://localhost:{}/mcp",
+            self.port
+        );
 
         let handler = Arc::new(self.handler);
 
         let app = Router::new()
             .route("/health", get(health_check))
             .route("/mcp", post(mcp_handler))
-            .layer(
-                ServiceBuilder::new()
-                    .layer(CorsLayer::permissive())
-            )
+            .layer(ServiceBuilder::new().layer(CorsLayer::permissive()))
             .with_state(handler);
 
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.port)).await?;
@@ -93,8 +93,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mcp_handler() {
-        let registry = ToolRegistry::new();
-        let handler = McpHandler::new(registry);
+        let handler = McpHandler::new(None, None);
         let handler = Arc::new(handler);
 
         let request = JsonRpcRequest {
@@ -106,7 +105,7 @@ mod tests {
 
         let headers = HeaderMap::new();
         let result = mcp_handler(State(handler), headers, Json(request)).await;
-        
+
         assert!(result.is_ok());
         let response = result.unwrap().0;
         assert_eq!(response.jsonrpc, "2.0");

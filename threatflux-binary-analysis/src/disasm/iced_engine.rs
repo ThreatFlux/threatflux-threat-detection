@@ -1,10 +1,10 @@
 //! iced-x86 disassembly engine implementation
 
+use super::{analyze_control_flow, categorize_instruction, DisassemblyConfig};
 use crate::{
-    types::{Architecture, Instruction, InstructionCategory, ControlFlow as FlowType},
-    Result, BinaryError,
+    types::{Architecture, ControlFlow as FlowType, Instruction, InstructionCategory},
+    BinaryError, Result,
 };
-use super::{DisassemblyConfig, categorize_instruction, analyze_control_flow};
 use iced_x86::*;
 
 /// Disassemble binary data using iced-x86 engine
@@ -25,38 +25,39 @@ pub fn disassemble(
             )));
         }
     };
-    
+
     let mut decoder = create_decoder(bitness, data, address)?;
     let mut formatter = create_formatter();
     let mut result = Vec::new();
     let max_instructions = config.max_instructions;
-    
+
     let mut instr = iced_x86::Instruction::default();
     let mut count = 0;
-    
+
     while decoder.can_decode() && count < max_instructions {
         decoder.decode_out(&mut instr);
-        
+
         if config.skip_invalid && instr.code() == Code::INVALID {
             continue;
         }
-        
+
         let mut output = String::new();
         formatter.format(&instr, &mut output);
-        
+
         // Parse mnemonic and operands from formatted output
         let (mnemonic, operands) = parse_formatted_instruction(&output);
-        
+
         let category = categorize_instruction(&mnemonic);
         let flow = if config.analyze_control_flow {
             analyze_iced_control_flow(&instr, &operands)
         } else {
             FlowType::Sequential
         };
-        
-        let instruction_bytes = data[((instr.ip() - address) as usize)..
-                                    ((instr.ip() - address) as usize + instr.len())].to_vec();
-        
+
+        let instruction_bytes = data
+            [((instr.ip() - address) as usize)..((instr.ip() - address) as usize + instr.len())]
+            .to_vec();
+
         let instruction = Instruction {
             address: instr.ip(),
             bytes: instruction_bytes,
@@ -66,18 +67,18 @@ pub fn disassemble(
             flow,
             size: instr.len(),
         };
-        
+
         result.push(instruction);
         count += 1;
     }
-    
+
     Ok(result)
 }
 
 /// Create iced-x86 decoder
 fn create_decoder(bitness: u32, data: &[u8], address: u64) -> Result<Decoder> {
     let decoder_options = DecoderOptions::NONE;
-    
+
     let decoder = match bitness {
         16 => Decoder::with_ip(16, data, address, decoder_options),
         32 => Decoder::with_ip(32, data, address, decoder_options),
@@ -89,7 +90,7 @@ fn create_decoder(bitness: u32, data: &[u8], address: u64) -> Result<Decoder> {
             )));
         }
     };
-    
+
     Ok(decoder)
 }
 
@@ -101,14 +102,14 @@ fn create_formatter() -> NasmFormatter {
 /// Parse formatted instruction into mnemonic and operands
 fn parse_formatted_instruction(formatted: &str) -> (String, String) {
     let parts: Vec<&str> = formatted.trim().splitn(2, ' ').collect();
-    
+
     let mnemonic = parts[0].to_string();
     let operands = if parts.len() > 1 {
         parts[1].to_string()
     } else {
         String::new()
     };
-    
+
     (mnemonic, operands)
 }
 
@@ -164,32 +165,32 @@ pub fn analyze_instruction_details(instr: &iced_x86::Instruction) -> Instruction
     let mut memory_accesses = Vec::new();
     let mut registers_read = Vec::new();
     let mut registers_written = Vec::new();
-    
+
     // Analyze operands
     for i in 0..instr.op_count() {
         let operand_info = format_operand_info(instr, i);
         operands.push(operand_info);
-        
+
         // Check for memory access
         if matches!(instr.op_kind(i), OpKind::Memory) {
             memory_accesses.push(format!("mem_access_{}", i));
         }
     }
-    
+
     // Get registers used
     let used_registers = instr.used_registers();
     for reg_info in used_registers {
         let reg_name = format!("{:?}", reg_info.register());
-        
+
         if reg_info.access().contains(OpAccess::Read) {
             registers_read.push(reg_name.clone());
         }
-        
+
         if reg_info.access().contains(OpAccess::Write) {
             registers_written.push(reg_name);
         }
     }
-    
+
     InstructionDetails {
         operands,
         memory_accesses,
@@ -230,9 +231,11 @@ fn format_operand_info(instr: &iced_x86::Instruction, operand_index: u32) -> Str
             format!("branch:0x{:x}", instr.near_branch_target())
         }
         OpKind::FarBranch16 | OpKind::FarBranch32 => {
-            format!("far_branch:0x{:x}:0x{:x}", 
-                    instr.far_branch_selector(), 
-                    instr.far_branch32())
+            format!(
+                "far_branch:0x{:x}:0x{:x}",
+                instr.far_branch_selector(),
+                instr.far_branch32()
+            )
         }
         OpKind::Immediate8 => {
             format!("imm8:0x{:x}", instr.immediate8())
@@ -259,11 +262,13 @@ fn format_operand_info(instr: &iced_x86::Instruction, operand_index: u32) -> Str
             format!("imm32to64:0x{:x}", instr.immediate32to64())
         }
         OpKind::Memory => {
-            format!("mem:[{:?}+{:?}*{}+0x{:x}]",
-                    instr.memory_base(),
-                    instr.memory_index(),
-                    instr.memory_index_scale(),
-                    instr.memory_displacement64())
+            format!(
+                "mem:[{:?}+{:?}*{}+0x{:x}]",
+                instr.memory_base(),
+                instr.memory_index(),
+                instr.memory_index_scale(),
+                instr.memory_displacement64()
+            )
         }
         _ => format!("operand_{}", operand_index),
     }
@@ -272,61 +277,61 @@ fn format_operand_info(instr: &iced_x86::Instruction, operand_index: u32) -> Str
 /// Get required CPUID features for instruction
 fn get_cpuid_features(instr: &iced_x86::Instruction) -> Vec<String> {
     let mut features = Vec::new();
-    
+
     for feature in instr.cpuid_features() {
         features.push(format!("{:?}", feature));
     }
-    
+
     features
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_iced_engine_x86_64() {
         let config = DisassemblyConfig::default();
-        
+
         // Simple x86-64 NOP instruction
         let data = &[0x90];
         let result = disassemble(data, 0x1000, Architecture::X86_64, &config);
-        
+
         assert!(result.is_ok());
         let instructions = result.unwrap();
         assert!(!instructions.is_empty());
         assert_eq!(instructions[0].mnemonic, "nop");
         assert_eq!(instructions[0].address, 0x1000);
     }
-    
+
     #[test]
     fn test_iced_engine_x86() {
         let config = DisassemblyConfig::default();
-        
+
         // Simple x86 NOP instruction
         let data = &[0x90];
         let result = disassemble(data, 0x1000, Architecture::X86, &config);
-        
+
         assert!(result.is_ok());
         let instructions = result.unwrap();
         assert!(!instructions.is_empty());
     }
-    
+
     #[test]
     fn test_unsupported_architecture() {
         let config = DisassemblyConfig::default();
         let data = &[0x90];
         let result = disassemble(data, 0x1000, Architecture::Arm, &config);
-        
+
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_instruction_parsing() {
         let (mnemonic, operands) = parse_formatted_instruction("mov eax, ebx");
         assert_eq!(mnemonic, "mov");
         assert_eq!(operands, "eax, ebx");
-        
+
         let (mnemonic, operands) = parse_formatted_instruction("nop");
         assert_eq!(mnemonic, "nop");
         assert_eq!(operands, "");

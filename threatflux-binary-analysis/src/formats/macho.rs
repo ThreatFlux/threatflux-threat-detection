@@ -2,13 +2,13 @@
 
 use crate::{
     types::{
-        Architecture, BinaryFormat as Format, BinaryMetadata, Section, Symbol, Import, Export,
-        SectionType, SectionPermissions, SymbolType, SymbolBinding, SymbolVisibility,
-        SecurityFeatures, Endianness, FunctionType
+        Architecture, BinaryFormat as Format, BinaryMetadata, Endianness, Export, FunctionType,
+        Import, Section, SectionPermissions, SectionType, SecurityFeatures, Symbol, SymbolBinding,
+        SymbolType, SymbolVisibility,
     },
-    BinaryFormatTrait, BinaryFormatParser, Result, BinaryError,
+    BinaryError, BinaryFormatParser, BinaryFormatTrait, Result,
 };
-use goblin::mach::{Mach, MachO, load_command::LoadCommand};
+use goblin::mach::{load_command::LoadCommand, Mach, MachO};
 use std::collections::HashMap;
 
 /// Mach-O format parser
@@ -19,7 +19,9 @@ impl BinaryFormatParser for MachOParser {
         let mach = Mach::parse(data)?;
         match mach {
             Mach::Binary(macho) => Ok(Box::new(MachOBinary::new(macho, data)?)),
-            Mach::Fat(_) => Err(BinaryError::unsupported_format("Fat binaries not yet supported")),
+            Mach::Fat(_) => Err(BinaryError::unsupported_format(
+                "Fat binaries not yet supported",
+            )),
         }
     }
 
@@ -27,15 +29,16 @@ impl BinaryFormatParser for MachOParser {
         if data.len() < 4 {
             return false;
         }
-        
+
         let magic = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-        matches!(magic, 
-            goblin::mach::header::MH_MAGIC |
-            goblin::mach::header::MH_CIGAM |
-            goblin::mach::header::MH_MAGIC_64 |
-            goblin::mach::header::MH_CIGAM_64 |
-            goblin::mach::fat::FAT_MAGIC |
-            goblin::mach::fat::FAT_CIGAM
+        matches!(
+            magic,
+            goblin::mach::header::MH_MAGIC
+                | goblin::mach::header::MH_CIGAM
+                | goblin::mach::header::MH_MAGIC_64
+                | goblin::mach::header::MH_CIGAM_64
+                | goblin::mach::fat::FAT_MAGIC
+                | goblin::mach::fat::FAT_CIGAM
         )
     }
 }
@@ -54,7 +57,7 @@ pub struct MachOBinary {
 impl MachOBinary {
     fn new(macho: MachO<'_>, data: &[u8]) -> Result<Self> {
         let data = data.to_vec();
-        
+
         // Convert architecture
         let architecture = match macho.header.cputype() {
             goblin::mach::constants::cputype::CPU_TYPE_X86 => Architecture::X86,
@@ -68,7 +71,9 @@ impl MachOBinary {
 
         // Determine endianness from magic
         let endian = match macho.header.magic {
-            goblin::mach::header::MH_MAGIC | goblin::mach::header::MH_MAGIC_64 => Endianness::Little,
+            goblin::mach::header::MH_MAGIC | goblin::mach::header::MH_MAGIC_64 => {
+                Endianness::Little
+            }
             goblin::mach::header::MH_CIGAM | goblin::mach::header::MH_CIGAM_64 => Endianness::Big,
             _ => Endianness::Little, // Default
         };
@@ -82,7 +87,7 @@ impl MachOBinary {
             architecture,
             entry_point: find_entry_point(&macho),
             base_address: None, // Mach-O uses ASLR, no fixed base
-            timestamp: None, // Not readily available in Mach-O
+            timestamp: None,    // Not readily available in Mach-O
             compiler_info: extract_compiler_info(&macho),
             endian,
             security_features,
@@ -98,9 +103,7 @@ impl MachOBinary {
         let (imports, exports) = parse_imports_exports(&macho)?;
 
         // Handle lifetime issues with MachO struct
-        let macho_owned = unsafe {
-            std::mem::transmute::<MachO<'_>, MachO<'static>>(macho)
-        };
+        let macho_owned = unsafe { std::mem::transmute::<MachO<'_>, MachO<'static>>(macho) };
 
         Ok(Self {
             macho: macho_owned,
@@ -154,28 +157,29 @@ fn parse_sections(macho: &MachO, data: &[u8]) -> Result<Vec<Section>> {
     for segment in &macho.segments {
         for (section, _) in &segment.sections()? {
             let name = section.name().unwrap_or("unknown").to_string();
-            
+
             // Determine section type based on section name and flags
-            let section_type = if section.flags & goblin::mach::constants::S_ATTR_PURE_INSTRUCTIONS != 0 {
-                SectionType::Code
-            } else if name.starts_with("__text") {
-                SectionType::Code
-            } else if name.starts_with("__data") {
-                SectionType::Data
-            } else if name.starts_with("__const") || name.starts_with("__rodata") {
-                SectionType::ReadOnlyData
-            } else if name.starts_with("__bss") {
-                SectionType::Bss
-            } else if name.starts_with("__debug") {
-                SectionType::Debug
-            } else {
-                SectionType::Other("MACHO_SECTION".to_string())
-            };
+            let section_type =
+                if section.flags & goblin::mach::constants::S_ATTR_PURE_INSTRUCTIONS != 0 {
+                    SectionType::Code
+                } else if name.starts_with("__text") {
+                    SectionType::Code
+                } else if name.starts_with("__data") {
+                    SectionType::Data
+                } else if name.starts_with("__const") || name.starts_with("__rodata") {
+                    SectionType::ReadOnlyData
+                } else if name.starts_with("__bss") {
+                    SectionType::Bss
+                } else if name.starts_with("__debug") {
+                    SectionType::Debug
+                } else {
+                    SectionType::Other("MACHO_SECTION".to_string())
+                };
 
             // Mach-O section permissions are inherited from segment
             let permissions = SectionPermissions {
-                read: segment.initprot & 0x1 != 0,  // VM_PROT_READ
-                write: segment.initprot & 0x2 != 0, // VM_PROT_WRITE
+                read: segment.initprot & 0x1 != 0,    // VM_PROT_READ
+                write: segment.initprot & 0x2 != 0,   // VM_PROT_WRITE
                 execute: segment.initprot & 0x4 != 0, // VM_PROT_EXECUTE
             };
 
@@ -218,7 +222,8 @@ fn parse_symbols(macho: &MachO) -> Result<Vec<Symbol>> {
 
             let symbol_type = if nlist.is_undefined() {
                 SymbolType::Object // Undefined symbol, likely import
-            } else if nlist.n_type & goblin::mach::symbols::N_TYPE == goblin::mach::symbols::N_SECT {
+            } else if nlist.n_type & goblin::mach::symbols::N_TYPE == goblin::mach::symbols::N_SECT
+            {
                 // Symbol in a section
                 if nlist.n_type & goblin::mach::symbols::N_STAB == 0 {
                     SymbolType::Function
@@ -287,19 +292,19 @@ fn analyze_security_features(macho: &MachO) -> SecurityFeatures {
 
     // Check file type and flags for security features
     let flags = macho.header.flags;
-    
+
     // PIE (Position Independent Executable)
     features.pie = flags & goblin::mach::header::MH_PIE != 0;
-    
+
     // ASLR is generally enabled with PIE on macOS
     features.aslr = features.pie;
-    
+
     // NX bit (No-Execute) is typically enabled on modern macOS
     features.nx_bit = true; // Default assumption for modern binaries
-    
+
     // Check for stack canaries (would need more complex analysis)
     features.stack_canary = false; // Would need to analyze for __stack_chk_guard
-    
+
     // Check load commands for additional security features
     for load_command in &macho.load_commands {
         match load_command.command {
@@ -336,11 +341,13 @@ fn extract_compiler_info(macho: &MachO) -> Option<String> {
     for load_command in &macho.load_commands {
         match &load_command.command {
             LoadCommand::BuildVersion(build) => {
-                return Some(format!("Platform: {}, SDK: {}.{}.{}", 
-                    build.platform, 
-                    build.sdk >> 16, 
-                    (build.sdk >> 8) & 0xff, 
-                    build.sdk & 0xff));
+                return Some(format!(
+                    "Platform: {}, SDK: {}.{}.{}",
+                    build.platform,
+                    build.sdk >> 16,
+                    (build.sdk >> 8) & 0xff,
+                    build.sdk & 0xff
+                ));
             }
             _ => {}
         }

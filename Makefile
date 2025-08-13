@@ -191,6 +191,25 @@ security-audit:
 	@echo "Running security audit..."
 	cargo audit
 
+# Dependency analysis with cargo-deny
+deny-check:
+	@echo "Running cargo-deny checks..."
+	cargo deny check
+
+# Check for outdated dependencies
+outdated-check:
+	@echo "Checking for outdated dependencies..."
+	cargo outdated
+
+# Remove unused dependencies
+machete-check:
+	@echo "Checking for unused dependencies..."
+	cargo machete
+
+# Full quality check
+quality-check: fmt-check lint security-audit deny-check
+	@echo "✅ All quality checks passed!"
+
 # Test programs
 test-programs:
 	@echo "Compiling test programs..."

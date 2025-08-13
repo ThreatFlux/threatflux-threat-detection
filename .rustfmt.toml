@@ -1,5 +1,6 @@
 # Rustfmt configuration for file-scanner project
 # See https://rust-lang.github.io/rustfmt/ for options
+# Note: Only stable features are used for compatibility
 
 # Edition compatibility
 edition = "2021"
@@ -10,75 +11,27 @@ hard_tabs = false
 tab_spaces = 4
 
 # Import formatting
-imports_granularity = "Crate"
-group_imports = "StdExternalCrate"
 reorder_imports = true
-merge_imports = true
 
 # Function and struct formatting
-fn_args_layout = "Tall"
+fn_params_layout = "Tall"
 fn_call_width = 60
-struct_field_align_threshold = 20
 array_width = 60
 chain_width = 60
 
 # Control flow formatting
-control_brace_style = "AlwaysSameLine"
-brace_style = "SameLineWhere"
-where_single_line = false
 force_explicit_abi = true
 
-# Comments and documentation
-comment_width = 80
-wrap_comments = true
-format_code_in_doc_comments = true
-normalize_comments = true
-normalize_doc_attributes = true
-
-# String formatting
-format_strings = true
-format_macro_matchers = true
-format_macro_bodies = true
-
-# Error handling
-error_on_line_overflow = false
-error_on_unformatted = false
+# Error handling - using defaults for compatibility
 
 # Trailing elements
-trailing_comma = "Vertical"
-trailing_semicolon = true
 match_block_trailing_comma = false
 
 # Newlines and spacing
 newline_style = "Unix"
-blank_lines_upper_bound = 1
-blank_lines_lower_bound = 0
-empty_item_single_line = true
-struct_lit_single_line = true
-fn_single_line = false
 
 # Advanced formatting
 use_small_heuristics = "Default"
-binop_separator = "Front"
-combine_control_expr = true
-condense_wildcard_suffixes = false
-force_multiline_blocks = false
-format_generated_files = true
-hex_literal_case = "Preserve"
-ignore = []
-inline_attribute_width = 0
-match_arm_blocks = true
-overflow_delimited_expr = false
 remove_nested_parens = true
-reorder_impl_items = true
-report_fixme = "Never"
-report_todo = "Never"
-skip_children = false
-space_after_colon = true
-space_before_colon = false
-spaces_around_ranges = false
-type_punctuation_density = "Wide"
-unstable_features = false
 use_field_init_shorthand = false
 use_try_shorthand = false
-version = "Two"

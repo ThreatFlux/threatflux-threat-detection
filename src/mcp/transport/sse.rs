@@ -38,7 +38,10 @@ impl SseTransport {
         eprintln!("Protocol: {}", info.protocol_version);
         eprintln!("Listening on: http://0.0.0.0:{}", self.port);
         eprintln!("SSE endpoint: http://0.0.0.0:{}/sse", self.port);
-        eprintln!("Use with: npx @modelcontextprotocol/inspector http://localhost:{}/sse", self.port);
+        eprintln!(
+            "Use with: npx @modelcontextprotocol/inspector http://localhost:{}/sse",
+            self.port
+        );
 
         let handler = Arc::new(self.handler);
 
@@ -46,10 +49,7 @@ impl SseTransport {
             .route("/health", get(health_check))
             .route("/sse", get(sse_handler))
             .route("/sse", post(sse_request_handler))
-            .layer(
-                ServiceBuilder::new()
-                    .layer(CorsLayer::permissive())
-            )
+            .layer(ServiceBuilder::new().layer(CorsLayer::permissive()))
             .with_state(handler);
 
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.port)).await?;
@@ -75,26 +75,23 @@ async fn sse_handler(
     eprintln!("SSE connection established");
 
     let info = handler.get_info();
-    let init_event = Event::default()
-        .event("server_info")
-        .data(serde_json::to_string(&serde_json::json!({
+    let init_event = Event::default().event("server_info").data(
+        serde_json::to_string(&serde_json::json!({
             "protocolVersion": "2024-11-05",
             "serverInfo": info.server_info,
             "capabilities": info.capabilities
-        })).unwrap());
+        }))
+        .unwrap(),
+    );
 
-    let stream = stream::iter(vec![Ok(init_event)])
-        .chain(
-            stream::repeat_with(|| {
-                Ok(Event::default()
-                    .event("ping")
-                    .data("alive"))
-            })
-            .then(|event| async {
+    let stream = stream::iter(vec![Ok(init_event)]).chain(
+        stream::repeat_with(|| Ok(Event::default().event("ping").data("alive"))).then(
+            |event| async {
                 tokio::time::sleep(Duration::from_secs(30)).await;
                 event
-            })
-        );
+            },
+        ),
+    );
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
@@ -139,7 +136,7 @@ mod tests {
         };
 
         let result = sse_request_handler(State(handler), Json(request)).await;
-        
+
         assert!(result.is_ok());
         let response = result.unwrap().0;
         assert_eq!(response.jsonrpc, "2.0");

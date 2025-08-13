@@ -176,4 +176,14 @@ impl ThreatError {
     pub fn internal<S: Into<String>>(msg: S) -> Self {
         Self::Internal(msg.into())
     }
+
+    /// Create a rule not found error
+    pub fn rule_not_found<S: Into<String>>(path: S) -> Self {
+        Self::RuleLoadError(format!("Rule not found: {}", path.into()))
+    }
+
+    /// Create an invalid rule error
+    pub fn invalid_rule<S: Into<String>>(msg: S) -> Self {
+        Self::RuleCompilationError(format!("Invalid rule: {}", msg.into()))
+    }
 }

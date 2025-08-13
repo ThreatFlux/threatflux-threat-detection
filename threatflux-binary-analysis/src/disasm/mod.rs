@@ -4,8 +4,8 @@
 //! The choice of engine can be configured based on requirements and availability.
 
 use crate::{
-    types::{Architecture, Instruction, InstructionCategory, ControlFlow as FlowType},
-    BinaryFile, AnalysisConfig, Result, BinaryError,
+    types::{Architecture, ControlFlow as FlowType, Instruction, InstructionCategory},
+    AnalysisConfig, BinaryError, BinaryFile, Result,
 };
 use std::collections::HashMap;
 
@@ -81,7 +81,7 @@ impl Disassembler {
     /// Disassemble binary code
     pub fn disassemble(&self, data: &[u8], address: u64) -> Result<Vec<Instruction>> {
         let engine = self.select_engine()?;
-        
+
         match engine {
             #[cfg(feature = "disasm-capstone")]
             DisassemblyEngine::Capstone => {
@@ -124,12 +124,12 @@ impl Disassembler {
                 } else {
                     // Section data not available, would need to read from file
                     return Err(BinaryError::invalid_data(
-                        "Section data not available for disassembly"
+                        "Section data not available for disassembly",
                     ));
                 }
             }
         }
-        
+
         Err(BinaryError::invalid_data(format!(
             "Section '{}' not found",
             section_name
@@ -144,9 +144,11 @@ impl Disassembler {
         length: usize,
     ) -> Result<Vec<Instruction>> {
         if data.len() < length {
-            return Err(BinaryError::invalid_data("Insufficient data for disassembly"));
+            return Err(BinaryError::invalid_data(
+                "Insufficient data for disassembly",
+            ));
         }
-        
+
         self.disassemble(&data[..length], address)
     }
 
@@ -171,7 +173,9 @@ impl Disassembler {
                         }
                         #[cfg(not(any(feature = "disasm-capstone", feature = "disasm-iced")))]
                         {
-                            Err(BinaryError::feature_not_available("No disassembly engine available"))
+                            Err(BinaryError::feature_not_available(
+                                "No disassembly engine available",
+                            ))
                         }
                     }
                     _ => {
@@ -206,11 +210,11 @@ pub fn disassemble_binary(
         analyze_control_flow: true,
         skip_invalid: true,
     };
-    
+
     let disassembler = Disassembler::with_config(binary.architecture(), disasm_config)?;
-    
+
     let mut all_instructions = Vec::new();
-    
+
     // Disassemble executable sections
     for section in binary.sections() {
         if section.permissions.execute {
@@ -227,20 +231,20 @@ pub fn disassemble_binary(
             }
         }
     }
-    
+
     Ok(all_instructions)
 }
 
 /// Convert architecture to disassembly mode information
 fn arch_to_mode_info(arch: Architecture) -> Result<(u32, u32)> {
     match arch {
-        Architecture::X86 => Ok((32, 32)), // 32-bit mode
-        Architecture::X86_64 => Ok((64, 64)), // 64-bit mode
-        Architecture::Arm => Ok((32, 32)), // ARM 32-bit
-        Architecture::Arm64 => Ok((64, 64)), // ARM 64-bit
-        Architecture::Mips => Ok((32, 32)), // MIPS 32-bit
-        Architecture::Mips64 => Ok((64, 64)), // MIPS 64-bit
-        Architecture::PowerPC => Ok((32, 32)), // PowerPC 32-bit
+        Architecture::X86 => Ok((32, 32)),       // 32-bit mode
+        Architecture::X86_64 => Ok((64, 64)),    // 64-bit mode
+        Architecture::Arm => Ok((32, 32)),       // ARM 32-bit
+        Architecture::Arm64 => Ok((64, 64)),     // ARM 64-bit
+        Architecture::Mips => Ok((32, 32)),      // MIPS 32-bit
+        Architecture::Mips64 => Ok((64, 64)),    // MIPS 64-bit
+        Architecture::PowerPC => Ok((32, 32)),   // PowerPC 32-bit
         Architecture::PowerPC64 => Ok((64, 64)), // PowerPC 64-bit
         _ => Err(BinaryError::unsupported_arch(format!(
             "Unsupported architecture: {:?}",
@@ -252,56 +256,64 @@ fn arch_to_mode_info(arch: Architecture) -> Result<(u32, u32)> {
 /// Determine instruction category from mnemonic
 fn categorize_instruction(mnemonic: &str) -> InstructionCategory {
     let mnemonic_lower = mnemonic.to_lowercase();
-    
-    if mnemonic_lower.starts_with("add") ||
-       mnemonic_lower.starts_with("sub") ||
-       mnemonic_lower.starts_with("mul") ||
-       mnemonic_lower.starts_with("div") ||
-       mnemonic_lower.starts_with("inc") ||
-       mnemonic_lower.starts_with("dec") {
+
+    if mnemonic_lower.starts_with("add")
+        || mnemonic_lower.starts_with("sub")
+        || mnemonic_lower.starts_with("mul")
+        || mnemonic_lower.starts_with("div")
+        || mnemonic_lower.starts_with("inc")
+        || mnemonic_lower.starts_with("dec")
+    {
         InstructionCategory::Arithmetic
-    } else if mnemonic_lower.starts_with("and") ||
-              mnemonic_lower.starts_with("or") ||
-              mnemonic_lower.starts_with("xor") ||
-              mnemonic_lower.starts_with("not") ||
-              mnemonic_lower.starts_with("shl") ||
-              mnemonic_lower.starts_with("shr") {
+    } else if mnemonic_lower.starts_with("and")
+        || mnemonic_lower.starts_with("or")
+        || mnemonic_lower.starts_with("xor")
+        || mnemonic_lower.starts_with("not")
+        || mnemonic_lower.starts_with("shl")
+        || mnemonic_lower.starts_with("shr")
+    {
         InstructionCategory::Logic
-    } else if mnemonic_lower.starts_with("mov") ||
-              mnemonic_lower.starts_with("lea") ||
-              mnemonic_lower.starts_with("push") ||
-              mnemonic_lower.starts_with("pop") ||
-              mnemonic_lower.starts_with("load") ||
-              mnemonic_lower.starts_with("store") {
+    } else if mnemonic_lower.starts_with("mov")
+        || mnemonic_lower.starts_with("lea")
+        || mnemonic_lower.starts_with("push")
+        || mnemonic_lower.starts_with("pop")
+        || mnemonic_lower.starts_with("load")
+        || mnemonic_lower.starts_with("store")
+    {
         InstructionCategory::Memory
-    } else if mnemonic_lower.starts_with("jmp") ||
-              mnemonic_lower.starts_with("je") ||
-              mnemonic_lower.starts_with("jne") ||
-              mnemonic_lower.starts_with("jz") ||
-              mnemonic_lower.starts_with("jnz") ||
-              mnemonic_lower.starts_with("call") ||
-              mnemonic_lower.starts_with("ret") ||
-              mnemonic_lower.starts_with("br") ||
-              mnemonic_lower.starts_with("bl") {
+    } else if mnemonic_lower.starts_with("jmp")
+        || mnemonic_lower.starts_with("je")
+        || mnemonic_lower.starts_with("jne")
+        || mnemonic_lower.starts_with("jz")
+        || mnemonic_lower.starts_with("jnz")
+        || mnemonic_lower.starts_with("call")
+        || mnemonic_lower.starts_with("ret")
+        || mnemonic_lower.starts_with("br")
+        || mnemonic_lower.starts_with("bl")
+    {
         InstructionCategory::Control
-    } else if mnemonic_lower.starts_with("int") ||
-              mnemonic_lower.starts_with("syscall") ||
-              mnemonic_lower.starts_with("sysenter") ||
-              mnemonic_lower.starts_with("sysexit") {
+    } else if mnemonic_lower.starts_with("int")
+        || mnemonic_lower.starts_with("syscall")
+        || mnemonic_lower.starts_with("sysenter")
+        || mnemonic_lower.starts_with("sysexit")
+    {
         InstructionCategory::System
-    } else if mnemonic_lower.contains("aes") ||
-              mnemonic_lower.contains("sha") ||
-              mnemonic_lower.contains("crypto") {
+    } else if mnemonic_lower.contains("aes")
+        || mnemonic_lower.contains("sha")
+        || mnemonic_lower.contains("crypto")
+    {
         InstructionCategory::Crypto
-    } else if mnemonic_lower.starts_with("fadd") ||
-              mnemonic_lower.starts_with("fsub") ||
-              mnemonic_lower.starts_with("fmul") ||
-              mnemonic_lower.starts_with("fdiv") {
+    } else if mnemonic_lower.starts_with("fadd")
+        || mnemonic_lower.starts_with("fsub")
+        || mnemonic_lower.starts_with("fmul")
+        || mnemonic_lower.starts_with("fdiv")
+    {
         InstructionCategory::Float
-    } else if mnemonic_lower.contains("xmm") ||
-              mnemonic_lower.contains("ymm") ||
-              mnemonic_lower.contains("zmm") ||
-              mnemonic_lower.starts_with("v") {
+    } else if mnemonic_lower.contains("xmm")
+        || mnemonic_lower.contains("ymm")
+        || mnemonic_lower.contains("zmm")
+        || mnemonic_lower.starts_with("v")
+    {
         InstructionCategory::Vector
     } else {
         InstructionCategory::Unknown
@@ -311,7 +323,7 @@ fn categorize_instruction(mnemonic: &str) -> InstructionCategory {
 /// Determine control flow type from instruction
 fn analyze_control_flow(mnemonic: &str, operands: &str) -> FlowType {
     let mnemonic_lower = mnemonic.to_lowercase();
-    
+
     if mnemonic_lower == "ret" || mnemonic_lower == "retn" {
         FlowType::Return
     } else if mnemonic_lower == "call" {
@@ -345,19 +357,19 @@ fn analyze_control_flow(mnemonic: &str, operands: &str) -> FlowType {
 fn extract_address_from_operands(operands: &str) -> Option<u64> {
     // This is a simplified implementation
     // Real implementation would need proper operand parsing
-    
+
     // Look for hex addresses
     if operands.starts_with("0x") {
         if let Ok(addr) = u64::from_str_radix(&operands[2..], 16) {
             return Some(addr);
         }
     }
-    
+
     // Look for decimal addresses
     if let Ok(addr) = operands.parse::<u64>() {
         return Some(addr);
     }
-    
+
     None
 }
 
@@ -383,20 +395,38 @@ mod tests {
 
     #[test]
     fn test_instruction_categorization() {
-        assert_eq!(categorize_instruction("add"), InstructionCategory::Arithmetic);
+        assert_eq!(
+            categorize_instruction("add"),
+            InstructionCategory::Arithmetic
+        );
         assert_eq!(categorize_instruction("mov"), InstructionCategory::Memory);
         assert_eq!(categorize_instruction("jmp"), InstructionCategory::Control);
         assert_eq!(categorize_instruction("and"), InstructionCategory::Logic);
-        assert_eq!(categorize_instruction("syscall"), InstructionCategory::System);
+        assert_eq!(
+            categorize_instruction("syscall"),
+            InstructionCategory::System
+        );
     }
 
     #[test]
     fn test_control_flow_analysis() {
         assert_eq!(analyze_control_flow("ret", ""), FlowType::Return);
-        assert_eq!(analyze_control_flow("call", "0x1000"), FlowType::Call(0x1000));
-        assert_eq!(analyze_control_flow("jmp", "0x2000"), FlowType::Jump(0x2000));
-        assert_eq!(analyze_control_flow("je", "0x3000"), FlowType::ConditionalJump(0x3000));
-        assert_eq!(analyze_control_flow("mov", "eax, ebx"), FlowType::Sequential);
+        assert_eq!(
+            analyze_control_flow("call", "0x1000"),
+            FlowType::Call(0x1000)
+        );
+        assert_eq!(
+            analyze_control_flow("jmp", "0x2000"),
+            FlowType::Jump(0x2000)
+        );
+        assert_eq!(
+            analyze_control_flow("je", "0x3000"),
+            FlowType::ConditionalJump(0x3000)
+        );
+        assert_eq!(
+            analyze_control_flow("mov", "eax, ebx"),
+            FlowType::Sequential
+        );
     }
 
     #[test]

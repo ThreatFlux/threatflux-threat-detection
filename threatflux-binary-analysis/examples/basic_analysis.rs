@@ -6,8 +6,8 @@
 use std::env;
 use std::fs;
 use threatflux_binary_analysis::{
-    BinaryAnalyzer, BinaryFile, AnalysisConfig,
     types::{Architecture, BinaryFormat},
+    AnalysisConfig, BinaryAnalyzer, BinaryFile,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,19 +17,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Usage: {} <binary_file>", args[0]);
         std::process::exit(1);
     }
-    
+
     let file_path = &args[1];
     println!("Analyzing binary file: {}", file_path);
-    
+
     // Read the binary file
     let data = fs::read(file_path)?;
     println!("File size: {} bytes", data.len());
-    
+
     // Parse the binary
     let binary = BinaryFile::parse(&data)?;
     println!("Binary format: {:?}", binary.format());
     println!("Architecture: {:?}", binary.architecture());
-    
+
     // Print basic metadata
     let metadata = binary.metadata();
     println!("\n=== Binary Metadata ===");
@@ -38,11 +38,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Entry point: {:?}", metadata.entry_point);
     println!("Base address: {:?}", metadata.base_address);
     println!("Endianness: {:?}", metadata.endian);
-    
+
     if let Some(compiler) = &metadata.compiler_info {
         println!("Compiler: {}", compiler);
     }
-    
+
     // Print security features
     println!("\n=== Security Features ===");
     let security = &metadata.security_features;
@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("PIE: {}", security.pie);
     println!("RELRO: {}", security.relro);
     println!("Signed: {}", security.signed);
-    
+
     // Print sections
     println!("\n=== Sections ===");
     for (i, section) in binary.sections().iter().enumerate() {
@@ -61,13 +61,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Address: 0x{:x}", section.address);
         println!("  Size: {} bytes", section.size);
         println!("  Type: {:?}", section.section_type);
-        println!("  Permissions: R:{} W:{} X:{}",
-                 section.permissions.read,
-                 section.permissions.write,
-                 section.permissions.execute);
+        println!(
+            "  Permissions: R:{} W:{} X:{}",
+            section.permissions.read, section.permissions.write, section.permissions.execute
+        );
         println!();
     }
-    
+
     // Print symbols (limited to first 10)
     println!("=== Symbols (first 10) ===");
     for (i, symbol) in binary.symbols().iter().take(10).enumerate() {
@@ -81,11 +81,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!();
     }
-    
+
     if binary.symbols().len() > 10 {
         println!("... and {} more symbols", binary.symbols().len() - 10);
     }
-    
+
     // Print imports (limited to first 10)
     println!("\n=== Imports (first 10) ===");
     for (i, import) in binary.imports().iter().take(10).enumerate() {
@@ -101,11 +101,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!();
     }
-    
+
     if binary.imports().len() > 10 {
         println!("... and {} more imports", binary.imports().len() - 10);
     }
-    
+
     // Print exports (limited to first 10)
     println!("\n=== Exports (first 10) ===");
     for (i, export) in binary.exports().iter().take(10).enumerate() {
@@ -119,11 +119,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!();
     }
-    
+
     if binary.exports().len() > 10 {
         println!("... and {} more exports", binary.exports().len() - 10);
     }
-    
+
     // Perform comprehensive analysis
     println!("\n=== Performing Analysis ===");
     let config = AnalysisConfig {
@@ -134,9 +134,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_analysis_size: 1024 * 1024, // 1MB limit
         architecture_hint: None,
     };
-    
+
     let analyzer = BinaryAnalyzer::with_config(config);
-    
+
     match analyzer.analyze(&data) {
         Ok(analysis) => {
             println!("Analysis completed successfully!");
@@ -152,6 +152,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Analysis failed: {}", e);
         }
     }
-    
+
     Ok(())
 }

@@ -1,13 +1,13 @@
 //! Search and query functionality for cache entries
 
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Trait for searchable cache entries
 pub trait Searchable {
     /// Query type for searching
     type Query;
-    
+
     /// Check if this entry matches the query
     fn matches(&self, query: &Self::Query) -> bool;
 }
@@ -38,13 +38,13 @@ impl SearchQuery {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set pattern to search for
     pub fn with_pattern<S: Into<String>>(mut self, pattern: S) -> Self {
         self.pattern = Some(pattern.into());
         self
     }
-    
+
     /// Set timestamp range
     pub fn with_timestamp_range(
         mut self,
@@ -55,20 +55,20 @@ impl SearchQuery {
         self.max_timestamp = max;
         self
     }
-    
+
     /// Set access count range
     pub fn with_access_count_range(mut self, min: Option<u64>, max: Option<u64>) -> Self {
         self.min_access_count = min;
         self.max_access_count = max;
         self
     }
-    
+
     /// Set whether to include expired entries
     pub fn include_expired(mut self, include: bool) -> Self {
         self.include_expired = include;
         self
     }
-    
+
     /// Set category filter
     pub fn with_category<S: Into<String>>(mut self, category: S) -> Self {
         self.category = Some(category.into());
@@ -82,17 +82,17 @@ pub trait ExtendedSearch<T> {
     fn find_where<F>(&self, predicate: F) -> Vec<T>
     where
         F: Fn(&T) -> bool;
-    
+
     /// Count entries matching a predicate
     fn count_where<F>(&self, predicate: F) -> usize
     where
         F: Fn(&T) -> bool;
-    
+
     /// Check if any entry matches a predicate
     fn any<F>(&self, predicate: F) -> bool
     where
         F: Fn(&T) -> bool;
-    
+
     /// Check if all entries match a predicate
     fn all<F>(&self, predicate: F) -> bool
     where
@@ -119,7 +119,7 @@ impl<T> SearchResult<T> {
             match_details: Vec::new(),
         }
     }
-    
+
     /// Add match detail
     pub fn with_detail<S: Into<String>>(mut self, detail: S) -> Self {
         self.match_details.push(detail.into());
@@ -135,13 +135,13 @@ where
     M: Clone + crate::EntryMetadata,
 {
     type Query = SearchQuery;
-    
+
     fn matches(&self, query: &Self::Query) -> bool {
         // Check expiry
         if !query.include_expired && self.is_expired() {
             return false;
         }
-        
+
         // Check pattern in key
         if let Some(ref pattern) = query.pattern {
             let key_str = self.key.to_string();
@@ -149,33 +149,33 @@ where
                 return false;
             }
         }
-        
+
         // Check timestamp range
         if let Some(min_ts) = query.min_timestamp {
             if self.timestamp < min_ts {
                 return false;
             }
         }
-        
+
         if let Some(max_ts) = query.max_timestamp {
             if self.timestamp > max_ts {
                 return false;
             }
         }
-        
+
         // Check access count range
         if let Some(min_count) = query.min_access_count {
             if self.access_count < min_count {
                 return false;
             }
         }
-        
+
         if let Some(max_count) = query.max_access_count {
             if self.access_count > max_count {
                 return false;
             }
         }
-        
+
         // Check category
         if let Some(ref category) = query.category {
             if let Some(entry_category) = self.metadata.category() {
@@ -186,7 +186,7 @@ where
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -195,39 +195,37 @@ where
 mod tests {
     use super::*;
     use crate::CacheEntry;
-    
+
     #[test]
     fn test_search_query_builder() {
         let query = SearchQuery::new()
             .with_pattern("test")
             .with_access_count_range(Some(5), Some(10))
             .include_expired(true);
-        
+
         assert_eq!(query.pattern, Some("test".to_string()));
         assert_eq!(query.min_access_count, Some(5));
         assert_eq!(query.max_access_count, Some(10));
         assert!(query.include_expired);
     }
-    
+
     #[test]
     fn test_cache_entry_search() {
-        let mut entry: CacheEntry<String, String, ()> = CacheEntry::new(
-            "test_key".to_string(),
-            "test_value".to_string(),
-        );
+        let mut entry: CacheEntry<String, String, ()> =
+            CacheEntry::new("test_key".to_string(), "test_value".to_string());
         entry.access_count = 7;
-        
+
         // Test pattern matching
         let query1 = SearchQuery::new().with_pattern("test");
         assert!(entry.matches(&query1));
-        
+
         let query2 = SearchQuery::new().with_pattern("notfound");
         assert!(!entry.matches(&query2));
-        
+
         // Test access count range
         let query3 = SearchQuery::new().with_access_count_range(Some(5), Some(10));
         assert!(entry.matches(&query3));
-        
+
         let query4 = SearchQuery::new().with_access_count_range(Some(10), None);
         assert!(!entry.matches(&query4));
     }

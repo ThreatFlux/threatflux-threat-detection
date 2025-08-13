@@ -41,7 +41,7 @@ goblin = { version = "0.8", default-features = false }
 memmap2 = "0.9"
 
 # Disassembly engines (optional)
-capstone = { version = "0.12", optional = true }
+capstone = { version = "0.13", optional = true }
 iced-x86 = { version = "1.21", optional = true }
 
 # WASM support (optional)
@@ -67,6 +67,17 @@ serde_json = { version = "1.0", optional = true }
 tempfile = "3.0"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
+# Testing utilities
+rstest = "0.26"
+pretty_assertions = "1.4"
+test-case = "3.3"
+serial_test = "3.0"
+once_cell = "1.19"
+env_logger = "0.11"
+# For async testing
+tokio-test = "0.4"
+# Performance and stress testing
+rand = "0.8"
 
 [[example]]
 name = "basic_analysis"
@@ -82,13 +93,14 @@ name = "disassembly"
 path = "examples/disassembly.rs"
 required-features = ["disasm-capstone"]
 
-[[bench]]
-name = "parsing_benchmark"
-path = "benches/parsing_benchmark.rs"
-harness = false
-
-[[bench]]
-name = "disasm_benchmark"
-path = "benches/disasm_benchmark.rs"
-harness = false
-required-features = ["disasm-capstone"]
+# Benchmarks currently disabled - files not implemented yet
+# [[bench]]
+# name = "parsing_benchmark"
+# path = "benches/parsing_benchmark.rs"
+# harness = false
+#
+# [[bench]]
+# name = "disasm_benchmark"
+# path = "benches/disasm_benchmark.rs"
+# harness = false
+# required-features = ["disasm-capstone"]

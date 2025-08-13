@@ -65,7 +65,8 @@ impl McpTool for AnalyzeFileTool {
     fn metadata(&self) -> ToolMetadata {
         ToolMetadata {
             name: "analyze_file".to_string(),
-            description: "Comprehensive file analysis with configurable analysis options".to_string(),
+            description: "Comprehensive file analysis with configurable analysis options"
+                .to_string(),
             input_schema: create_input_schema::<FileAnalysisRequest>(),
         }
     }

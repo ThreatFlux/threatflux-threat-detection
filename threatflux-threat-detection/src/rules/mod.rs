@@ -1,7 +1,7 @@
 //! Rule management and compilation
 
+use crate::types::{CompiledRules, RuleMetadata};
 use crate::{Result, ThreatError};
-use crate::types::{CompiledRules, RuleMetadata, RuleSource, RuleSourceType};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -9,6 +9,25 @@ pub mod builtin;
 
 #[cfg(feature = "rule-management")]
 pub mod updater;
+
+#[cfg(feature = "rule-management")]
+use updater::{RuleSource, RuleSourceType};
+
+// Simple rule source for when rule-management feature is disabled
+#[cfg(not(feature = "rule-management"))]
+#[derive(Debug, Clone)]
+pub struct RuleSource {
+    pub name: String,
+    pub url: String,
+    pub source_type: RuleSourceType,
+}
+
+#[cfg(not(feature = "rule-management"))]
+#[derive(Debug, Clone)]
+pub enum RuleSourceType {
+    Local,
+    Builtin,
+}
 
 /// Rule manager for loading, compiling, and updating threat detection rules
 pub struct RuleManager {
@@ -91,7 +110,7 @@ impl RuleManager {
                 log::warn!("Failed to update source {}: {}", source.name, e);
             }
         }
-        
+
         // Recompile after updates
         self.compile_rules().await?;
         Ok(())
@@ -100,10 +119,8 @@ impl RuleManager {
     /// Load rules from a specific source
     async fn load_rules_from_source(&self, source: &RuleSource) -> Result<String> {
         match source.source_type {
-            RuleSourceType::Local => {
-                std::fs::read_to_string(&source.url)
-                    .map_err(|e| ThreatError::rule_load(format!("Local file {}: {}", source.url, e)))
-            }
+            RuleSourceType::Local => std::fs::read_to_string(&source.url)
+                .map_err(|e| ThreatError::rule_load(format!("Local file {}: {}", source.url, e))),
             RuleSourceType::Builtin => {
                 #[cfg(feature = "builtin-rules")]
                 {
@@ -115,13 +132,9 @@ impl RuleManager {
                 }
             }
             #[cfg(feature = "rule-management")]
-            RuleSourceType::Http => {
-                updater::fetch_http_rules(source).await
-            }
+            RuleSourceType::Http => updater::fetch_http_rules(source).await,
             #[cfg(feature = "rule-management")]
-            RuleSourceType::Git => {
-                updater::fetch_git_rules(source, &self.cache_dir).await
-            }
+            RuleSourceType::Git => updater::fetch_git_rules(source, &self.cache_dir).await,
             #[cfg(not(feature = "rule-management"))]
             _ => Err(ThreatError::rule_load("Rule management not enabled")),
         }
@@ -229,6 +242,9 @@ rule test_rule_2 {
     fn test_rule_name_extraction() {
         let manager = RuleManager::default();
         let rule_text = "test_rule { condition: true }";
-        assert_eq!(manager.extract_rule_name(rule_text), Some("test_rule".to_string()));
+        assert_eq!(
+            manager.extract_rule_name(rule_text),
+            Some("test_rule".to_string())
+        );
     }
 }

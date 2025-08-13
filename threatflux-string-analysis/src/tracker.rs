@@ -1,6 +1,6 @@
 //! String tracking and analysis functionality
 
-use crate::analyzer::{StringAnalyzer, DefaultStringAnalyzer};
+use crate::analyzer::{DefaultStringAnalyzer, StringAnalyzer};
 use crate::categorizer::{Categorizer, DefaultCategorizer};
 use crate::patterns::{DefaultPatternProvider, PatternProvider};
 use anyhow::Result;
@@ -98,9 +98,8 @@ impl StringTracker {
     /// Create a new StringTracker with default analyzer and categorizer
     pub fn new() -> Self {
         let pattern_provider = DefaultPatternProvider::default();
-        let analyzer = DefaultStringAnalyzer::new()
-            .with_patterns(pattern_provider.get_patterns());
-        
+        let analyzer = DefaultStringAnalyzer::new().with_patterns(pattern_provider.get_patterns());
+
         Self {
             entries: Arc::new(Mutex::new(HashMap::new())),
             analyzer: Arc::new(Box::new(analyzer)),
@@ -108,7 +107,7 @@ impl StringTracker {
             max_occurrences_per_string: 1000,
         }
     }
-    
+
     /// Create a StringTracker with custom analyzer and categorizer
     pub fn with_components(
         analyzer: Box<dyn StringAnalyzer>,
@@ -121,13 +120,13 @@ impl StringTracker {
             max_occurrences_per_string: 1000,
         }
     }
-    
+
     /// Set the maximum number of occurrences to track per string
     pub fn with_max_occurrences(mut self, max: usize) -> Self {
         self.max_occurrences_per_string = max;
         self
     }
-    
+
     /// Track a string occurrence
     pub fn track_string(
         &self,
@@ -138,7 +137,7 @@ impl StringTracker {
         context: StringContext,
     ) -> Result<()> {
         let mut entries = self.entries.lock().unwrap();
-        
+
         let occurrence = StringOccurrence {
             file_path: file_path.to_string(),
             file_hash: file_hash.to_string(),
@@ -146,7 +145,7 @@ impl StringTracker {
             timestamp: Utc::now(),
             context: context.clone(),
         };
-        
+
         // Get category from context
         let context_category = match &context {
             StringContext::FileString { .. } => "file_string",
@@ -161,11 +160,11 @@ impl StringTracker {
             StringContext::Command { .. } => "command",
             StringContext::Other { category } => category,
         };
-        
+
         let entry = entries.entry(value.to_string()).or_insert_with(|| {
             let analysis = self.analyzer.analyze(value);
             let categories = self.categorizer.categorize(value);
-            
+
             let mut category_set = HashSet::new();
             category_set.insert(context_category.to_string());
             for cat in categories {
@@ -174,7 +173,7 @@ impl StringTracker {
             for cat in analysis.categories {
                 category_set.insert(cat);
             }
-            
+
             StringEntry {
                 value: value.to_string(),
                 first_seen: Utc::now(),
@@ -187,20 +186,20 @@ impl StringTracker {
                 entropy: analysis.entropy,
             }
         });
-        
+
         entry.last_seen = Utc::now();
         entry.total_occurrences += 1;
         entry.unique_files.insert(file_hash.to_string());
         entry.occurrences.push(occurrence);
-        
+
         // Limit occurrences per string to prevent memory explosion
         if entry.occurrences.len() > self.max_occurrences_per_string {
             entry.occurrences.remove(0);
         }
-        
+
         Ok(())
     }
-    
+
     /// Track multiple strings from results
     pub fn track_strings_from_results(
         &self,
@@ -212,7 +211,7 @@ impl StringTracker {
         for string in strings {
             // Categorize the string using the categorizer
             let categories = self.categorizer.categorize(string);
-            
+
             // Determine context based on categories
             let context = if categories.iter().any(|c| c.name == "url") {
                 let protocol = string.split("://").next().map(|p| p.to_string());
@@ -225,40 +224,46 @@ impl StringTracker {
                 } else {
                     "general"
                 };
-                StringContext::Path { path_type: path_type.to_string() }
+                StringContext::Path {
+                    path_type: path_type.to_string(),
+                }
             } else if categories.iter().any(|c| c.name == "registry") {
                 let hive = string.split('\\').next().map(|h| h.to_string());
                 StringContext::Registry { hive }
             } else if categories.iter().any(|c| c.name == "library") {
-                StringContext::Import { library: string.to_string() }
+                StringContext::Import {
+                    library: string.to_string(),
+                }
             } else if categories.iter().any(|c| c.name == "command") {
-                StringContext::Command { command_type: "shell".to_string() }
+                StringContext::Command {
+                    command_type: "shell".to_string(),
+                }
             } else {
                 StringContext::FileString { offset: None }
             };
-            
+
             self.track_string(string, file_path, file_hash, tool_name, context)?;
         }
         Ok(())
     }
-    
+
     /// Get statistics about tracked strings
     pub fn get_statistics(&self, filter: Option<&StringFilter>) -> StringStatistics {
         let entries = self.entries.lock().unwrap();
-        
+
         let filtered_entries: Vec<_> = entries
             .values()
             .filter(|entry| self.matches_filter(entry, filter))
             .collect();
-        
+
         let total_unique_strings = filtered_entries.len();
         let total_occurrences: usize = filtered_entries.iter().map(|e| e.total_occurrences).sum();
-        
+
         let total_files_analyzed: HashSet<_> = filtered_entries
             .iter()
             .flat_map(|e| e.unique_files.iter())
             .collect();
-        
+
         // Most common strings
         let mut most_common: Vec<_> = filtered_entries
             .iter()
@@ -266,7 +271,7 @@ impl StringTracker {
             .collect();
         most_common.sort_by(|a, b| b.1.cmp(&a.1));
         most_common.truncate(100);
-        
+
         // Suspicious strings
         let suspicious_strings: Vec<_> = filtered_entries
             .iter()
@@ -274,7 +279,7 @@ impl StringTracker {
             .map(|e| e.value.clone())
             .take(50)
             .collect();
-        
+
         // High entropy strings
         let mut high_entropy_strings: Vec<_> = filtered_entries
             .iter()
@@ -283,7 +288,7 @@ impl StringTracker {
             .collect();
         high_entropy_strings.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         high_entropy_strings.truncate(50);
-        
+
         // Category distribution
         let mut category_distribution = HashMap::new();
         for entry in &filtered_entries {
@@ -291,7 +296,7 @@ impl StringTracker {
                 *category_distribution.entry(category.clone()).or_insert(0) += 1;
             }
         }
-        
+
         // Length distribution
         let mut length_distribution = HashMap::new();
         for entry in &filtered_entries {
@@ -307,7 +312,7 @@ impl StringTracker {
                 .entry(len_bucket.to_string())
                 .or_insert(0) += 1;
         }
-        
+
         StringStatistics {
             total_unique_strings,
             total_occurrences,
@@ -319,54 +324,54 @@ impl StringTracker {
             length_distribution,
         }
     }
-    
+
     fn matches_filter(&self, entry: &StringEntry, filter: Option<&StringFilter>) -> bool {
         let Some(f) = filter else {
             return true;
         };
-        
+
         if let Some(min) = f.min_occurrences {
             if entry.total_occurrences < min {
                 return false;
             }
         }
-        
+
         if let Some(max) = f.max_occurrences {
             if entry.total_occurrences > max {
                 return false;
             }
         }
-        
+
         if let Some(min) = f.min_length {
             if entry.value.len() < min {
                 return false;
             }
         }
-        
+
         if let Some(max) = f.max_length {
             if entry.value.len() > max {
                 return false;
             }
         }
-        
+
         if let Some(ref categories) = f.categories {
             if !categories.iter().any(|c| entry.categories.contains(c)) {
                 return false;
             }
         }
-        
+
         if let Some(ref file_hashes) = f.file_hashes {
             if !file_hashes.iter().any(|h| entry.unique_files.contains(h)) {
                 return false;
             }
         }
-        
+
         if let Some(suspicious_only) = f.suspicious_only {
             if suspicious_only && !entry.is_suspicious {
                 return false;
             }
         }
-        
+
         if let Some(ref pattern) = f.regex_pattern {
             if let Ok(re) = regex::Regex::new(pattern) {
                 if !re.is_match(&entry.value) {
@@ -374,52 +379,52 @@ impl StringTracker {
                 }
             }
         }
-        
+
         if let Some(min_entropy) = f.min_entropy {
             if entry.entropy < min_entropy {
                 return false;
             }
         }
-        
+
         if let Some(max_entropy) = f.max_entropy {
             if entry.entropy > max_entropy {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Get detailed information about a specific string
     pub fn get_string_details(&self, value: &str) -> Option<StringEntry> {
         let entries = self.entries.lock().unwrap();
         entries.get(value).cloned()
     }
-    
+
     /// Search for strings matching a query
     pub fn search_strings(&self, query: &str, limit: usize) -> Vec<StringEntry> {
         let entries = self.entries.lock().unwrap();
         let query_lower = query.to_lowercase();
-        
+
         let mut results: Vec<_> = entries
             .values()
             .filter(|e| e.value.to_lowercase().contains(&query_lower))
             .cloned()
             .collect();
-        
+
         results.sort_by(|a, b| b.total_occurrences.cmp(&a.total_occurrences));
         results.truncate(limit);
         results
     }
-    
+
     /// Get strings related to a given string
     pub fn get_related_strings(&self, value: &str, limit: usize) -> Vec<(String, f64)> {
         let entries = self.entries.lock().unwrap();
-        
+
         let Some(target_entry) = entries.get(value) else {
             return vec![];
         };
-        
+
         let mut similarities: Vec<_> = entries
             .iter()
             .filter(|(k, _)| *k != value)
@@ -429,51 +434,53 @@ impl StringTracker {
             })
             .filter(|(_, sim)| *sim > 0.3)
             .collect();
-        
+
         similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         similarities.truncate(limit);
         similarities
     }
-    
+
     fn calculate_similarity(&self, a: &StringEntry, b: &StringEntry) -> f64 {
         let mut score = 0.0;
         let mut factors = 0.0;
-        
+
         // Shared files
         let shared_files: HashSet<_> = a.unique_files.intersection(&b.unique_files).collect();
         if !shared_files.is_empty() {
-            score += shared_files.len() as f64 / a.unique_files.len().min(b.unique_files.len()) as f64;
+            score +=
+                shared_files.len() as f64 / a.unique_files.len().min(b.unique_files.len()) as f64;
             factors += 1.0;
         }
-        
+
         // Shared categories
         let shared_categories: HashSet<_> = a.categories.intersection(&b.categories).collect();
         if !shared_categories.is_empty() {
-            score += shared_categories.len() as f64 / a.categories.len().min(b.categories.len()) as f64;
+            score +=
+                shared_categories.len() as f64 / a.categories.len().min(b.categories.len()) as f64;
             factors += 1.0;
         }
-        
+
         // Similar entropy
         let entropy_diff = (a.entropy - b.entropy).abs();
         if entropy_diff < 0.5 {
             score += 1.0 - (entropy_diff / 0.5);
             factors += 1.0;
         }
-        
+
         // Similar length
         let len_a = a.value.len() as f64;
         let len_b = b.value.len() as f64;
         let len_ratio = len_a.min(len_b) / len_a.max(len_b);
         score += len_ratio;
         factors += 1.0;
-        
+
         if factors > 0.0 {
             score / factors
         } else {
             0.0
         }
     }
-    
+
     /// Clear all tracked strings
     #[allow(dead_code)]
     pub fn clear(&self) {

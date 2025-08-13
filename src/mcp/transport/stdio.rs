@@ -2,7 +2,9 @@ use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::mcp::handler::McpHandler;
-use crate::mcp::transport::common::{handle_jsonrpc_request, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
+use crate::mcp::transport::common::{
+    handle_jsonrpc_request, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
+};
 
 pub struct StdioTransport {
     handler: McpHandler,
@@ -20,7 +22,9 @@ impl StdioTransport {
         eprintln!("MCP Server starting: {}", info.server_info.name);
         eprintln!("Version: {}", info.server_info.version);
         eprintln!("Protocol: {}", info.protocol_version);
-        eprintln!("Use with: npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio");
+        eprintln!(
+            "Use with: npx @modelcontextprotocol/inspector ./target/release/file-scanner mcp-stdio"
+        );
 
         let stdin = tokio::io::stdin();
         let mut stdout = tokio::io::stdout();

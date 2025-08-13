@@ -5,10 +5,10 @@
 
 use crate::{
     types::{
-        SecurityIndicators, SecurityFeatures, Architecture, Section, Symbol, Import, Export,
-        BinaryMetadata, SectionType, SectionPermissions,
+        Architecture, BinaryMetadata, Export, Import, Section, SectionPermissions, SectionType,
+        SecurityFeatures, SecurityIndicators, Symbol,
     },
-    BinaryFile, Result, BinaryError,
+    BinaryError, BinaryFile, Result,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -148,27 +148,27 @@ impl SecurityAnalyzer {
     pub fn analyze(&self, binary: &BinaryFile) -> Result<SecurityAnalysisResult> {
         let mut indicators = SecurityIndicators::default();
         let mut findings = Vec::new();
-        
+
         // Analyze imports for suspicious APIs
         if self.config.detect_suspicious_apis {
             self.analyze_imports(binary.imports(), &mut indicators, &mut findings);
         }
-        
+
         // Analyze sections for security indicators
         self.analyze_sections(binary.sections(), &mut indicators, &mut findings);
-        
+
         // Analyze symbols
         self.analyze_symbols(binary.symbols(), &mut indicators, &mut findings);
-        
+
         // Get security features from metadata
         let features = binary.metadata().security_features.clone();
-        
+
         // Analyze security features
         self.analyze_security_features(&features, &mut findings);
-        
+
         // Calculate risk score
         let risk_score = self.calculate_risk_score(&indicators, &features, &findings);
-        
+
         Ok(SecurityAnalysisResult {
             indicators,
             features,
@@ -191,10 +191,10 @@ impl SecurityAnalyzer {
         let network_apis = self.get_network_apis();
         let filesystem_apis = self.get_filesystem_apis();
         let registry_apis = self.get_registry_apis();
-        
+
         for import in imports {
             let api_name = &import.name;
-            
+
             if suspicious_apis.contains(api_name) {
                 indicators.suspicious_apis.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -205,7 +205,7 @@ impl SecurityAnalyzer {
                     data: Some(api_name.clone()),
                 });
             }
-            
+
             if anti_debug_apis.contains(api_name) {
                 indicators.anti_debug.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -216,7 +216,7 @@ impl SecurityAnalyzer {
                     data: Some(api_name.clone()),
                 });
             }
-            
+
             if anti_vm_apis.contains(api_name) {
                 indicators.anti_vm.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -227,7 +227,7 @@ impl SecurityAnalyzer {
                     data: Some(api_name.clone()),
                 });
             }
-            
+
             if crypto_apis.contains(api_name) {
                 indicators.crypto_indicators.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -238,7 +238,7 @@ impl SecurityAnalyzer {
                     data: Some(api_name.clone()),
                 });
             }
-            
+
             if network_apis.contains(api_name) {
                 indicators.network_indicators.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -249,7 +249,7 @@ impl SecurityAnalyzer {
                     data: Some(api_name.clone()),
                 });
             }
-            
+
             if filesystem_apis.contains(api_name) {
                 indicators.filesystem_indicators.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -260,7 +260,7 @@ impl SecurityAnalyzer {
                     data: Some(api_name.clone()),
                 });
             }
-            
+
             if registry_apis.contains(api_name) {
                 indicators.registry_indicators.push(api_name.clone());
                 findings.push(SecurityFinding {
@@ -295,7 +295,7 @@ impl SecurityAnalyzer {
                     data: Some(section.name.clone()),
                 });
             }
-            
+
             // Check for suspicious section names
             if self.is_suspicious_section_name(&section.name) {
                 findings.push(SecurityFinding {
@@ -345,7 +345,7 @@ impl SecurityAnalyzer {
                 data: None,
             });
         }
-        
+
         if !features.aslr {
             findings.push(SecurityFinding {
                 category: FindingCategory::MissingSecurity,
@@ -355,7 +355,7 @@ impl SecurityAnalyzer {
                 data: None,
             });
         }
-        
+
         if !features.stack_canary {
             findings.push(SecurityFinding {
                 category: FindingCategory::MissingSecurity,
@@ -365,7 +365,7 @@ impl SecurityAnalyzer {
                 data: None,
             });
         }
-        
+
         if !features.cfi {
             findings.push(SecurityFinding {
                 category: FindingCategory::MissingSecurity,
@@ -385,7 +385,7 @@ impl SecurityAnalyzer {
         findings: &[SecurityFinding],
     ) -> f64 {
         let mut score = 0.0;
-        
+
         // Base score from indicators
         score += indicators.suspicious_apis.len() as f64 * 10.0;
         score += indicators.anti_debug.len() as f64 * 5.0;
@@ -394,14 +394,24 @@ impl SecurityAnalyzer {
         score += indicators.network_indicators.len() as f64 * 2.0;
         score += indicators.filesystem_indicators.len() as f64 * 1.0;
         score += indicators.registry_indicators.len() as f64 * 1.0;
-        
+
         // Adjust for missing security features
-        if !features.nx_bit { score += 10.0; }
-        if !features.aslr { score += 10.0; }
-        if !features.stack_canary { score += 5.0; }
-        if !features.cfi { score += 5.0; }
-        if !features.pie { score += 5.0; }
-        
+        if !features.nx_bit {
+            score += 10.0;
+        }
+        if !features.aslr {
+            score += 10.0;
+        }
+        if !features.stack_canary {
+            score += 5.0;
+        }
+        if !features.cfi {
+            score += 5.0;
+        }
+        if !features.pie {
+            score += 5.0;
+        }
+
         // Add severity-based scoring from findings
         for finding in findings {
             match finding.severity {
@@ -412,7 +422,7 @@ impl SecurityAnalyzer {
                 Severity::Info => score += 0.5,
             }
         }
-        
+
         // Normalize to 0-100
         (score / 2.0).min(100.0)
     }
@@ -420,7 +430,7 @@ impl SecurityAnalyzer {
     /// Get list of suspicious APIs
     fn get_suspicious_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         // Code injection APIs
         apis.insert("VirtualAllocEx");
         apis.insert("WriteProcessMemory");
@@ -428,25 +438,25 @@ impl SecurityAnalyzer {
         apis.insert("SetWindowsHookEx");
         apis.insert("NtMapViewOfSection");
         apis.insert("ZwMapViewOfSection");
-        
+
         // Process manipulation
         apis.insert("OpenProcess");
         apis.insert("TerminateProcess");
         apis.insert("SuspendThread");
         apis.insert("ResumeThread");
-        
+
         // Privilege escalation
         apis.insert("AdjustTokenPrivileges");
         apis.insert("LookupPrivilegeValue");
         apis.insert("SeDebugPrivilege");
-        
+
         apis
     }
 
     /// Get list of anti-debugging APIs
     fn get_anti_debug_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         apis.insert("IsDebuggerPresent");
         apis.insert("CheckRemoteDebuggerPresent");
         apis.insert("NtQueryInformationProcess");
@@ -455,42 +465,42 @@ impl SecurityAnalyzer {
         apis.insert("GetTickCount");
         apis.insert("QueryPerformanceCounter");
         apis.insert("ptrace"); // Linux
-        
+
         apis
     }
 
     /// Get list of anti-VM APIs
     fn get_anti_vm_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         apis.insert("GetSystemInfo");
         apis.insert("GlobalMemoryStatusEx");
         apis.insert("GetAdaptersInfo");
         apis.insert("GetVolumeInformation");
         apis.insert("RegOpenKeyEx");
         apis.insert("CreateToolhelp32Snapshot");
-        
+
         apis
     }
 
     /// Get list of cryptographic APIs
     fn get_crypto_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         apis.insert("CryptAcquireContext");
         apis.insert("CryptCreateHash");
         apis.insert("CryptEncrypt");
         apis.insert("CryptDecrypt");
         apis.insert("CryptImportKey");
         apis.insert("CryptExportKey");
-        
+
         apis
     }
 
     /// Get list of network APIs
     fn get_network_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         apis.insert("WSAStartup");
         apis.insert("socket");
         apis.insert("connect");
@@ -499,14 +509,14 @@ impl SecurityAnalyzer {
         apis.insert("InternetOpen");
         apis.insert("InternetOpenUrl");
         apis.insert("HttpSendRequest");
-        
+
         apis
     }
 
     /// Get list of filesystem APIs
     fn get_filesystem_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         apis.insert("CreateFile");
         apis.insert("WriteFile");
         apis.insert("ReadFile");
@@ -515,44 +525,65 @@ impl SecurityAnalyzer {
         apis.insert("CopyFile");
         apis.insert("FindFirstFile");
         apis.insert("FindNextFile");
-        
+
         apis
     }
 
     /// Get list of registry APIs
     fn get_registry_apis(&self) -> HashSet<&'static str> {
         let mut apis = HashSet::new();
-        
+
         apis.insert("RegOpenKeyEx");
         apis.insert("RegCreateKeyEx");
         apis.insert("RegSetValueEx");
         apis.insert("RegQueryValueEx");
         apis.insert("RegDeleteKey");
         apis.insert("RegDeleteValue");
-        
+
         apis
     }
 
     /// Check if section name is suspicious
     fn is_suspicious_section_name(&self, name: &str) -> bool {
         let suspicious_names = [
-            ".packed", ".upx", ".themida", ".aspack", ".pecompact",
-            ".enigma", ".vmprotect", ".obsidium", ".tElock",
-            ".shell", ".stub", ".overlay"
+            ".packed",
+            ".upx",
+            ".themida",
+            ".aspack",
+            ".pecompact",
+            ".enigma",
+            ".vmprotect",
+            ".obsidium",
+            ".tElock",
+            ".shell",
+            ".stub",
+            ".overlay",
         ];
-        
-        suspicious_names.iter().any(|&pattern| name.to_lowercase().contains(pattern))
+
+        suspicious_names
+            .iter()
+            .any(|&pattern| name.to_lowercase().contains(pattern))
     }
 
     /// Check if symbol name is suspicious
     fn is_suspicious_symbol_name(&self, name: &str) -> bool {
         let suspicious_patterns = [
-            "bypass", "inject", "hook", "shellcode", "payload",
-            "exploit", "backdoor", "rootkit", "keylog", "stealth"
+            "bypass",
+            "inject",
+            "hook",
+            "shellcode",
+            "payload",
+            "exploit",
+            "backdoor",
+            "rootkit",
+            "keylog",
+            "stealth",
         ];
-        
+
         let lower_name = name.to_lowercase();
-        suspicious_patterns.iter().any(|&pattern| lower_name.contains(pattern))
+        suspicious_patterns
+            .iter()
+            .any(|&pattern| lower_name.contains(pattern))
     }
 }
 

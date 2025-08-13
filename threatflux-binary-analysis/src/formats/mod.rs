@@ -1,13 +1,13 @@
 //! Binary format parsers and detection
 
-use crate::{BinaryFormat as Format, BinaryFormatParser, BinaryFormatTrait, Result, BinaryError};
+use crate::{BinaryError, BinaryFormat as Format, BinaryFormatParser, BinaryFormatTrait, Result};
 
 #[cfg(feature = "elf")]
 pub mod elf;
-#[cfg(feature = "pe")]
-pub mod pe;
 #[cfg(feature = "macho")]
 pub mod macho;
+#[cfg(feature = "pe")]
+pub mod pe;
 // TODO: Implement these formats
 // #[cfg(feature = "java")]
 // pub mod java;
@@ -67,22 +67,21 @@ pub fn parse_binary(data: &[u8], format: Format) -> Result<Box<dyn BinaryFormatT
     match format {
         #[cfg(feature = "elf")]
         Format::Elf => elf::ElfParser::parse(data),
-        
+
         #[cfg(feature = "pe")]
         Format::Pe => pe::PeParser::parse(data),
-        
+
         #[cfg(feature = "macho")]
         Format::MachO => macho::MachOParser::parse(data),
-        
+
         // TODO: Implement these formats
         // #[cfg(feature = "java")]
         // Format::Java => java::JavaParser::parse(data),
-        // 
+        //
         // #[cfg(feature = "wasm")]
         // Format::Wasm => wasm::WasmParser::parse(data),
-        
         Format::Raw => raw::RawParser::parse(data),
-        
+
         _ => Err(BinaryError::unsupported_format(format!("{:?}", format))),
     }
 }

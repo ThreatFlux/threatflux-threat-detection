@@ -50,13 +50,13 @@ impl PatternDef {
 pub trait PatternProvider: Send + Sync {
     /// Get all patterns
     fn get_patterns(&self) -> Vec<Pattern>;
-    
+
     /// Add a new pattern
     fn add_pattern(&mut self, pattern: PatternDef) -> AnalysisResult<()>;
-    
+
     /// Remove a pattern by name
     fn remove_pattern(&mut self, name: &str) -> AnalysisResult<()>;
-    
+
     /// Update an existing pattern
     fn update_pattern(&mut self, pattern: PatternDef) -> AnalysisResult<()>;
 }
@@ -72,7 +72,7 @@ impl DefaultPatternProvider {
         let mut provider = Self {
             patterns: Vec::new(),
         };
-        
+
         // Network indicators
         provider.add_pattern(PatternDef {
             name: "url_pattern".to_string(),
@@ -82,7 +82,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 3,
         })?;
-        
+
         provider.add_pattern(PatternDef {
             name: "ip_address".to_string(),
             regex: r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b".to_string(),
@@ -91,7 +91,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 4,
         })?;
-        
+
         // Command execution
         provider.add_pattern(PatternDef {
             name: "shell_command".to_string(),
@@ -101,7 +101,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 6,
         })?;
-        
+
         provider.add_pattern(PatternDef {
             name: "code_execution".to_string(),
             regex: r"(?i)(eval|exec|system|shell)".to_string(),
@@ -110,7 +110,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 7,
         })?;
-        
+
         // Crypto/encoding
         provider.add_pattern(PatternDef {
             name: "crypto_algorithm".to_string(),
@@ -120,7 +120,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 5,
         })?;
-        
+
         provider.add_pattern(PatternDef {
             name: "base64_string".to_string(),
             regex: r"^[A-Za-z0-9+/]{20,}={0,2}$".to_string(),
@@ -129,7 +129,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 4,
         })?;
-        
+
         // File paths
         provider.add_pattern(PatternDef {
             name: "suspicious_path".to_string(),
@@ -139,7 +139,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 5,
         })?;
-        
+
         // Credentials
         provider.add_pattern(PatternDef {
             name: "credential_keyword".to_string(),
@@ -149,7 +149,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 8,
         })?;
-        
+
         // Registry
         provider.add_pattern(PatternDef {
             name: "registry_key".to_string(),
@@ -159,7 +159,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 5,
         })?;
-        
+
         // Malware indicators
         provider.add_pattern(PatternDef {
             name: "malware_keyword".to_string(),
@@ -169,7 +169,7 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 9,
         })?;
-        
+
         provider.add_pattern(PatternDef {
             name: "surveillance_keyword".to_string(),
             regex: r"(?i)(keylog|screenshot|webcam|microphone)".to_string(),
@@ -178,10 +178,10 @@ impl DefaultPatternProvider {
             is_suspicious: true,
             severity: 8,
         })?;
-        
+
         Ok(provider)
     }
-    
+
     /// Create an empty provider
     pub fn empty() -> Self {
         Self {
@@ -194,18 +194,18 @@ impl PatternProvider for DefaultPatternProvider {
     fn get_patterns(&self) -> Vec<Pattern> {
         self.patterns.clone()
     }
-    
+
     fn add_pattern(&mut self, pattern_def: PatternDef) -> AnalysisResult<()> {
         let pattern = pattern_def.compile()?;
         self.patterns.push(pattern);
         Ok(())
     }
-    
+
     fn remove_pattern(&mut self, name: &str) -> AnalysisResult<()> {
         self.patterns.retain(|p| p.name != name);
         Ok(())
     }
-    
+
     fn update_pattern(&mut self, pattern_def: PatternDef) -> AnalysisResult<()> {
         self.remove_pattern(&pattern_def.name)?;
         self.add_pattern(pattern_def)?;

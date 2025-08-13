@@ -86,7 +86,10 @@ pub async fn handle_jsonrpc_request(
         "tools/call" => {
             if let Some(params) = request.params {
                 match serde_json::from_value::<ToolCallParams>(params) {
-                    Ok(tool_call) => match handler.handle_tool_call(&tool_call.name, tool_call.arguments).await {
+                    Ok(tool_call) => match handler
+                        .handle_tool_call(&tool_call.name, tool_call.arguments)
+                        .await
+                    {
                         Ok(result) => JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
                             id: request.id,

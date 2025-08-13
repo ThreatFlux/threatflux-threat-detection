@@ -575,7 +575,7 @@ impl Default for BinaryMetadata {
 pub trait BinaryFormatParser {
     /// Parse binary data
     fn parse(data: &[u8]) -> crate::Result<Box<dyn BinaryFormatTrait>>;
-    
+
     /// Check if this parser can handle the data
     fn can_parse(data: &[u8]) -> bool;
 }
@@ -584,25 +584,25 @@ pub trait BinaryFormatParser {
 pub trait BinaryFormatTrait: Send + Sync {
     /// Get format type
     fn format_type(&self) -> BinaryFormat;
-    
+
     /// Get target architecture
     fn architecture(&self) -> Architecture;
-    
+
     /// Get entry point
     fn entry_point(&self) -> Option<u64>;
-    
+
     /// Get sections
     fn sections(&self) -> &[Section];
-    
+
     /// Get symbols
     fn symbols(&self) -> &[Symbol];
-    
+
     /// Get imports
     fn imports(&self) -> &[Import];
-    
+
     /// Get exports
     fn exports(&self) -> &[Export];
-    
+
     /// Get metadata
     fn metadata(&self) -> &BinaryMetadata;
 }

@@ -1,9 +1,9 @@
 //! Example showing how to migrate from file-scanner's cache to threatflux-cache
 
-use threatflux_cache::prelude::*;
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use threatflux_cache::prelude::*;
 
 // Replicate file-scanner's cache entry structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,11 +32,11 @@ impl EntryMetadata for FileAnalysisMetadata {
     fn execution_time_ms(&self) -> Option<u64> {
         Some(self.execution_time_ms)
     }
-    
+
     fn size_bytes(&self) -> Option<u64> {
         Some(self.file_size)
     }
-    
+
     fn category(&self) -> Option<&str> {
         Some(&self.tool_name)
     }
@@ -56,18 +56,21 @@ impl FileAnalysisCacheAdapter {
             .with_max_entries_per_key(100)
             .with_max_total_entries(10000)
             .with_persistence(PersistenceConfig::with_path(cache_dir));
-        
+
         #[cfg(feature = "filesystem-backend")]
         let backend = FilesystemBackend::new(cache_dir).await?;
         #[cfg(not(feature = "filesystem-backend"))]
         let backend = MemoryBackend::new();
-        
+
         let cache = Cache::new(config, backend).await?;
-        
+
         Ok(Self { cache })
     }
-    
-    pub async fn add_entry(&self, entry: FileAnalysisResult) -> Result<(), Box<dyn std::error::Error>> {
+
+    pub async fn add_entry(
+        &self,
+        entry: FileAnalysisResult,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let metadata = FileAnalysisMetadata {
             file_path: entry.file_path,
             tool_name: entry.tool_name,
@@ -75,35 +78,33 @@ impl FileAnalysisCacheAdapter {
             file_size: entry.file_size,
             execution_time_ms: entry.execution_time_ms,
         };
-        
-        let cache_entry = CacheEntry::with_metadata(
-            entry.file_hash,
-            entry.result,
-            metadata,
-        );
-        
+
+        let cache_entry = CacheEntry::with_metadata(entry.file_hash, entry.result, metadata);
+
         self.cache.add_entry(cache_entry).await?;
         Ok(())
     }
-    
+
     pub async fn get_latest_analysis(
         &self,
         file_hash: &str,
         tool_name: &str,
     ) -> Option<serde_json::Value> {
         let entries = self.cache.get_entries(&file_hash.to_string()).await?;
-        
-        entries.into_iter()
+
+        entries
+            .into_iter()
             .filter(|e| e.metadata.tool_name == tool_name)
             .max_by_key(|e| e.timestamp)
             .map(|e| e.value)
     }
-    
+
     pub async fn search_by_tool(&self, tool_name: &str) -> Vec<FileAnalysisResult> {
         let query = SearchQuery::new().with_category(tool_name);
         let results = self.cache.search(&query).await;
-        
-        results.into_iter()
+
+        results
+            .into_iter()
             .map(|entry| FileAnalysisResult {
                 file_path: entry.metadata.file_path,
                 file_hash: entry.key,
@@ -122,7 +123,7 @@ impl FileAnalysisCacheAdapter {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create adapter with file-scanner compatible API
     let adapter = FileAnalysisCacheAdapter::new("/tmp/file-scanner-cache").await?;
-    
+
     // Add an analysis result (mimicking file-scanner usage)
     let analysis = FileAnalysisResult {
         file_path: "/bin/ls".to_string(),
@@ -137,17 +138,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         file_size: 45056,
         execution_time_ms: 125,
     };
-    
+
     adapter.add_entry(analysis).await?;
-    
+
     // Get latest analysis for a file and tool
-    if let Some(result) = adapter.get_latest_analysis("abc123def456", "calculate_hashes").await {
-        println!("Latest hash analysis: {}", serde_json::to_string_pretty(&result)?);
+    if let Some(result) = adapter
+        .get_latest_analysis("abc123def456", "calculate_hashes")
+        .await
+    {
+        println!(
+            "Latest hash analysis: {}",
+            serde_json::to_string_pretty(&result)?
+        );
     }
-    
+
     // Search for all hash calculations
     let hash_results = adapter.search_by_tool("calculate_hashes").await;
     println!("Found {} hash calculation results", hash_results.len());
-    
+
     Ok(())
 }

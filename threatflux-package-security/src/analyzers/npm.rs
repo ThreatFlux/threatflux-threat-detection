@@ -8,12 +8,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::core::{
-    PackageAnalyzer, PackageInfo, PackageMetadata, AnalysisResult,
-    RiskAssessment, RiskCalculator, DependencyAnalysis, Dependency, DependencyType,
-    Vulnerability, MaliciousPattern, PatternMatcher,
+    AnalysisResult, Dependency, DependencyAnalysis, DependencyType, MaliciousPattern,
+    PackageAnalyzer, PackageInfo, PackageMetadata, PatternMatcher, RiskAssessment, RiskCalculator,
+    Vulnerability,
 };
-use crate::vulnerability_db::VulnerabilityDatabase;
 use crate::utils::typosquatting::TyposquattingDetector;
+use crate::vulnerability_db::VulnerabilityDatabase;
 
 /// NPM package information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,44 +134,47 @@ impl NpmAnalyzer {
 
     /// Parse package.json file
     async fn parse_package_json(&self, content: &str) -> Result<NpmPackage> {
-        let json: Value = serde_json::from_str(content)
-            .context("Failed to parse package.json")?;
+        let json: Value = serde_json::from_str(content).context("Failed to parse package.json")?;
 
-        let obj = json.as_object()
+        let obj = json
+            .as_object()
             .ok_or_else(|| anyhow::anyhow!("package.json is not an object"))?;
 
         let metadata = PackageMetadata {
-            name: obj.get("name")
+            name: obj
+                .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string(),
-            version: obj.get("version")
+            version: obj
+                .get("version")
                 .and_then(|v| v.as_str())
                 .unwrap_or("0.0.0")
                 .to_string(),
-            description: obj.get("description")
+            description: obj
+                .get("description")
                 .and_then(|v| v.as_str())
                 .map(String::from),
-            author: obj.get("author")
+            author: obj.get("author").and_then(|v| v.as_str()).map(String::from),
+            license: obj
+                .get("license")
                 .and_then(|v| v.as_str())
                 .map(String::from),
-            license: obj.get("license")
+            homepage: obj
+                .get("homepage")
                 .and_then(|v| v.as_str())
                 .map(String::from),
-            homepage: obj.get("homepage")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            repository: obj.get("repository")
-                .and_then(|v| {
-                    if let Some(s) = v.as_str() {
-                        Some(s.to_string())
-                    } else if let Some(obj) = v.as_object() {
-                        obj.get("url").and_then(|u| u.as_str()).map(String::from)
-                    } else {
-                        None
-                    }
-                }),
-            keywords: obj.get("keywords")
+            repository: obj.get("repository").and_then(|v| {
+                if let Some(s) = v.as_str() {
+                    Some(s.to_string())
+                } else if let Some(obj) = v.as_object() {
+                    obj.get("url").and_then(|u| u.as_str()).map(String::from)
+                } else {
+                    None
+                }
+            }),
+            keywords: obj
+                .get("keywords")
                 .and_then(|v| v.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -182,7 +185,8 @@ impl NpmAnalyzer {
             publish_date: None,
         };
 
-        let scripts = obj.get("scripts")
+        let scripts = obj
+            .get("scripts")
             .and_then(|v| v.as_object())
             .map(|obj| {
                 obj.iter()
@@ -191,7 +195,8 @@ impl NpmAnalyzer {
             })
             .unwrap_or_default();
 
-        let engines = obj.get("engines")
+        let engines = obj
+            .get("engines")
             .and_then(|v| v.as_object())
             .map(|obj| {
                 obj.iter()
@@ -200,7 +205,8 @@ impl NpmAnalyzer {
             })
             .unwrap_or_default();
 
-        let files = obj.get("files")
+        let files = obj
+            .get("files")
             .and_then(|v| v.as_array())
             .map(|arr| {
                 arr.iter()
@@ -215,7 +221,10 @@ impl NpmAnalyzer {
             scripts,
             engines,
             files,
-            private: obj.get("private").and_then(|v| v.as_bool()).unwrap_or(false),
+            private: obj
+                .get("private")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
         })
     }
 
@@ -236,10 +245,10 @@ impl NpmAnalyzer {
             if let Some(deps) = obj.get(*field).and_then(|v| v.as_object()) {
                 for (name, version_spec) in deps {
                     let version_str = version_spec.as_str().unwrap_or("*");
-                    
+
                     // Check for vulnerabilities
                     let vulns = self.vuln_db.check_package(name, version_str, "npm").await?;
-                    
+
                     let dependency = Dependency {
                         name: name.clone(),
                         version_spec: version_str.to_string(),
@@ -251,7 +260,7 @@ impl NpmAnalyzer {
                         license: None,
                         dependencies: vec![], // TODO: Parse lock file for transitive deps
                     };
-                    
+
                     analysis.dependency_tree.push(dependency);
                     analysis.direct_dependencies += 1;
                 }
@@ -259,7 +268,7 @@ impl NpmAnalyzer {
         }
 
         analysis.total_dependencies = analysis.dependency_tree.len();
-        
+
         // Calculate vulnerability summary
         for dep in &analysis.dependency_tree {
             for vuln in &dep.vulnerabilities {
@@ -279,9 +288,16 @@ impl NpmAnalyzer {
                     }
                     _ => {}
                 }
-                
-                if !analysis.vulnerability_summary.vulnerable_dependencies.contains(&dep.name) {
-                    analysis.vulnerability_summary.vulnerable_dependencies.push(dep.name.clone());
+
+                if !analysis
+                    .vulnerability_summary
+                    .vulnerable_dependencies
+                    .contains(&dep.name)
+                {
+                    analysis
+                        .vulnerability_summary
+                        .vulnerable_dependencies
+                        .push(dep.name.clone());
                 }
             }
         }
@@ -299,7 +315,7 @@ impl NpmAnalyzer {
         };
 
         let install_hooks = ["preinstall", "install", "postinstall", "prepare"];
-        
+
         for (name, content) in scripts {
             // Check for install scripts
             if install_hooks.contains(&name.as_str()) {
@@ -355,13 +371,13 @@ impl PackageAnalyzer for NpmAnalyzer {
         let package = self.parse_package_json(&content).await?;
         let json_value: Value = serde_json::from_str(&content)?;
         let dependency_analysis = self.analyze_dependencies(&json_value).await?;
-        
+
         // Analyze scripts
         let scripts_analysis = self.analyze_scripts(&package.scripts);
-        
+
         // Check for malicious patterns
         let malicious_patterns = self.pattern_matcher.scan(&content, Some("package.json"));
-        
+
         // Check typosquatting
         let typosquatting_risk = if self.typo_detector.is_typosquatting(&package.metadata.name) {
             Some(TyposquattingRisk {
@@ -381,8 +397,12 @@ impl PackageAnalyzer for NpmAnalyzer {
 
         // Calculate risk assessment
         let risk_calculator = RiskCalculator::new();
-        let supply_chain_score = if scripts_analysis.has_install_scripts { 40.0 } else { 0.0 };
-        
+        let supply_chain_score = if scripts_analysis.has_install_scripts {
+            40.0
+        } else {
+            0.0
+        };
+
         let risk_score = risk_calculator.calculate(
             &vulnerabilities,
             &malicious_patterns,
@@ -407,7 +427,7 @@ impl PackageAnalyzer for NpmAnalyzer {
                 malicious_code_detected: !malicious_patterns.is_empty(),
                 supply_chain_risks: scripts_analysis.has_install_scripts,
                 actively_maintained: true, // TODO: Check actual maintenance
-                trusted_publisher: false, // TODO: Check publisher trust
+                trusted_publisher: false,  // TODO: Check publisher trust
                 security_practices_score: 50.0,
             },
         };

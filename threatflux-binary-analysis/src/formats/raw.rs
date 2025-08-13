@@ -2,10 +2,10 @@
 
 use crate::{
     types::{
-        Architecture, BinaryFormat as Format, BinaryMetadata, Section, Symbol, Import, Export,
-        SectionType, SectionPermissions, SecurityFeatures, Endianness,
+        Architecture, BinaryFormat as Format, BinaryMetadata, Endianness, Export, Import, Section,
+        SectionPermissions, SectionType, SecurityFeatures, Symbol,
     },
-    BinaryFormatTrait, BinaryFormatParser, Result,
+    BinaryFormatParser, BinaryFormatTrait, Result,
 };
 
 /// Raw binary format parser

@@ -1,19 +1,59 @@
-# Cargo configuration
-# CI-specific settings are applied via environment variables in the scripts
+# Cargo configuration for file-scanner workspace
 
 [build]
-# Default build settings for development
-# CI environments will override these via CARGO_BUILD_JOBS
+# Use all available CPU cores for compilation (auto-detected when not specified)
+# jobs = 0 is invalid, so we remove it to let cargo auto-detect
 
-[profile.test]
-# Default test profile for development
-# CI environments will override these settings via environment variables
+# Enable faster linker on supported platforms
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# Test configuration
+[env]
+# Set environment variables for tests
+RUST_LOG = "debug"
+RUST_BACKTRACE = "1"
+
+# Enable faster builds for development
+[profile.dev]
 opt-level = 1
-debug = true
+debug = 1
 incremental = true
 
-# Note: CI-specific settings are applied in scripts/test-parallel-ci.sh via:
-# - CARGO_PROFILE_TEST_DEBUG=0
-# - CARGO_PROFILE_TEST_CODEGEN_UNITS=1
-# - CARGO_PROFILE_TEST_LTO="thin"
-# - CARGO_PROFILE_TEST_INCREMENTAL=false
+# Optimize test builds for speed while keeping debug info
+[profile.test]
+opt-level = 2
+debug = 1
+incremental = true
+codegen-units = 16
+
+# Fast test profile for development
+[profile.test-fast]
+inherits = "test"
+opt-level = 3
+lto = "thin"
+debug = 0
+
+# Alias for common test commands
+[alias]
+test-all = "test --workspace"
+test-fast = "test --workspace --profile test-fast"
+test-unit = "test --workspace --lib"
+test-integration = "test --workspace --test '*'"
+test-doc = "test --workspace --doc"
+bench-all = "bench --workspace"
+
+# Test with specific features
+test-no-default = "test --workspace --no-default-features"
+test-all-features = "test --workspace --all-features"
+
+# Parallel testing
+test-parallel = "test --workspace -- --test-threads=0"
+test-sequential = "test --workspace -- --test-threads=1"
+
+# Coverage and reporting
+test-coverage = "test --workspace -- --nocapture"

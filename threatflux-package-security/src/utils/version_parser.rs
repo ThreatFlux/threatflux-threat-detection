@@ -17,27 +17,27 @@ impl Version {
     /// Parse a version string
     pub fn parse(version: &str) -> Result<Self> {
         let version = version.trim_start_matches('v');
-        
+
         // Split on + for build metadata
         let (version, build) = if let Some(pos) = version.find('+') {
             (&version[..pos], Some(version[pos + 1..].to_string()))
         } else {
             (version, None)
         };
-        
+
         // Split on - for pre-release
         let (version, pre_release) = if let Some(pos) = version.find('-') {
             (&version[..pos], Some(version[pos + 1..].to_string()))
         } else {
             (version, None)
         };
-        
+
         // Parse major.minor.patch
         let parts: Vec<&str> = version.split('.').collect();
         if parts.len() < 3 {
             return Err(anyhow!("Invalid version format: {}", version));
         }
-        
+
         Ok(Version {
             major: parts[0].parse()?,
             minor: parts[1].parse()?,
@@ -72,12 +72,12 @@ impl Version {
                 return self == &other;
             }
         }
-        
+
         // Try exact match
         if let Ok(other) = Version::parse(spec) {
             return self == &other;
         }
-        
+
         false
     }
 }
@@ -102,7 +102,7 @@ impl Ord for Version {
             Ordering::Equal => {}
             ord => return ord,
         }
-        
+
         // Pre-release versions have lower precedence
         match (&self.pre_release, &other.pre_release) {
             (None, None) => Ordering::Equal,
@@ -141,7 +141,7 @@ mod tests {
         let v1 = Version::parse("1.2.3").unwrap();
         let v2 = Version::parse("1.2.4").unwrap();
         assert!(v1 < v2);
-        
+
         let v3 = Version::parse("2.0.0").unwrap();
         assert!(v2 < v3);
     }

@@ -1,21 +1,21 @@
 //! # ThreatFlux Hashing
-//! 
+//!
 //! A high-performance async file hashing library supporting MD5, SHA256, SHA512, and BLAKE3.
-//! 
+//!
 //! ## Features
-//! 
+//!
 //! - Async/await support with tokio
 //! - Concurrent hash calculation
 //! - Configurable buffer sizes and concurrency limits
 //! - Optional serde support
 //! - Zero-copy operations where possible
-//! 
+//!
 //! ## Quick Start
-//! 
+//!
 //! ```no_run
 //! use threatflux_hashing::calculate_all_hashes;
 //! use std::path::Path;
-//! 
+//!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let hashes = calculate_all_hashes(Path::new("file.bin")).await?;
@@ -26,13 +26,13 @@
 //!     Ok(())
 //! }
 //! ```
-//! 
+//!
 //! ## Custom Configuration
-//! 
+//!
 //! ```no_run
 //! use threatflux_hashing::{calculate_all_hashes_with_config, HashConfig, HashAlgorithms};
 //! use std::path::Path;
-//! 
+//!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let config = HashConfig {
@@ -56,12 +56,8 @@ pub mod hasher;
 
 pub use error::{HashError, Result};
 pub use hasher::{
-    calculate_all_hashes,
-    calculate_all_hashes_with_config,
-    calculate_md5,
-    HashAlgorithms,
-    HashConfig,
-    Hashes,
+    calculate_all_hashes, calculate_all_hashes_with_config, calculate_md5, HashAlgorithms,
+    HashConfig, Hashes,
 };
 
 // Re-export futures for convenience

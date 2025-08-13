@@ -1,5 +1,4 @@
 use rmcp::{
-    handler::server::wrapper::Json,
     model::{Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
     ServerHandler,
 };
@@ -11,7 +10,7 @@ use crate::cache::AnalysisCache;
 use crate::mcp::error::{McpError, McpResult};
 use crate::mcp::registry::ToolRegistry;
 // use crate::mcp::tools::*; // Temporarily disabled during refactoring
-use crate::string_tracker::StringTracker;
+use crate::string_tracker_compat::StringTracker;
 
 /// Main MCP handler that manages tools and requests
 #[derive(Clone)]
@@ -110,7 +109,11 @@ mod tests {
 
         let tool_names: Vec<String> = tools
             .iter()
-            .filter_map(|t| t.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .filter_map(|t| {
+                t.get("name")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
             .collect();
 
         assert!(tool_names.contains(&"analyze_file".to_string()));

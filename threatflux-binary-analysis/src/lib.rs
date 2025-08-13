@@ -20,7 +20,7 @@
 //! # fn main() -> anyhow::Result<()> {
 //! let data = std::fs::read("binary_file")?;
 //! let binary = BinaryFile::parse(&data)?;
-//! 
+//!
 //! let analyzer = BinaryAnalyzer::new();
 //! let analysis = analyzer.analyze(&binary)?;
 //!
@@ -31,10 +31,10 @@
 //! # }
 //! ```
 
-pub mod error;
-pub mod types;
-pub mod formats;
 pub mod analysis;
+pub mod error;
+pub mod formats;
+pub mod types;
 
 #[cfg(any(feature = "disasm-capstone", feature = "disasm-iced"))]
 pub mod disasm;
@@ -44,9 +44,9 @@ pub mod utils;
 // Re-export main types
 pub use error::{BinaryError, Result};
 pub use types::{
-    Architecture, BinaryFormat, BinaryFormatTrait, BinaryFormatParser, BinaryMetadata, 
-    Section, Symbol, Import, Export, Instruction, BasicBlock, ControlFlowGraph, 
-    Function, ComplexityMetrics, EntropyAnalysis, SecurityIndicators, AnalysisResult
+    AnalysisResult, Architecture, BasicBlock, BinaryFormat, BinaryFormatParser, BinaryFormatTrait,
+    BinaryMetadata, ComplexityMetrics, ControlFlowGraph, EntropyAnalysis, Export, Function, Import,
+    Instruction, Section, SecurityIndicators, Symbol,
 };
 
 /// Main entry point for binary analysis
@@ -173,7 +173,7 @@ impl BinaryFile {
     pub fn parse(data: &[u8]) -> Result<Self> {
         let format = formats::detect_format(data)?;
         let parsed = formats::parse_binary(data, format)?;
-        
+
         Ok(Self {
             data: data.to_vec(),
             parsed,

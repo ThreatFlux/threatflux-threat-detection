@@ -2,13 +2,13 @@
 
 use crate::{
     types::{
-        Architecture, BinaryFormat as Format, BinaryMetadata, Section, Symbol, Import, Export,
-        SectionType, SectionPermissions, SymbolType, SymbolBinding, SymbolVisibility,
-        SecurityFeatures, Endianness, FunctionType
+        Architecture, BinaryFormat as Format, BinaryMetadata, Endianness, Export, FunctionType,
+        Import, Section, SectionPermissions, SectionType, SecurityFeatures, Symbol, SymbolBinding,
+        SymbolType, SymbolVisibility,
     },
-    BinaryFormatTrait, BinaryFormatParser, Result, BinaryError,
+    BinaryError, BinaryFormatParser, BinaryFormatTrait, Result,
 };
-use goblin::pe::{PE, header::Header, dll_characteristic::*};
+use goblin::pe::{dll_characteristic::*, header::Header, PE};
 use std::collections::HashMap;
 
 /// PE format parser
@@ -28,15 +28,14 @@ impl BinaryFormatParser for PeParser {
 
         // Check for PE signature
         if data.len() >= 0x3c + 4 {
-            let pe_offset = u32::from_le_bytes([
-                data[0x3c], data[0x3d], data[0x3e], data[0x3f]
-            ]) as usize;
-            
+            let pe_offset =
+                u32::from_le_bytes([data[0x3c], data[0x3d], data[0x3e], data[0x3f]]) as usize;
+
             if pe_offset + 4 <= data.len() {
                 return &data[pe_offset..pe_offset + 4] == b"PE\0\0";
             }
         }
-        
+
         false
     }
 }
@@ -55,7 +54,7 @@ pub struct PeBinary {
 impl PeBinary {
     fn new(pe: PE<'_>, data: &[u8]) -> Result<Self> {
         let data = data.to_vec();
-        
+
         // Convert architecture
         let architecture = match pe.header.coff_header.machine {
             goblin::pe::header::COFF_MACHINE_X86 => Architecture::X86,
@@ -75,11 +74,17 @@ impl PeBinary {
         let (base_address, entry_point) = match &pe.header {
             Header::PE32(header) => (
                 Some(header.windows_fields.image_base as u64),
-                Some(header.standard_fields.address_of_entry_point as u64 + header.windows_fields.image_base as u64)
+                Some(
+                    header.standard_fields.address_of_entry_point as u64
+                        + header.windows_fields.image_base as u64,
+                ),
             ),
             Header::PE32Plus(header) => (
                 Some(header.windows_fields.image_base),
-                Some(header.standard_fields.address_of_entry_point as u64 + header.windows_fields.image_base)
+                Some(
+                    header.standard_fields.address_of_entry_point as u64
+                        + header.windows_fields.image_base,
+                ),
             ),
         };
 
@@ -105,9 +110,7 @@ impl PeBinary {
         let (imports, exports) = parse_imports_exports(&pe)?;
 
         // Handle lifetime issues with PE struct
-        let pe_owned = unsafe {
-            std::mem::transmute::<PE<'_>, PE<'static>>(pe)
-        };
+        let pe_owned = unsafe { std::mem::transmute::<PE<'_>, PE<'static>>(pe) };
 
         Ok(Self {
             pe: pe_owned,
@@ -164,24 +167,32 @@ fn parse_sections(pe: &PE, data: &[u8]) -> Result<Vec<Section>> {
             .to_string();
 
         // Determine section type based on characteristics
-        let section_type = if section.characteristics & goblin::pe::section_table::IMAGE_SCN_CNT_CODE != 0 {
-            SectionType::Code
-        } else if section.characteristics & goblin::pe::section_table::IMAGE_SCN_CNT_INITIALIZED_DATA != 0 {
-            if section.characteristics & goblin::pe::section_table::IMAGE_SCN_MEM_WRITE != 0 {
-                SectionType::Data
+        let section_type =
+            if section.characteristics & goblin::pe::section_table::IMAGE_SCN_CNT_CODE != 0 {
+                SectionType::Code
+            } else if section.characteristics
+                & goblin::pe::section_table::IMAGE_SCN_CNT_INITIALIZED_DATA
+                != 0
+            {
+                if section.characteristics & goblin::pe::section_table::IMAGE_SCN_MEM_WRITE != 0 {
+                    SectionType::Data
+                } else {
+                    SectionType::ReadOnlyData
+                }
+            } else if section.characteristics
+                & goblin::pe::section_table::IMAGE_SCN_CNT_UNINITIALIZED_DATA
+                != 0
+            {
+                SectionType::Bss
             } else {
-                SectionType::ReadOnlyData
-            }
-        } else if section.characteristics & goblin::pe::section_table::IMAGE_SCN_CNT_UNINITIALIZED_DATA != 0 {
-            SectionType::Bss
-        } else {
-            SectionType::Other("PE_SECTION".to_string())
-        };
+                SectionType::Other("PE_SECTION".to_string())
+            };
 
         let permissions = SectionPermissions {
             read: section.characteristics & goblin::pe::section_table::IMAGE_SCN_MEM_READ != 0,
             write: section.characteristics & goblin::pe::section_table::IMAGE_SCN_MEM_WRITE != 0,
-            execute: section.characteristics & goblin::pe::section_table::IMAGE_SCN_MEM_EXECUTE != 0,
+            execute: section.characteristics & goblin::pe::section_table::IMAGE_SCN_MEM_EXECUTE
+                != 0,
         };
 
         // Extract small section data
@@ -222,14 +233,14 @@ fn parse_symbols(pe: &PE) -> Result<Vec<Symbol>> {
             }
 
             let symbol_type = match symbol.typ {
-                0 => SymbolType::Object,  // IMAGE_SYM_TYPE_NULL
+                0 => SymbolType::Object,      // IMAGE_SYM_TYPE_NULL
                 0x20 => SymbolType::Function, // IMAGE_SYM_TYPE_FUNC
                 _ => SymbolType::Other(format!("PE_TYPE_{}", symbol.typ)),
             };
 
             let binding = match symbol.storage_class {
-                2 => SymbolBinding::Global,  // IMAGE_SYM_CLASS_EXTERNAL
-                3 => SymbolBinding::Local,   // IMAGE_SYM_CLASS_STATIC
+                2 => SymbolBinding::Global, // IMAGE_SYM_CLASS_EXTERNAL
+                3 => SymbolBinding::Local,  // IMAGE_SYM_CLASS_STATIC
                 _ => SymbolBinding::Other(format!("PE_CLASS_{}", symbol.storage_class)),
             };
 
@@ -291,19 +302,19 @@ fn analyze_security_features(pe: &PE) -> SecurityFeatures {
 
     if let Some(dll_characteristics) = pe.header.optional_header() {
         let characteristics = dll_characteristics.dll_characteristics;
-        
+
         // DEP/NX bit
         features.nx_bit = characteristics & IMAGE_DLLCHARACTERISTICS_NX_COMPAT != 0;
-        
+
         // ASLR
         features.aslr = characteristics & IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE != 0;
-        
+
         // High entropy ASLR
         let high_entropy = characteristics & IMAGE_DLLCHARACTERISTICS_HIGH_ENTROPY_VA != 0;
-        
+
         // CFI (Control Flow Guard)
         features.cfi = characteristics & IMAGE_DLLCHARACTERISTICS_GUARD_CF != 0;
-        
+
         // Position Independent Executable (requires relocation table removal)
         features.pie = features.aslr; // Simplified check
     }
