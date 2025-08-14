@@ -132,6 +132,7 @@ pre-release-replacements = [
 name = "file-scanner"
 version = "0.1.1"
 edition = "2021"
+rust-version = "1.75.0"
 authors = ["File Scanner Project <dev@threatflux.com>"]
 description = "A comprehensive file analysis framework for security research, malware detection, and forensic investigation"
 homepage = "https://github.com/ThreatFlux/file-scanner"
@@ -140,7 +141,6 @@ license = "MIT"
 readme = "README.md"
 keywords = ["security", "malware", "forensics", "analysis", "file-scanner"]
 categories = ["command-line-utilities", "development-tools", "security", "analysis"]
-rust-version = "1.87.0"
 
 [dependencies]
 # ThreatFlux libraries - our modular components

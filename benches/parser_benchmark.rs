@@ -1,5 +1,5 @@
-#![allow(deprecated)]
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use file_scanner::binary_parser::parse_binary;
 use file_scanner::strings::extract_strings;
 use std::fs;

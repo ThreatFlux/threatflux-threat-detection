@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use threatflux_cache::prelude::*;
+use threatflux_cache::{PersistenceConfig, SearchQuery};
 
 // Replicate file-scanner's cache entry structure
 #[derive(Debug, Clone, Serialize, Deserialize)]

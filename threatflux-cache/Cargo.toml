@@ -2,6 +2,7 @@
 name = "threatflux-cache"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.75.0"
 authors = ["ThreatFlux"]
 description = "A flexible async cache library for Rust with pluggable backends and serialization"
 license = "MIT OR Apache-2.0"

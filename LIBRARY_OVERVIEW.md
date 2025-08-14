@@ -332,4 +332,4 @@ Each library welcomes contributions! See the individual library README files for
 
 ## 📄 License
 
-All ThreatFlux libraries are dual-licensed under MIT and Apache 2.0 licenses. See individual library directories for specific license files.
+All ThreatFlux libraries are licensed under the MIT license. See individual library directories for specific license files.

@@ -1,0 +1,334 @@
+name: Security
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security checks daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-audit
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-audit
+
+    - name: Run cargo audit
+      run: |
+        cargo audit --json > audit-results.json || true
+        cargo audit
+
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-results
+        path: audit-results.json
+        retention-days: 30
+
+  clippy-security:
+    name: Security Lints (Clippy)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install YARA
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libyara-dev yara
+
+    - name: Run security-focused clippy lints
+      run: |
+        cargo clippy --all-features --all-targets -- \
+          -W clippy::suspicious \
+          -W clippy::security \
+          -W clippy::panic \
+          -W clippy::unwrap_used \
+          -W clippy::expect_used \
+          -W clippy::panic_in_result_fn \
+          -W clippy::todo \
+          -W clippy::unimplemented \
+          -W clippy::unreachable \
+          -W clippy::mem_forget \
+          -W clippy::mem_replace_with_uninit \
+          -W clippy::cast_ptr_alignment \
+          -W clippy::fn_to_numeric_cast_with_truncation \
+          -W clippy::integer_arithmetic \
+          -W clippy::lossy_float_literal \
+          -W clippy::wildcard_dependencies \
+          -W clippy::print_stdout \
+          -W clippy::print_stderr \
+          -W clippy::dbg_macro \
+          -A clippy::integer_arithmetic  # Allow for controlled arithmetic in crypto/hashing
+
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-deny
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-deny
+
+    - name: Check dependencies with cargo-deny
+      run: cargo deny check
+
+    - name: Generate dependency report
+      run: |
+        cargo tree --all-features > dependency-tree.txt
+        cargo tree --all-features --duplicates > duplicate-dependencies.txt || true
+
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-reports
+        path: |
+          dependency-tree.txt
+          duplicate-dependencies.txt
+        retention-days: 30
+
+  semgrep:
+    name: Static Analysis (Semgrep)
+    runs-on: ubuntu-latest
+    if: github.repository == 'ThreatFlux/threatflux-threat-detection'
+    container:
+      image: returntocorp/semgrep
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Semgrep
+      run: |
+        semgrep --config=auto --json --output=semgrep-results.json src/ || true
+        semgrep --config=auto src/
+
+    - name: Upload Semgrep results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: semgrep-results
+        path: semgrep-results.json
+        retention-days: 30
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    if: github.repository == 'ThreatFlux/threatflux-threat-detection'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'rust' ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-extended,security-and-quality
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install YARA
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libyara-dev yara
+
+    - name: Build for CodeQL
+      run: |
+        cargo build --all-features
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+
+  supply-chain:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-supply-chain
+      run: cargo install cargo-supply-chain
+
+    - name: Check supply chain
+      run: |
+        cargo supply-chain update
+        cargo supply-chain publishers > publishers-report.txt || true
+
+    - name: Analyze dependency publishers
+      run: |
+        echo "=== High-risk dependencies (few publishers) ===" >> supply-chain-analysis.txt
+        cargo supply-chain publishers --json | jq -r '.[] | select(.publisher_count < 3) | "\(.name): \(.publisher_count) publishers"' >> supply-chain-analysis.txt || true
+        
+        echo -e "\n=== Recently updated dependencies ===" >> supply-chain-analysis.txt
+        cargo supply-chain publishers --json | jq -r '.[] | select(.last_updated_days < 30) | "\(.name): updated \(.last_updated_days) days ago"' >> supply-chain-analysis.txt || true
+
+    - name: Upload supply chain reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: supply-chain-reports
+        path: |
+          publishers-report.txt
+          supply-chain-analysis.txt
+        retention-days: 30
+
+  osv-scanner:
+    name: OSV Vulnerability Scanner
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run OSV Scanner
+      uses: google/osv-scanner-action@v1
+      with:
+        scan-args: |-
+          --format json
+          --output osv-results.json
+          --recursive
+          ./
+        fail-build: false
+
+    - name: Upload OSV results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: osv-scan-results
+        path: osv-results.json
+        retention-days: 30
+
+  security-report:
+    name: Generate Security Report
+    needs: [audit, clippy-security, dependency-check, supply-chain, osv-scanner]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all security artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: security-reports
+
+    - name: Generate security summary
+      run: |
+        echo "# Security Analysis Report" > security-summary.md
+        echo "Generated on: $(date)" >> security-summary.md
+        echo "" >> security-summary.md
+        
+        echo "## Audit Results" >> security-summary.md
+        if [ -f security-reports/security-audit-results/audit-results.json ]; then
+          echo "- Cargo audit completed" >> security-summary.md
+          # Parse audit results if needed
+        else
+          echo "- Cargo audit: No results available" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## Dependency Analysis" >> security-summary.md
+        if [ -f security-reports/dependency-reports/dependency-tree.txt ]; then
+          TOTAL_DEPS=$(grep -c "^" security-reports/dependency-reports/dependency-tree.txt || echo "Unknown")
+          echo "- Total dependencies: $TOTAL_DEPS" >> security-summary.md
+        fi
+        
+        if [ -f security-reports/dependency-reports/duplicate-dependencies.txt ]; then
+          DUPLICATE_DEPS=$(wc -l < security-reports/dependency-reports/duplicate-dependencies.txt || echo "0")
+          echo "- Duplicate dependencies: $DUPLICATE_DEPS" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## Supply Chain" >> security-summary.md
+        if [ -f security-reports/supply-chain-reports/supply-chain-analysis.txt ]; then
+          echo "- Supply chain analysis completed" >> security-summary.md
+        else
+          echo "- Supply chain analysis: Not available" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## Recommendations" >> security-summary.md
+        echo "1. Review all high and critical severity vulnerabilities" >> security-summary.md
+        echo "2. Update dependencies regularly" >> security-summary.md
+        echo "3. Monitor dependency publishers and supply chain" >> security-summary.md
+        echo "4. Address any clippy security warnings" >> security-summary.md
+
+    - name: Upload security summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-summary
+        path: security-summary.md
+        retention-days: 90
+
+    - name: Comment on PR (if applicable)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('security-summary.md')) {
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔒 Security Analysis Results\n\n${summary}`
+            });
+          }

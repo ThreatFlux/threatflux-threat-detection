@@ -1,9 +1,8 @@
 //! Comprehensive tests for cache functionality
 
 use serde::{Deserialize, Serialize};
-use std::time::{Duration, SystemTime};
-use tempfile::TempDir;
-use threatflux_cache::{AsyncCache, Cache, CacheConfig, CacheError};
+use std::time::Duration;
+use threatflux_cache::{AsyncCache, Cache, CacheConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct TestData {
