@@ -12,30 +12,40 @@ fn test_string_context_variants() {
             protocol: Some("https".to_string()),
         },
         StringContext::Url { protocol: None },
-        StringContext::FilePath,
-        StringContext::RegistryKey,
-        StringContext::ApiCall {
-            library: Some("kernel32.dll".to_string()),
+        StringContext::Path {
+            path_type: "file".to_string(),
         },
-        StringContext::ApiCall { library: None },
-        StringContext::IpAddress { version: Some(4) },
-        StringContext::IpAddress { version: Some(6) },
-        StringContext::IpAddress { version: None },
-        StringContext::Email,
-        StringContext::Credential {
-            credential_type: Some("password".to_string()),
-        },
-        StringContext::Credential {
-            credential_type: None,
+        StringContext::Registry {
+            hive: Some("HKLM".to_string()),
         },
         StringContext::Import {
-            library: Some("msvcrt.dll".to_string()),
+            library: "kernel32.dll".to_string(),
         },
-        StringContext::Import { library: None },
-        StringContext::CryptoKey,
-        StringContext::Base64Data,
-        StringContext::Command,
-        StringContext::Comment,
+        StringContext::Import {
+            library: "msvcrt.dll".to_string(),
+        },
+        StringContext::Export {
+            symbol: "GetProcAddress".to_string(),
+        },
+        StringContext::Resource {
+            resource_type: "icon".to_string(),
+        },
+        StringContext::Section {
+            section_name: ".text".to_string(),
+        },
+        StringContext::Metadata {
+            field: "version".to_string(),
+        },
+        StringContext::Command {
+            command_type: "shell".to_string(),
+        },
+        StringContext::Other {
+            category: "unknown".to_string(),
+        },
+        StringContext::Registry { hive: None },
+        StringContext::Other {
+            category: "crypto".to_string(),
+        },
     ];
 
     let tracker = StringTracker::new();
@@ -112,8 +122,8 @@ fn test_string_filter_combinations() {
         max_occurrences: Some(3),
         ..Default::default()
     };
-    let combined_stats = tracker.get_statistics(Some(&combined_filter));
-    assert!(combined_stats.total_unique_strings >= 0);
+    let _combined_stats = tracker.get_statistics(Some(&combined_filter));
+    // Should have some tracked strings
 
     // Test entropy filter (if supported)
     let entropy_filter = StringFilter {
@@ -121,16 +131,16 @@ fn test_string_filter_combinations() {
         max_entropy: Some(7.0),
         ..Default::default()
     };
-    let entropy_stats = tracker.get_statistics(Some(&entropy_filter));
-    assert!(entropy_stats.total_unique_strings >= 0);
+    let _entropy_stats = tracker.get_statistics(Some(&entropy_filter));
+    // Stats should be valid
 
     // Test suspicious filter
     let suspicious_filter = StringFilter {
         suspicious_only: Some(true),
         ..Default::default()
     };
-    let suspicious_stats = tracker.get_statistics(Some(&suspicious_filter));
-    assert!(suspicious_stats.total_unique_strings >= 0);
+    let _suspicious_stats = tracker.get_statistics(Some(&suspicious_filter));
+    // Stats should be valid
 }
 
 #[test]
@@ -145,7 +155,7 @@ fn test_string_filter_default() {
     assert!(default_filter.min_entropy.is_none());
     assert!(default_filter.max_entropy.is_none());
     assert!(default_filter.categories.is_none());
-    assert!(default_filter.file_associations.is_none());
+    assert!(default_filter.file_paths.is_none());
     assert!(default_filter.suspicious_only.is_none());
     assert!(default_filter.regex_pattern.is_none());
 }
@@ -158,10 +168,10 @@ fn test_tracker_creation() {
     let initial_stats = tracker.get_statistics(None);
     assert_eq!(initial_stats.total_unique_strings, 0);
     assert_eq!(initial_stats.total_occurrences, 0);
-    assert_eq!(initial_stats.total_files, 0);
+    assert_eq!(initial_stats.total_files_analyzed, 0);
     assert!(initial_stats.length_distribution.is_empty());
     assert!(initial_stats.category_distribution.is_empty());
-    assert!(initial_stats.top_strings.is_empty());
+    assert!(initial_stats.most_common.is_empty());
     assert!(initial_stats.high_entropy_strings.is_empty());
     assert!(initial_stats.suspicious_strings.is_empty());
 }
@@ -185,23 +195,22 @@ fn test_string_details_structure() {
 
     // Verify details structure
     assert_eq!(details.value, test_string);
-    assert!(details.length > 0);
+    assert!(details.value.len() > 0);
     assert_eq!(details.occurrences.len(), 1);
-    assert_eq!(details.files.len(), 1);
+    assert_eq!(details.unique_files.len(), 1);
     assert!(!details.categories.is_empty());
     assert!(details.entropy >= 0.0);
-    assert!(!details.first_seen.is_empty());
-    assert!(!details.last_seen.is_empty());
+    assert!(details.first_seen <= details.last_seen);
 
     // Verify occurrence details
     let occurrence = &details.occurrences[0];
     assert_eq!(occurrence.file_path, "/test/details");
     assert_eq!(occurrence.file_hash, "details_hash");
     assert_eq!(occurrence.tool_name, "details_tool");
-    assert!(!occurrence.timestamp.is_empty());
+    // Timestamp should be reasonable (not checking specific time due to test timing)
 
     // Verify file association
-    assert!(details.files.contains(&"/test/details".to_string()));
+    assert!(details.unique_files.contains("/test/details"));
 }
 
 #[test]
@@ -210,8 +219,8 @@ fn test_nonexistent_string_details() {
 
     let result = tracker.get_string_details("nonexistent_string");
     assert!(
-        result.is_err(),
-        "Should return error for nonexistent string"
+        result.is_none(),
+        "Should return None for nonexistent string"
     );
 }
 
@@ -285,19 +294,19 @@ fn test_related_strings_edge_cases() {
         .unwrap();
 
     // Test related strings for nonexistent string
-    let nonexistent_related = tracker.find_related_strings("nonexistent", 10);
+    let nonexistent_related = tracker.get_related_strings("nonexistent", 10);
     assert!(
         nonexistent_related.is_empty(),
         "Should return empty for nonexistent string"
     );
 
     // Test related strings for string with no relations
-    let lonely_related = tracker.find_related_strings("lonely_string", 10);
+    let _lonely_related = tracker.get_related_strings("lonely_string", 10);
     // Implementation dependent - might return empty or the string itself
-    assert!(lonely_related.len() >= 0);
+    // Results depend on implementation
 
     // Test with zero limit
-    let zero_limit_related = tracker.find_related_strings("lonely_string", 0);
+    let zero_limit_related = tracker.get_related_strings("lonely_string", 0);
     assert!(
         zero_limit_related.is_empty(),
         "Zero limit should return no results"
@@ -399,7 +408,7 @@ fn test_error_handling() {
     let tracker = StringTracker::new();
 
     // Test with null bytes in paths (might be rejected)
-    let null_path_result = tracker.track_string(
+    let _null_path_result = tracker.track_string(
         "test",
         "/test\x00/null",
         "hash",
