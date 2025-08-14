@@ -34,6 +34,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclamav-dev clamav-daemon clamav-freshclam pkg-config
+
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
@@ -98,7 +103,7 @@ jobs:
         <!DOCTYPE html>
         <html>
         <head>
-            <title>ThreatFlux Hashing Documentation</title>
+            <title>ThreatFlux Threat Detection Documentation</title>
             <meta charset="utf-8">
             <style>
                 body { font-family: Arial, sans-serif; margin: 40px; }
@@ -108,10 +113,10 @@ jobs:
             </style>
         </head>
         <body>
-            <h1>ThreatFlux Hashing Documentation</h1>
-            <a href="threatflux_hashing/index.html" class="link">📚 API Documentation</a>
+            <h1>ThreatFlux Threat Detection Documentation</h1>
+            <a href="threatflux_threat_detection/index.html" class="link">📚 API Documentation</a>
             <a href="../README.html" class="link">📖 README</a>
-            <a href="https://crates.io/crates/threatflux-hashing" class="link">📦 Crates.io</a>
+            <a href="https://crates.io/crates/threatflux-threat-detection" class="link">📦 Crates.io</a>
         </body>
         </html>
         EOF
@@ -146,6 +151,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclamav-dev clamav-daemon clamav-freshclam pkg-config
+
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
@@ -163,7 +173,7 @@ jobs:
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>ThreatFlux Hashing Documentation</title>
+            <title>ThreatFlux Threat Detection Documentation</title>
             <style>
                 body { 
                     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -196,34 +206,34 @@ jobs:
         </head>
         <body>
             <div class="container">
-                <h1>🔐 ThreatFlux Hashing</h1>
+                <h1>🔐 ThreatFlux Threat Detection</h1>
                 <div class="description">
-                    High-performance async file hashing library for Rust<br>
-                    Supporting MD5, SHA256, SHA512, and BLAKE3
+                    Comprehensive threat detection framework for malware analysis<br>
+                    Supporting YARA, ClamAV, and custom pattern matching
                 </div>
                 
                 <div class="links">
-                    <a href="threatflux_hashing/index.html" class="link">
+                    <a href="threatflux_threat_detection/index.html" class="link">
                         <div class="link-title">📚 API Documentation</div>
                         <div class="link-desc">Complete API reference with examples</div>
                     </a>
                     
-                    <a href="https://crates.io/crates/threatflux-hashing" class="link">
+                    <a href="https://crates.io/crates/threatflux-threat-detection" class="link">
                         <div class="link-title">📦 Crates.io</div>
                         <div class="link-desc">Download and installation instructions</div>
                     </a>
                     
-                    <a href="https://github.com/ThreatFlux/threatflux-hashing" class="link">
+                    <a href="https://github.com/ThreatFlux/threatflux-threat-detection" class="link">
                         <div class="link-title">🔗 GitHub Repository</div>
                         <div class="link-desc">Source code, issues, and contributions</div>
                     </a>
                 </div>
                 
                 <div class="badges">
-                    <img src="https://img.shields.io/crates/v/threatflux-hashing.svg" alt="Crates.io">
-                    <img src="https://img.shields.io/crates/d/threatflux-hashing.svg" alt="Downloads">
-                    <img src="https://img.shields.io/crates/l/threatflux-hashing.svg" alt="License">
-                    <img src="https://github.com/ThreatFlux/threatflux-hashing/workflows/CI/badge.svg" alt="CI">
+                    <img src="https://img.shields.io/crates/v/threatflux-threat-detection.svg" alt="Crates.io">
+                    <img src="https://img.shields.io/crates/d/threatflux-threat-detection.svg" alt="Downloads">
+                    <img src="https://img.shields.io/crates/l/threatflux-threat-detection.svg" alt="License">
+                    <img src="https://github.com/ThreatFlux/threatflux-threat-detection/workflows/CI/badge.svg" alt="CI">
                 </div>
             </div>
         </body>
@@ -307,7 +317,10 @@ jobs:
             "version": "0.2",
             "language": "en",
             "words": [
-              "threatflux", "hasher", "blake3", "tokio", "async", "rustdoc",
-              "crates", "repo", "clippy", "rustfmt", "stdlib", "dirs", "pathbuf"
+              "threatflux", "yara", "clamav", "tokio", "async", "rustdoc",
+              "crates", "repo", "clippy", "rustfmt", "stdlib", "dirs", "pathbuf",
+              "malware", "antivirus", "mitre", "ruleset", "uuid", "serde"
             ]
           }
+        inline: warning
+        treat_flagged_words_as_errors: false
