@@ -95,6 +95,7 @@ impl ThreatDetector {
 
     /// Create a new threat detector with custom configuration
     pub async fn with_config(config: ThreatDetectorConfig) -> Result<Self> {
+        #[allow(unused_mut)]
         let mut engines: Vec<Box<dyn DetectionEngine>> = Vec::new();
 
         // Initialize YARA engine
@@ -173,7 +174,7 @@ impl ThreatDetector {
 
         // Validate target exists if it's a file
         if let ScanTarget::File(path) = &target {
-            if !tokio::fs::metadata(path).await.is_ok() {
+            if tokio::fs::metadata(path).await.is_err() {
                 return Err(ThreatError::file(format!(
                     "File not found: {}",
                     path.display()

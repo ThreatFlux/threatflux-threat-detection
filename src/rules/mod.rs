@@ -32,6 +32,7 @@ pub enum RuleSourceType {
 /// Rule manager for loading, compiling, and updating threat detection rules
 pub struct RuleManager {
     rule_sources: Vec<RuleSource>,
+    #[allow(dead_code)]
     cache_dir: PathBuf,
     compiled_rules: Option<CompiledRules>,
 }

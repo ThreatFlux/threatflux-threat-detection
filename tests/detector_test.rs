@@ -396,10 +396,11 @@ async fn test_analysis_result_structure() {
         .unwrap();
 
     // Verify analysis structure is complete
-    assert!(result.matches.len() >= 0);
-    assert!(result.indicators.len() >= 0);
-    assert!(result.classifications.len() >= 0);
-    assert!(result.recommendations.len() >= 0);
+    // Note: len() is always >= 0 for Vec, so we just verify they exist
+    let _ = result.matches.len();
+    let _ = result.indicators.len();
+    let _ = result.classifications.len();
+    let _ = result.recommendations.len();
 
     // Verify scan statistics
     assert!(result.scan_stats.scan_duration.as_nanos() > 0);

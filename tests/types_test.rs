@@ -169,7 +169,7 @@ fn test_threat_indicator_construction() {
 
 #[test]
 fn test_indicator_type_variants() {
-    let types = vec![
+    let types = [
         IndicatorType::KnownMalwareFamily,
         IndicatorType::SuspiciousBehavior,
         IndicatorType::ExploitTechnique,

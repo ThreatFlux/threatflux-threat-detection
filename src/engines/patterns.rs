@@ -22,6 +22,7 @@ pub struct PatternEngine {
     #[cfg(feature = "pattern-matching")]
     regex_patterns: Option<RegexSet>,
     #[cfg(feature = "pattern-matching")]
+    #[allow(dead_code)]
     regex_pattern_list: Vec<String>,
     #[cfg(not(feature = "pattern-matching"))]
     _placeholder: (),
@@ -420,20 +421,20 @@ impl PatternEngine {
         let mut classifications = Vec::new();
 
         for yara_match in matches {
-            if yara_match.tags.iter().any(|t| t == "ransomware") {
-                if !classifications.contains(&ThreatClassification::Ransomware) {
-                    classifications.push(ThreatClassification::Ransomware);
-                }
+            if yara_match.tags.iter().any(|t| t == "ransomware")
+                && !classifications.contains(&ThreatClassification::Ransomware)
+            {
+                classifications.push(ThreatClassification::Ransomware);
             }
-            if yara_match.tags.iter().any(|t| t == "cryptominer") {
-                if !classifications.contains(&ThreatClassification::Cryptominer) {
-                    classifications.push(ThreatClassification::Cryptominer);
-                }
+            if yara_match.tags.iter().any(|t| t == "cryptominer")
+                && !classifications.contains(&ThreatClassification::Cryptominer)
+            {
+                classifications.push(ThreatClassification::Cryptominer);
             }
-            if yara_match.tags.iter().any(|t| t == "injection") {
-                if !classifications.contains(&ThreatClassification::Trojan) {
-                    classifications.push(ThreatClassification::Trojan);
-                }
+            if yara_match.tags.iter().any(|t| t == "injection")
+                && !classifications.contains(&ThreatClassification::Trojan)
+            {
+                classifications.push(ThreatClassification::Trojan);
             }
         }
 

@@ -1,5 +1,7 @@
 //! Built-in threat detection rules
 
+#![allow(dead_code)]
+
 /// Get built-in YARA rules for threat detection
 #[cfg(feature = "builtin-rules")]
 pub fn get_builtin_rules() -> Vec<&'static str> {
