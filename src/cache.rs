@@ -276,8 +276,18 @@ where
     }
 
     async fn put(&self, key: K, value: V) -> std::result::Result<(), Self::Error> {
-        let entry = CacheEntry::new(key, value);
-        self.add_entry(entry).await
+        {
+            let mut entries = self.entries.write().await;
+            let key_entries = entries.entry(key.clone()).or_insert_with(Vec::new);
+            
+            // For AsyncCache trait, replace existing entries rather than add
+            key_entries.clear();
+            key_entries.push(CacheEntry::new(key, value));
+        }
+
+        // Increment operation count and check if we need to sync
+        self.increment_and_maybe_sync().await?;
+        Ok(())
     }
 
     async fn remove(&self, key: &K) -> std::result::Result<Option<V>, Self::Error> {

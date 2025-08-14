@@ -8,7 +8,7 @@ use threatflux_cache::{PersistenceConfig, SearchQuery};
 
 // Replicate file-scanner's cache entry structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct FileAnalysisResult {
+pub struct FileAnalysisResult {
     pub file_path: String,
     pub file_hash: String,
     pub tool_name: String,
@@ -44,11 +44,17 @@ impl EntryMetadata for FileAnalysisMetadata {
 }
 
 // Type alias for convenience
-type FileAnalysisCache = Cache<String, serde_json::Value, FileAnalysisMetadata>;
+#[cfg(feature = "filesystem-backend")]
+type Value = serde_json::Value;
+#[cfg(not(feature = "filesystem-backend"))]
+type Value = serde_json::Value;
 
 // Adapter functions to maintain API compatibility
 pub struct FileAnalysisCacheAdapter {
-    cache: FileAnalysisCache,
+    #[cfg(feature = "filesystem-backend")]
+    cache: Cache<String, Value, FileAnalysisMetadata, FilesystemBackend<String, Value, FileAnalysisMetadata>>,
+    #[cfg(not(feature = "filesystem-backend"))]
+    cache: Cache<String, Value, FileAnalysisMetadata, MemoryBackend<String, Value, FileAnalysisMetadata>>,
 }
 
 impl FileAnalysisCacheAdapter {

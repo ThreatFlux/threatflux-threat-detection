@@ -16,7 +16,7 @@
 //! ## Quick Start
 //!
 //! ```rust
-//! use threatflux_cache::{Cache, CacheConfig};
+//! use threatflux_cache::{Cache, CacheConfig, MemoryBackend, AsyncCache};
 //! use serde::{Serialize, Deserialize};
 //!
 //! #[derive(Serialize, Deserialize, Clone)]
@@ -26,14 +26,15 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create a cache with default configuration
-//!     let cache = Cache::<String, MyData>::new(CacheConfig::default())?;
+//!     // Create a cache with default configuration and memory backend
+//!     let backend = MemoryBackend::new();
+//!     let cache = Cache::<String, MyData>::new(CacheConfig::default(), backend).await?;
 //!     
 //!     // Store a value
 //!     cache.put("key1".to_string(), MyData { content: "Hello".to_string() }).await?;
 //!     
 //!     // Retrieve a value
-//!     if let Some(data) = cache.get("key1").await? {
+//!     if let Some(data) = cache.get(&"key1".to_string()).await? {
 //!         println!("Found: {}", data.content);
 //!     }
 //!     

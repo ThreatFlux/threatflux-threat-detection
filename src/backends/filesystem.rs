@@ -49,10 +49,39 @@ where
         self
     }
 
+    /// Sanitize a filename by removing or replacing dangerous characters
+    fn sanitize_filename(filename: &str) -> String {
+        // Replace path separators and other dangerous characters with safe alternatives
+        let mut result = filename
+            .chars()
+            .map(|c| match c {
+                '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+                c if c.is_control() => '_', // Replace control characters
+                c => c,
+            })
+            .collect::<String>();
+        
+        // Replace leading dots to prevent hidden files
+        if result.starts_with('.') {
+            result = result.replacen('.', "_", 1);
+        }
+        
+        // Clean up trailing dots and whitespace
+        result.trim_matches('.').trim().to_string()
+    }
+
     /// Get the path for a cache file
     fn get_cache_file_path(&self, key: &str) -> PathBuf {
+        let sanitized_key = Self::sanitize_filename(key);
+        // Ensure the filename isn't empty after sanitization
+        let safe_key = if sanitized_key.is_empty() {
+            "cache_entry".to_string()
+        } else {
+            sanitized_key
+        };
+        
         self.base_path
-            .join(format!("{}.{}", key, self.format.extension()))
+            .join(format!("{}.{}", safe_key, self.format.extension()))
     }
 
     /// Get the metadata file path
@@ -292,5 +321,64 @@ mod tests {
         // Check size is non-zero
         let size = backend.size_bytes().await.unwrap();
         assert!(size > 0);
+    }
+
+    #[tokio::test]
+    async fn test_path_traversal_protection() {
+        let temp_dir = TempDir::new().unwrap();
+        let backend: FilesystemBackend<String, String> =
+            FilesystemBackend::new(temp_dir.path()).await.unwrap();
+
+        // Test malicious keys that could attempt path traversal
+        let malicious_keys = vec![
+            "../etc/passwd",
+            "..\\windows\\system32\\config\\sam",
+            "/etc/shadow",
+            "C:\\Windows\\System32\\config\\SAM",
+            "../../sensitive_file",
+            "./../../../etc/hosts",
+            "../",
+            "..",
+            "test/../../../etc/passwd",
+            "normal_file/../../../etc/passwd",
+        ];
+
+        for malicious_key in malicious_keys {
+            let path = backend.get_cache_file_path(malicious_key);
+            
+            // Ensure the path is within the base directory
+            assert!(path.starts_with(&backend.base_path), 
+                   "Malicious key '{}' resulted in path outside base directory: {:?}", 
+                   malicious_key, path);
+            
+            // Ensure the filename doesn't contain path separators
+            let filename = path.file_name().unwrap().to_str().unwrap();
+            assert!(!filename.contains('/') && !filename.contains('\\'),
+                   "Filename '{}' contains path separators for key '{}'", 
+                   filename, malicious_key);
+        }
+    }
+
+    #[test]
+    fn test_filename_sanitization() {
+        // Test various dangerous characters
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd"), "_._etc_passwd");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file\\name"), "file_name");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file:name"), "file_name");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file*name"), "file_name");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file?name"), "file_name");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file\"name"), "file_name");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file<name>"), "file_name_");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file|name"), "file_name");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename(".hidden"), "_hidden");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("..."), "_");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename(""), "");
+        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("   "), "");
+        
+        // Test the most important security aspect: no path traversal
+        let result = FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd");
+        assert!(!result.contains('/'));
+        assert!(!result.contains('\\'));
+        assert!(!result.starts_with('.'));
     }
 }
