@@ -178,3 +178,82 @@ threatflux-cache/cache_data/
 *.toml.backup
 *_old.rs.bak
 *_refactored.rs
+
+# Workspace library-specific Cargo.lock files (use only root Cargo.lock)
+threatflux-*/Cargo.lock
+
+# Workspace-wide IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.#*
+\#*#
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux specific
+*~
+.nfs*
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Rust analyzer files
+.rust-analyzer/
+
+# Additional temporary and backup files
+*.bak
+*.orig
+*.tmp
+*.temp
+
+# Log files
+*.log
+*.log.*
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+*.un~
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# VS Code
+.vscode/
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Additional documentation build outputs
+doc/
+docs/build/
+book/
