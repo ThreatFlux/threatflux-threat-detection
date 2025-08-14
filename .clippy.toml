@@ -29,9 +29,9 @@ trivial-copy-size-limit = 128
 allowed-scripts = ["Latin"]
 
 # Don't warn about these common dependency names
-standard-macro-braces = [
-    { name = "serde_json::json", brace = "[]" },
-]
+# standard-macro-braces = [
+#     { name = "serde_json::json", brace = "[]" },
+# ]
 
 # Module inception depth limit
 max-trait-bounds = 3

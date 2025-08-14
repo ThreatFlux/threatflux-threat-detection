@@ -152,7 +152,7 @@ impl DetectionEngine for ClamAVEngine {
                     file_size_scanned: file_size,
                 },
                 recommendations: vec![
-                    "Enable clamav-engine feature for antivirus scanning".to_string()
+                    "Enable clamav-engine feature for antivirus scanning".to_string(),
                 ],
             })
         }

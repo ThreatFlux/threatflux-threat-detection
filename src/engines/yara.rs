@@ -160,7 +160,7 @@ impl DetectionEngine for YaraEngine {
                     file_size_scanned: file_size,
                 },
                 recommendations: vec![
-                    "Enable YARA engine feature for comprehensive scanning".to_string()
+                    "Enable YARA engine feature for comprehensive scanning".to_string(),
                 ],
             })
         }

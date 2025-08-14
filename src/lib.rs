@@ -48,9 +48,15 @@ pub use types::{
 use std::path::Path;
 use std::sync::Arc;
 
+/// Type alias for detection engine collection
+pub type DetectionEngines = Vec<Box<dyn DetectionEngine>>;
+
+/// Type alias for engine info collection  
+pub type EngineInfoList = Vec<(String, String)>;
+
 /// Main threat detection interface
 pub struct ThreatDetector {
-    engines: Vec<Box<dyn DetectionEngine>>,
+    engines: DetectionEngines,
     config: Arc<ScanConfig>,
 }
 
@@ -96,7 +102,7 @@ impl ThreatDetector {
     /// Create a new threat detector with custom configuration
     pub async fn with_config(config: ThreatDetectorConfig) -> Result<Self> {
         #[allow(unused_mut)]
-        let mut engines: Vec<Box<dyn DetectionEngine>> = Vec::new();
+        let mut engines: DetectionEngines = Vec::new();
 
         // Initialize YARA engine
         #[cfg(feature = "yara-engine")]
@@ -241,7 +247,7 @@ impl ThreatDetector {
     }
 
     /// Get engine information
-    pub fn get_engine_info(&self) -> Vec<(String, String)> {
+    pub fn get_engine_info(&self) -> EngineInfoList {
         self.engines
             .iter()
             .map(|e| (e.engine_type().to_string(), e.version().to_string()))
