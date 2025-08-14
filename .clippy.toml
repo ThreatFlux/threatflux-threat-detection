@@ -1,0 +1,43 @@
+# Clippy configuration for threatflux-cache
+# Ensures high code quality and security standards
+
+# Set cognitive complexity threshold
+cognitive-complexity-threshold = 30
+
+# Set type complexity threshold
+type-complexity-threshold = 60
+
+# Set too many arguments threshold
+too-many-arguments-threshold = 7
+
+# Set too many lines threshold for functions
+too-many-lines-threshold = 100
+
+# Avoid false positives on common patterns
+avoid-breaking-exported-api = false
+
+# Maximum allowed size for arrays on the stack
+array-size-threshold = 512000
+
+# Maximum allowed size for collections
+vec-box-size-threshold = 4096
+
+# Maximum allowed size for passing structs by value
+trivial-copy-size-limit = 128
+
+# Allowed scripts (for unicode lint)
+allowed-scripts = ["Latin"]
+
+# Don't warn about these common dependency names
+standard-macro-braces = [
+    { name = "serde_json::json", brace = "[]" },
+]
+
+# Module inception depth limit
+max-trait-bounds = 3
+
+# Single char binding names that are allowed
+single-char-binding-names-threshold = 4
+
+# Msrv (minimum supported rust version)
+msrv = "1.75.0"
