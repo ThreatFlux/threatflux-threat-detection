@@ -52,7 +52,7 @@ pub struct FileAnalysisCacheAdapter {
 }
 
 impl FileAnalysisCacheAdapter {
-    pub async fn new(cache_dir: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(cache_dir: &str) -> std::result::Result<Self, Box<dyn std::error::Error>> {
         let config = CacheConfig::default()
             .with_max_entries_per_key(100)
             .with_max_total_entries(10000)
@@ -71,7 +71,7 @@ impl FileAnalysisCacheAdapter {
     pub async fn add_entry(
         &self,
         entry: FileAnalysisResult,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let metadata = FileAnalysisMetadata {
             file_path: entry.file_path,
             tool_name: entry.tool_name,
@@ -121,7 +121,7 @@ impl FileAnalysisCacheAdapter {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Create adapter with file-scanner compatible API
     let adapter = FileAnalysisCacheAdapter::new("/tmp/file-scanner-cache").await?;
 

@@ -6,14 +6,14 @@ use threatflux_cache::{AsyncCache, Cache, CacheConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct TestData {
-    id: u32,
+    id: usize,
     name: String,
     value: i32,
     data: Vec<u8>,
 }
 
 impl TestData {
-    fn new(id: u32, name: &str, value: i32) -> Self {
+    fn new(id: usize, name: &str, value: i32) -> Self {
         Self {
             id,
             name: name.to_string(),
@@ -22,7 +22,7 @@ impl TestData {
         }
     }
 
-    fn large(id: u32, size_kb: usize) -> Self {
+    fn large(id: usize, size_kb: usize) -> Self {
         Self {
             id,
             name: format!("large_data_{}", id),
@@ -90,7 +90,7 @@ async fn test_cache_multiple_entries() {
         .await
         .unwrap();
 
-    let num_entries = 100;
+    let num_entries = 100usize;
 
     // Insert multiple entries
     for i in 0..num_entries {
@@ -179,8 +179,8 @@ async fn test_cache_concurrent_operations() {
             .unwrap(),
     );
 
-    let num_tasks = 10;
-    let entries_per_task = 100;
+    let num_tasks = 10usize;
+    let entries_per_task = 100usize;
 
     // Concurrent writes
     let mut write_handles = vec![];
@@ -234,7 +234,7 @@ async fn test_cache_with_custom_config() {
     let config = CacheConfig::default()
         .with_max_entries_per_key(3)
         .with_max_total_entries(50)
-        .with_default_ttl(Some(Duration::from_secs(60)));
+        .with_default_ttl(Duration::from_secs(60));
 
     let cache = Cache::<String, TestData>::with_config(config)
         .await
@@ -262,14 +262,14 @@ async fn test_cache_large_data_handling() {
 
     for (i, size) in sizes_kb.iter().enumerate() {
         let key = format!("large_key_{}", i);
-        let data = TestData::large(i as u32, *size);
+        let data = TestData::large(i, *size);
 
         // Store large data
         cache.put(key.clone(), data.clone()).await.unwrap();
 
         // Retrieve and verify
         let retrieved = cache.get(&key).await.unwrap().unwrap();
-        assert_eq!(retrieved.id, i as u32);
+        assert_eq!(retrieved.id, i);
         assert_eq!(retrieved.data.len(), size * 1024);
         assert_eq!(retrieved, data);
     }
@@ -387,7 +387,7 @@ async fn test_cache_performance_characteristics() {
         .await
         .unwrap();
 
-    let num_entries = 10000;
+    let num_entries = 10000usize;
 
     // Measure insertion performance
     let start_time = std::time::Instant::now();
@@ -436,7 +436,7 @@ async fn test_cache_memory_efficiency() {
         .unwrap();
 
     // Add many entries and then remove them to test memory cleanup
-    let batch_size = 1000;
+    let batch_size = 1000usize;
     let num_batches = 10;
 
     for batch in 0..num_batches {
