@@ -16,7 +16,7 @@ categories = ["cryptography", "network-programming", "development-tools"]
 [features]
 default = ["pattern-matching", "builtin-rules", "serde-support"]
 yara-engine = ["yara-x"]
-clamav-engine = ["clamav-rs"]
+clamav-engine = ["clamav-rs"]  # Optional feature, disabled by default due to system dependency requirements
 pattern-matching = ["aho-corasick", "regex"]
 rule-management = ["git2", "reqwest"]
 builtin-rules = []
