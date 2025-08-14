@@ -1,0 +1,48 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Cargo.lock (for libraries)
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Coverage files
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Benchmark results
+target/criterion/
+*.prof
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation build
+/doc/
+
+# Testing artifacts
+.cache/
