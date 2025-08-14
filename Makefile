@@ -1,4 +1,7 @@
-.PHONY: help init build test test-parallel test-unit test-hash test-mcp test-analysis test-integration test-legacy install clean run-debug run-release docker-build docker-run docker-run-http lint fmt check deps update security-audit dev dev-full ci ci-full prepare-release coverage coverage-html setup-optimization
+# Define all ThreatFlux libraries
+LIBRARIES := threatflux-hashing threatflux-string-analysis threatflux-cache threatflux-binary-analysis threatflux-threat-detection threatflux-package-security
+
+.PHONY: help init build test test-parallel test-unit test-hash test-mcp test-analysis test-integration test-legacy install clean run-debug run-release docker-build docker-run docker-run-http lint fmt check deps update security-audit dev dev-full ci ci-full prepare-release coverage coverage-html setup-optimization libs-% parallel-%
 
 # Default target
 help:
@@ -35,6 +38,21 @@ help:
 	@echo "  docker-build  - Build Docker image"
 	@echo "  docker-run    - Run Docker container"
 	@echo "  docker-run-http - Run Docker container in MCP HTTP mode (port 3111)"
+	@echo ""
+	@echo "LIBRARY COMMANDS:"
+	@echo "  libs-build    - Build all ThreatFlux libraries"
+	@echo "  libs-test     - Test all ThreatFlux libraries"
+	@echo "  libs-fmt      - Format all ThreatFlux libraries"
+	@echo "  libs-clippy   - Lint all ThreatFlux libraries"
+	@echo "  libs-clean    - Clean all ThreatFlux libraries"
+	@echo "  parallel-fmt  - Format all libraries in parallel"
+	@echo "  parallel-clippy - Lint all libraries in parallel"
+	@echo "  parallel-test - Test all libraries in parallel"
+	@echo ""
+	@echo "INDIVIDUAL LIBRARY COMMANDS:"
+	@echo "  <library>-<command> - Run command on specific library"
+	@echo "  Available libraries: $(LIBRARIES)"
+	@echo "  Available commands: build, test, fmt, clippy, clean"
 	@echo ""
 	@echo "MISC COMMANDS:"
 	@echo "  deps          - Update dependencies"
@@ -259,3 +277,71 @@ docs:
 version:
 	@echo "File Scanner version:"
 	@cargo pkgid | cut -d# -f2
+
+# Library-specific targets
+libs-build:
+	@echo "🔨 Building all ThreatFlux libraries..."
+	@for lib in $(LIBRARIES); do \
+		echo "Building $$lib..."; \
+		cd $$lib && make build && cd ..; \
+	done
+
+libs-test:
+	@echo "🧪 Testing all ThreatFlux libraries..."
+	@for lib in $(LIBRARIES); do \
+		echo "Testing $$lib..."; \
+		cd $$lib && make test && cd ..; \
+	done
+
+libs-fmt:
+	@echo "🎨 Formatting all ThreatFlux libraries..."
+	@for lib in $(LIBRARIES); do \
+		echo "Formatting $$lib..."; \
+		cd $$lib && make fmt && cd ..; \
+	done
+
+libs-clippy:
+	@echo "📎 Linting all ThreatFlux libraries..."
+	@for lib in $(LIBRARIES); do \
+		echo "Linting $$lib..."; \
+		cd $$lib && make clippy && cd ..; \
+	done
+
+libs-clean:
+	@echo "🧹 Cleaning all ThreatFlux libraries..."
+	@for lib in $(LIBRARIES); do \
+		echo "Cleaning $$lib..."; \
+		cd $$lib && make clean && cd ..; \
+	done
+
+# Parallel targets for faster execution
+parallel-fmt:
+	@echo "🎨 Formatting all ThreatFlux libraries in parallel..."
+	@echo $(LIBRARIES) | tr ' ' '\n' | xargs -I {} -P 6 sh -c 'cd {} && make fmt'
+
+parallel-clippy:
+	@echo "📎 Linting all ThreatFlux libraries in parallel..."
+	@echo $(LIBRARIES) | tr ' ' '\n' | xargs -I {} -P 6 sh -c 'cd {} && make clippy'
+
+parallel-test:
+	@echo "🧪 Testing all ThreatFlux libraries in parallel..."
+	@echo $(LIBRARIES) | tr ' ' '\n' | xargs -I {} -P 6 sh -c 'cd {} && make test'
+
+# Individual library targets
+threatflux-hashing-%:
+	@cd threatflux-hashing && make $*
+
+threatflux-string-analysis-%:
+	@cd threatflux-string-analysis && make $*
+
+threatflux-cache-%:
+	@cd threatflux-cache && make $*
+
+threatflux-binary-analysis-%:
+	@cd threatflux-binary-analysis && make $*
+
+threatflux-threat-detection-%:
+	@cd threatflux-threat-detection && make $*
+
+threatflux-package-security-%:
+	@cd threatflux-package-security && make $*
