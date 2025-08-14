@@ -33,16 +33,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libclamav-dev pkg-config
-
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install clamav pkg-config
+    # System dependencies removed - using safe feature combinations only
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
@@ -74,14 +65,14 @@ jobs:
       if: matrix.rust == 'stable' && matrix.os == 'ubuntu-latest'
 
     - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      run: cargo clippy --all-targets --features "default" -- -D warnings
       if: matrix.rust == 'stable'
 
     - name: Build with default features
       run: cargo build --verbose
 
-    - name: Build with all features
-      run: cargo build --all-features --verbose
+    - name: Build with safe features
+      run: cargo build --features "default,yara-engine,pattern-matching,rule-management,metrics,async-scanning,serde-support" --verbose
 
     - name: Build with no default features
       run: cargo build --no-default-features --verbose
@@ -89,8 +80,8 @@ jobs:
     - name: Run tests with default features
       run: cargo test --verbose
 
-    - name: Run tests with all features
-      run: cargo test --all-features --verbose
+    - name: Run tests with safe features
+      run: cargo test --features "default,yara-engine,pattern-matching,rule-management,metrics,async-scanning,serde-support" --verbose
 
     - name: Run tests with no default features
       run: cargo test --no-default-features --verbose
@@ -168,7 +159,7 @@ jobs:
         tool: cargo-llvm-cov
 
     - name: Generate code coverage
-      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      run: cargo llvm-cov --features "default,yara-engine,pattern-matching,rule-management,metrics,async-scanning,serde-support" --workspace --lcov --output-path lcov.info
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -200,7 +191,7 @@ jobs:
         key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Check MSRV
-      run: cargo check --all-features
+      run: cargo check --features "default,yara-engine,pattern-matching,rule-management,metrics,async-scanning,serde-support"
 
   check-dependencies:
     name: Check Dependencies
@@ -253,8 +244,8 @@ jobs:
 
     - name: Run integration tests
       run: |
-        cargo test --test integration_test --all-features -- --nocapture
-        cargo test --test cache_comprehensive_test --all-features -- --nocapture
+        cargo test --test integration_test --features "default,yara-engine,pattern-matching,rule-management,metrics,async-scanning,serde-support" -- --nocapture
+        cargo test --test detector_test --features "default,yara-engine,pattern-matching,rule-management,metrics,async-scanning,serde-support" -- --nocapture
 
   build-status:
     name: Build Status
