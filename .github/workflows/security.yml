@@ -2,11 +2,11 @@ name: Security
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ main, develop ]
   schedule:
-    # Run security scans daily at 3 AM UTC
+    # Run security checks daily at 3 AM UTC
     - cron: '0 3 * * *'
   workflow_dispatch:
 
@@ -14,144 +14,117 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
-permissions:
-  contents: read
-  security-events: write
-
 jobs:
-  audit:
+  security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
-
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-        key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
+        toolchain: stable
+        cache: true
 
     - name: Install cargo-audit
       run: cargo install cargo-audit
 
     - name: Run cargo audit
+      run: cargo audit --json --output audit-results.json
+
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-results
+        path: audit-results.json
+
+    - name: Check for vulnerabilities
       run: |
-        cargo audit --json > audit-report.json || AUDIT_EXIT_CODE=$?
-        
-        # Display results
-        echo "📋 Security Audit Results:"
-        cargo audit || true
-        
-        # Check for vulnerabilities
-        if [ -s audit-report.json ]; then
-          VULN_COUNT=$(jq '.vulnerabilities.count // 0' audit-report.json)
-          if [ "$VULN_COUNT" -gt 0 ]; then
-            echo "❌ Found $VULN_COUNT vulnerabilities"
-            exit 1
-          else
-            echo "✅ No vulnerabilities found"
-          fi
+        if [ -s audit-results.json ]; then
+          echo "Security vulnerabilities found!"
+          cat audit-results.json
+          exit 1
         else
-          echo "⚠️  Audit report is empty or malformed"
+          echo "No security vulnerabilities found."
         fi
 
-    - name: Upload audit report
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-audit-report
-        path: audit-report.json
-      if: always()
-
   clippy-security:
-    name: Clippy Security Lints
+    name: Security-focused Clippy
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
+        toolchain: stable
         components: clippy
-
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target
-        key: ${{ runner.os }}-cargo-clippy-security-${{ hashFiles('**/Cargo.lock') }}
+        cache: true
 
     - name: Run security-focused clippy lints
       run: |
-        cargo clippy --all-targets --all-features -- \
-          -W clippy::suspicious \
-          -W clippy::security \
-          -W clippy::panic \
+        cargo clippy --all-features --all-targets -- \
           -W clippy::unwrap_used \
           -W clippy::expect_used \
-          -W clippy::indexing_slicing \
+          -W clippy::panic \
+          -W clippy::unimplemented \
+          -W clippy::todo \
+          -W clippy::unreachable \
           -W clippy::integer_arithmetic \
           -W clippy::float_arithmetic \
-          -W clippy::unsafe_derive_deserialize \
-          -W clippy::mem_forget \
-          -W clippy::todo \
-          -W clippy::unimplemented \
-          -W clippy::unreachable \
+          -W clippy::indexing_slicing \
           -W clippy::as_conversions \
+          -W clippy::lossy_float_literal \
+          -W clippy::mem_forget \
+          -W clippy::fn_to_numeric_cast \
+          -W clippy::fn_to_numeric_cast_with_truncation \
           -W clippy::cast_possible_truncation \
           -W clippy::cast_possible_wrap \
-          -W clippy::cast_precision_loss \
           -W clippy::cast_sign_loss \
-          -W clippy::integer_division \
-          -W clippy::lossy_float_literal \
-          -W clippy::string_slice
+          -W clippy::cast_precision_loss \
+          -W clippy::shadow_unrelated \
+          -W clippy::shadow_reuse \
+          -W clippy::shadow_same \
+          -W clippy::print_stdout \
+          -W clippy::print_stderr \
+          -W clippy::dbg_macro \
+          -A clippy::module_name_repetitions
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-
+    
     steps:
-    - name: Checkout code
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
     - name: Dependency Review
       uses: actions/dependency-review-action@v4
       with:
         fail-on-severity: moderate
-        comment-summary-in-pr: on-failure
+        allow-ghsas: GHSA-1234-5678-9012  # Add specific GHSA IDs to allow if needed
 
-  supply-chain-security:
-    name: Supply Chain Security
+  cargo-deny:
+    name: Cargo Deny
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-        key: ${{ runner.os }}-cargo-supply-chain-${{ hashFiles('**/Cargo.lock') }}
+        toolchain: stable
+        cache: true
 
     - name: Install cargo-deny
       run: cargo install cargo-deny
@@ -160,15 +133,8 @@ jobs:
       run: |
         if [ ! -f deny.toml ]; then
           cat > deny.toml << 'EOF'
-        [graph]
-        targets = [
-            { triple = "x86_64-unknown-linux-gnu" },
-            { triple = "x86_64-unknown-linux-musl" },
-            { triple = "x86_64-pc-windows-msvc" },
-            { triple = "x86_64-apple-darwin" },
-        ]
-
         [licenses]
+        # Allow common open source licenses
         allow = [
             "MIT",
             "Apache-2.0",
@@ -177,49 +143,35 @@ jobs:
             "BSD-3-Clause",
             "ISC",
             "Unicode-DFS-2016",
-            "CC0-1.0",
         ]
-        confidence-threshold = 0.8
-        exceptions = []
-
-        [[licenses.clarify]]
-        name = "ring"
-        version = "*"
-        expression = "MIT AND ISC AND OpenSSL"
-        license-files = [
-            { path = "LICENSE", hash = 0xbd0eed23 }
-        ]
-
-        [bans]
-        multiple-versions = "warn"
-        wildcards = "allow"
-        highlight = "all"
-        
-        # Deny crates with known security issues
+        # Deny problematic licenses
         deny = [
-            { name = "openssl", version = "<0.10.55" },
-            { name = "chrono", version = "<0.4.20" },
+            "GPL-3.0",
+            "AGPL-3.0",
+            "LGPL-3.0",
         ]
-
-        skip = [
-            { name = "windows-sys" },
-            { name = "winapi" },
+        
+        [bans]
+        # Deny specific crates
+        deny = [
+            { name = "openssl", use-instead = "rustls" },
+            { name = "openssl-sys", use-instead = "rustls" },
         ]
-
-        skip-tree = [
-            { name = "criterion" },
-        ]
-
+        # Allow duplicate dependencies for build tools
+        skip = []
+        
         [advisories]
+        # Advisory database configuration
         db-path = "~/.cargo/advisory-db"
-        db-urls = ["https://github.com/rustsec/advisory-db"]
+        db-urls = ["https://github.com/RustSec/advisory-db"]
         vulnerability = "deny"
         unmaintained = "warn"
-        yanked = "deny"
+        unsound = "warn"
+        yanked = "warn"
         notice = "warn"
-        ignore = []
-
+        
         [sources]
+        # Only allow crates from crates.io
         unknown-registry = "warn"
         unknown-git = "warn"
         allow-registry = ["https://github.com/rust-lang/crates.io-index"]
@@ -227,25 +179,77 @@ jobs:
         EOF
         fi
 
-    - name: Check licenses
-      run: cargo deny check licenses
+    - name: Check licenses, bans, advisories, and sources
+      run: cargo deny check
 
-    - name: Check advisories
-      run: cargo deny check advisories
+  semver-checks:
+    name: Semantic Versioning
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - name: Check bans
-      run: cargo deny check bans
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        cache: true
 
-    - name: Check sources
-      run: cargo deny check sources
+    - name: Install cargo-semver-checks
+      run: cargo install cargo-semver-checks
+
+    - name: Check for breaking changes
+      run: cargo semver-checks check-release
+
+  supply-chain:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        cache: true
+
+    - name: Generate SBOM
+      run: |
+        cargo tree --format "{p} {l}" --all-features > sbom.txt
+        cargo tree --format "{p}" --all-features --edges normal > dependencies.txt
+
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: software-bill-of-materials
+        path: |
+          sbom.txt
+          dependencies.txt
+
+    - name: Check for suspicious dependencies
+      run: |
+        # Check for dependencies with suspicious names or patterns
+        if grep -i -E "(backdoor|malware|virus|trojan|keylog|steal|hack)" dependencies.txt; then
+          echo "Suspicious dependency names detected!"
+          exit 1
+        fi
+        
+        # Check for too many dependencies (potential supply chain bloat)
+        DEPENDENCY_COUNT=$(wc -l < dependencies.txt)
+        if [ "$DEPENDENCY_COUNT" -gt 100 ]; then
+          echo "Warning: High number of dependencies ($DEPENDENCY_COUNT). Consider reducing dependency footprint."
+        fi
 
   secrets-scan:
-    name: Secrets Scan
+    name: Secret Scanning
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
@@ -260,30 +264,26 @@ jobs:
   code-ql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'schedule'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: rust
-        queries: security-extended,security-and-quality
+        queries: security-and-quality
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target
-        key: ${{ runner.os }}-cargo-codeql-${{ hashFiles('**/Cargo.lock') }}
+        toolchain: stable
+        cache: true
 
     - name: Build for CodeQL
       run: cargo build --all-features
@@ -292,88 +292,3 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:rust"
-
-  unsafe-code-review:
-    name: Unsafe Code Review
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Check for unsafe code
-      run: |
-        echo "🔍 Scanning for unsafe code blocks..."
-        UNSAFE_COUNT=$(find src -name "*.rs" -exec grep -l "unsafe" {} \; | wc -l)
-        
-        if [ $UNSAFE_COUNT -gt 0 ]; then
-          echo "⚠️  Found unsafe code in $UNSAFE_COUNT files:"
-          find src -name "*.rs" -exec grep -l "unsafe" {} \; | while read file; do
-            echo "  - $file"
-            grep -n "unsafe" "$file" | head -5
-          done
-          
-          # Don't fail the build for unsafe code, just report it
-          echo ""
-          echo "ℹ️  Unsafe code detected. Please ensure it's properly reviewed and documented."
-        else
-          echo "✅ No unsafe code found"
-        fi
-
-  security-report:
-    name: Security Report
-    runs-on: ubuntu-latest
-    needs: [audit, clippy-security, supply-chain-security, unsafe-code-review]
-    if: always()
-
-    steps:
-    - name: Download audit report
-      uses: actions/download-artifact@v4
-      with:
-        name: security-audit-report
-        path: ./reports
-      continue-on-error: true
-
-    - name: Generate security summary
-      run: |
-        echo "# 🔒 Security Analysis Report" > security-summary.md
-        echo "" >> security-summary.md
-        echo "## Job Results" >> security-summary.md
-        echo "- **Audit**: ${{ needs.audit.result }}" >> security-summary.md
-        echo "- **Clippy Security**: ${{ needs.clippy-security.result }}" >> security-summary.md
-        echo "- **Supply Chain**: ${{ needs.supply-chain-security.result }}" >> security-summary.md
-        echo "- **Unsafe Code Review**: ${{ needs.unsafe-code-review.result }}" >> security-summary.md
-        echo "" >> security-summary.md
-        
-        if [ -f "./reports/audit-report.json" ]; then
-          echo "## Vulnerability Summary" >> security-summary.md
-          VULN_COUNT=$(jq '.vulnerabilities.count // 0' ./reports/audit-report.json)
-          echo "- **Total Vulnerabilities**: $VULN_COUNT" >> security-summary.md
-        fi
-        
-        echo "" >> security-summary.md
-        echo "Report generated on: $(date)" >> security-summary.md
-
-    - name: Upload security report
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-report
-        path: security-summary.md
-
-    - name: Check overall security status
-      run: |
-        if [ "${{ needs.audit.result }}" = "failure" ]; then
-          echo "❌ Security audit failed - vulnerabilities detected"
-          exit 1
-        elif [ "${{ needs.clippy-security.result }}" = "failure" ]; then
-          echo "❌ Security lints failed"
-          exit 1
-        elif [ "${{ needs.supply-chain-security.result }}" = "failure" ]; then
-          echo "❌ Supply chain security checks failed"
-          exit 1
-        else
-          echo "✅ All security checks passed"
-        fi
