@@ -86,12 +86,7 @@ jobs:
     - name: Run tests with no default features
       run: cargo test --no-default-features --verbose
 
-    - name: Run examples
-      run: |
-        cargo run --example basic_usage
-        cargo run --example custom_entry
-        cargo run --example file_scanner_migration
-      if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+    # Examples step removed - no examples directory in this package
 
   benchmarks:
     name: Benchmarks
@@ -244,8 +239,8 @@ jobs:
 
     - name: Run integration tests
       run: |
-        cargo test --test integration_test --features "default" -- --nocapture
         cargo test --test detector_test --features "default" -- --nocapture
+        cargo test --test types_test --features "default" -- --nocapture
 
   build-status:
     name: Build Status
