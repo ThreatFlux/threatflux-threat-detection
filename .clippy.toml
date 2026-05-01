@@ -40,4 +40,4 @@ max-trait-bounds = 3
 single-char-binding-names-threshold = 4
 
 # Msrv (minimum supported rust version)
-msrv = "1.75.0"
+msrv = "1.95.0"
