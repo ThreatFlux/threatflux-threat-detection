@@ -45,7 +45,7 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Validate Cargo.toml version
@@ -87,7 +87,7 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Build release
@@ -113,7 +113,7 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Publish to Crates.io
@@ -136,7 +136,7 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Generate changelog
@@ -204,7 +204,7 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Build documentation
