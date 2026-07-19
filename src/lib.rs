@@ -114,7 +114,10 @@ impl ThreatDetector {
         // Initialize ClamAV engine
         #[cfg(feature = "clamav-engine")]
         if config.enable_clamav {
-            let clamav_engine = engines::clamav::ClamAVEngine::new().await?;
+            let clamav_engine = engines::clamav::ClamAVEngine::with_timeout(
+                std::time::Duration::from_secs(config.scan_timeout),
+            )
+            .await?;
             engines.push(Box::new(clamav_engine));
         }
 

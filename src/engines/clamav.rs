@@ -13,11 +13,14 @@ use std::time::Duration;
 use clamav_client::tokio::{self as clamd, Tcp};
 
 const DEFAULT_CLAMD_ADDRESS: &str = "127.0.0.1:3310";
+const DEFAULT_CLAMD_SCAN_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// ClamAV based detection engine
 pub struct ClamAVEngine {
     #[cfg(feature = "clamav-engine")]
     clamd_address: Option<String>,
+    #[cfg(feature = "clamav-engine")]
+    scan_timeout: Duration,
     #[cfg(not(feature = "clamav-engine"))]
     _placeholder: (),
 }
@@ -25,17 +28,24 @@ pub struct ClamAVEngine {
 impl ClamAVEngine {
     /// Create new ClamAV engine
     pub async fn new() -> Result<Self> {
+        Self::with_timeout(DEFAULT_CLAMD_SCAN_TIMEOUT).await
+    }
+
+    #[cfg(feature = "clamav-engine")]
+    pub(crate) async fn with_timeout(scan_timeout: Duration) -> Result<Self> {
         #[cfg(feature = "clamav-engine")]
         {
             // Initialize ClamAV engine
             match Self::initialize_clamav().await {
                 Ok(address) => Ok(Self {
                     clamd_address: Some(address),
+                    scan_timeout,
                 }),
                 Err(e) => {
                     log::warn!("Failed to initialize ClamAV engine: {}", e);
                     Ok(Self {
                         clamd_address: None,
+                        scan_timeout,
                     })
                 }
             }
@@ -179,17 +189,34 @@ impl ClamAVEngine {
 
     #[cfg(feature = "clamav-engine")]
     async fn scan_with_clamav(&self, address: &str, target: &ScanTarget) -> Result<ThreatAnalysis> {
-        let connection = Tcp {
-            host_address: address,
+        let scan = async {
+            match target {
+                ScanTarget::File(path) => clamd::scan_file(
+                    path,
+                    Tcp {
+                        host_address: address,
+                    },
+                    None,
+                )
+                .await
+                .map_err(|error| ThreatError::clamav(format!("Clamd scan failed: {error}"))),
+                ScanTarget::Memory { data, .. } => clamd::scan_buffer(
+                    data,
+                    Tcp {
+                        host_address: address,
+                    },
+                    None,
+                )
+                .await
+                .map_err(|error| ThreatError::clamav(format!("Clamd scan failed: {error}"))),
+                ScanTarget::Directory(_) => Err(ThreatError::clamav(
+                    "Directory scanning not supported by this ClamAV engine",
+                )),
+            }
         };
-        let response = match target {
-            ScanTarget::File(path) => clamd::scan_file(path, connection, None).await,
-            ScanTarget::Memory { data, .. } => clamd::scan_buffer(data, connection, None).await,
-            ScanTarget::Directory(_) => Err(ThreatError::clamav(
-                "Directory scanning not supported by this ClamAV engine",
-            ))?,
-        }
-        .map_err(|error| ThreatError::clamav(format!("Clamd scan failed: {error}")))?;
+        let response = tokio::time::timeout(self.scan_timeout, scan)
+            .await
+            .map_err(|_| ThreatError::scan_timeout(self.scan_timeout.as_secs()))??;
 
         Self::analysis_from_response(&response)
     }
@@ -330,5 +357,44 @@ mod tests {
         let error = ClamAVEngine::analysis_from_response(b"stream: size limit exceeded ERROR\0")
             .expect_err("error response should be rejected");
         assert!(error.to_string().contains("Unexpected clamd scan response"));
+    }
+
+    #[tokio::test]
+    async fn times_out_when_clamd_stalls() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test listener should bind");
+        let address = listener
+            .local_addr()
+            .expect("test listener should have an address")
+            .to_string();
+        let server = tokio::spawn(async move {
+            let (_connection, _) = listener
+                .accept()
+                .await
+                .expect("test server should accept a connection");
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        });
+        let engine = ClamAVEngine {
+            clamd_address: Some(address.clone()),
+            scan_timeout: Duration::from_secs(1),
+        };
+
+        let error = engine
+            .scan_with_clamav(
+                &address,
+                &ScanTarget::Memory {
+                    data: b"test payload".to_vec(),
+                    name: Some("timeout-test".to_string()),
+                },
+            )
+            .await
+            .expect_err("stalled clamd scan should time out");
+
+        assert!(matches!(
+            error,
+            ThreatError::ScanTimeout { timeout_secs: 1 }
+        ));
+        server.abort();
     }
 }
