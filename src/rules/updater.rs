@@ -229,13 +229,10 @@ fn read_cloned_git_rules(source_url: &str, clone_directory: &Path) -> Result<Str
 mod tests {
     use super::*;
 
-    #[test]
-    fn fetches_rules_from_local_git_repository() {
-        let temporary = tempfile::tempdir().expect("temporary directory should be created");
-        let source_directory = temporary.path().join("source");
-        std::fs::create_dir(&source_directory).expect("source directory should be created");
+    fn create_rule_repository(source_directory: &Path) {
+        std::fs::create_dir(source_directory).expect("source directory should be created");
 
-        let repository = git2::Repository::init(&source_directory)
+        let repository = git2::Repository::init(source_directory)
             .expect("source repository should be initialized");
         std::fs::write(
             source_directory.join("example.yar"),
@@ -268,6 +265,13 @@ mod tests {
             .expect("commit should be created");
         drop(tree);
         drop(repository);
+    }
+
+    #[test]
+    fn fetches_rules_from_local_git_repository() {
+        let temporary = tempfile::tempdir().expect("temporary directory should be created");
+        let source_directory = temporary.path().join("source");
+        create_rule_repository(&source_directory);
 
         let cache_directory = temporary.path().join("cache");
         let rules = read_git_rules(

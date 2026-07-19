@@ -195,6 +195,54 @@ impl ClamAVEngine {
     }
 
     #[cfg(feature = "clamav-engine")]
+    fn detected_analysis(signature: &str) -> ThreatAnalysis {
+        ThreatAnalysis {
+            matches: vec![YaraMatch {
+                rule_identifier: signature.to_string(),
+                tags: vec!["clamav".to_string(), "malware".to_string()],
+                metadata: HashMap::from([("engine".to_string(), "ClamAV".to_string())]),
+                strings: Vec::new(),
+            }],
+            threat_level: ThreatLevel::Malicious,
+            classifications: vec![ThreatClassification::Virus],
+            indicators: vec![ThreatIndicator {
+                indicator_type: IndicatorType::KnownMalwareFamily,
+                description: format!("ClamAV detected {signature}"),
+                severity: Severity::Critical,
+                confidence: 1.0,
+                mitre_technique: None,
+                context: HashMap::from([("signature".to_string(), signature.to_string())]),
+            }],
+            scan_stats: crate::types::ScanStatistics {
+                scan_duration: Duration::default(),
+                rules_evaluated: 1,
+                patterns_matched: 1,
+                file_size_scanned: 0,
+            },
+            recommendations: vec![
+                "Quarantine the detected file and investigate its origin".to_string(),
+            ],
+        }
+    }
+
+    #[cfg(feature = "clamav-engine")]
+    fn clean_analysis() -> ThreatAnalysis {
+        ThreatAnalysis {
+            matches: Vec::new(),
+            threat_level: ThreatLevel::Clean,
+            classifications: Vec::new(),
+            indicators: Vec::new(),
+            scan_stats: crate::types::ScanStatistics {
+                scan_duration: Duration::default(),
+                rules_evaluated: 1,
+                patterns_matched: 0,
+                file_size_scanned: 0,
+            },
+            recommendations: Vec::new(),
+        }
+    }
+
+    #[cfg(feature = "clamav-engine")]
     fn analysis_from_response(response: &[u8]) -> Result<ThreatAnalysis> {
         let response = std::str::from_utf8(response)
             .map_err(|error| ThreatError::clamav(format!("Invalid clamd response: {error}")))?
@@ -206,49 +254,10 @@ impl ClamAVEngine {
             .and_then(|result| result.rsplit_once(": ").map(|(_, name)| name));
 
         if let Some(signature) = signature {
-            return Ok(ThreatAnalysis {
-                matches: vec![YaraMatch {
-                    rule_identifier: signature.to_string(),
-                    tags: vec!["clamav".to_string(), "malware".to_string()],
-                    metadata: HashMap::from([("engine".to_string(), "ClamAV".to_string())]),
-                    strings: Vec::new(),
-                }],
-                threat_level: ThreatLevel::Malicious,
-                classifications: vec![ThreatClassification::Virus],
-                indicators: vec![ThreatIndicator {
-                    indicator_type: IndicatorType::KnownMalwareFamily,
-                    description: format!("ClamAV detected {signature}"),
-                    severity: Severity::Critical,
-                    confidence: 1.0,
-                    mitre_technique: None,
-                    context: HashMap::from([("signature".to_string(), signature.to_string())]),
-                }],
-                scan_stats: crate::types::ScanStatistics {
-                    scan_duration: Duration::default(),
-                    rules_evaluated: 1,
-                    patterns_matched: 1,
-                    file_size_scanned: 0,
-                },
-                recommendations: vec![
-                    "Quarantine the detected file and investigate its origin".to_string(),
-                ],
-            });
+            return Ok(Self::detected_analysis(signature));
         }
-
         if response.ends_with(" OK") {
-            return Ok(ThreatAnalysis {
-                matches: Vec::new(),
-                threat_level: ThreatLevel::Clean,
-                classifications: Vec::new(),
-                indicators: Vec::new(),
-                scan_stats: crate::types::ScanStatistics {
-                    scan_duration: Duration::default(),
-                    rules_evaluated: 1,
-                    patterns_matched: 0,
-                    file_size_scanned: 0,
-                },
-                recommendations: Vec::new(),
-            });
+            return Ok(Self::clean_analysis());
         }
 
         Err(ThreatError::clamav(format!(

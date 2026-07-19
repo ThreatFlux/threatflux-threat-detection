@@ -44,6 +44,7 @@ pub fn extract_classifications_from_tags(tags: &[String]) -> Vec<ThreatClassific
 use std::collections::HashMap;
 
 /// Calculate overall threat level based on matches and indicators
+#[allow(clippy::float_arithmetic)]
 pub fn calculate_threat_level(
     matches: &[YaraMatch],
     indicators: &[ThreatIndicator],
@@ -97,6 +98,30 @@ pub fn calculate_threat_level(
     } else {
         ThreatLevel::Clean
     }
+}
+
+fn match_count_confidence(match_count: usize) -> f32 {
+    match match_count {
+        0 => 0.0,
+        1 => 0.2,
+        2 => 0.4,
+        3 => 0.6,
+        4 => 0.8,
+        _ => 1.0,
+    }
+}
+
+#[allow(clippy::float_arithmetic)]
+fn average_indicator_confidence(indicators: &[ThreatIndicator]) -> f32 {
+    let mut total = 0.0;
+    let mut count = 0.0;
+
+    for indicator in indicators {
+        total += indicator.confidence;
+        count += 1.0;
+    }
+
+    if count > 0.0 { total / count } else { 0.0 }
 }
 
 /// Generate security recommendations based on findings
@@ -199,26 +224,25 @@ pub fn generate_recommendations(
 }
 
 /// Generate confidence score based on various factors
+#[allow(clippy::float_arithmetic)]
 pub fn calculate_confidence_score(
     matches: &[YaraMatch],
     indicators: &[ThreatIndicator],
     file_size: u64,
 ) -> f32 {
     let mut confidence = 0.0;
-    let mut factors = 0;
+    let mut factors = 0.0;
 
     // Factor 1: Number of rule matches
     if !matches.is_empty() {
-        confidence += (matches.len() as f32 * 0.2).min(1.0);
-        factors += 1;
+        confidence += match_count_confidence(matches.len());
+        factors += 1.0;
     }
 
     // Factor 2: Quality of indicators
     if !indicators.is_empty() {
-        let avg_indicator_confidence: f32 =
-            indicators.iter().map(|i| i.confidence).sum::<f32>() / indicators.len() as f32;
-        confidence += avg_indicator_confidence;
-        factors += 1;
+        confidence += average_indicator_confidence(indicators);
+        factors += 1.0;
     }
 
     // Factor 3: File size (very small or very large files might be less reliable)
@@ -240,8 +264,8 @@ pub fn calculate_confidence_score(
         confidence += 0.1;
     }
 
-    if factors > 0 {
-        (confidence / factors as f32).clamp(0.0, 1.0)
+    if factors > 0.0 {
+        (confidence / factors).clamp(0.0, 1.0)
     } else {
         0.0
     }

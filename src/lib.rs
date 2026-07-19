@@ -217,7 +217,7 @@ impl ThreatDetector {
 
         let file_size = match &target {
             ScanTarget::File(path) => std::fs::metadata(path).map(|m| m.len()).unwrap_or(0),
-            ScanTarget::Memory { data, .. } => data.len() as u64,
+            ScanTarget::Memory { data, .. } => u64::try_from(data.len()).unwrap_or(u64::MAX),
             ScanTarget::Directory(_) => 0,
         };
 

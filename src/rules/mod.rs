@@ -88,14 +88,14 @@ impl RuleManager {
         // Compile rules (this would use the actual YARA compiler in real implementation)
         let rule_count = self.count_rules(&all_rules);
 
-        self.compiled_rules = Some(CompiledRules {
+        let compiled_rules = self.compiled_rules.insert(CompiledRules {
             rule_count,
             errors,
             warnings,
             metadata,
         });
 
-        Ok(self.compiled_rules.as_ref().unwrap())
+        Ok(compiled_rules)
     }
 
     /// Get compiled rules
@@ -176,8 +176,8 @@ impl RuleManager {
 
     /// Extract metadata field from rule text
     fn extract_metadata_field(&self, rule_text: &str, field: &str) -> Option<String> {
-        for line in rule_text.lines() {
-            let line = line.trim();
+        for raw_line in rule_text.lines() {
+            let line = raw_line.trim();
             if line.starts_with(field) && line.contains('=') {
                 let value = line.split('=').nth(1)?;
                 return Some(value.trim().trim_matches('"').to_string());
@@ -203,8 +203,8 @@ impl RuleManager {
         }
 
         // Retain compatibility with rule metadata produced by older callers.
-        for line in rule_text.lines() {
-            let line = line.trim();
+        for raw_line in rule_text.lines() {
+            let line = raw_line.trim();
             if line.starts_with("tags:") {
                 let tags_str = line.strip_prefix("tags:").unwrap_or("").trim();
                 return tags_str
