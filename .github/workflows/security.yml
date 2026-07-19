@@ -124,6 +124,8 @@ jobs:
   cargo-deny:
     name: Cargo Deny
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -169,7 +171,13 @@ jobs:
       run: cargo install --locked cargo-semver-checks@0.49.0
 
     - name: Check for breaking changes
-      run: cargo semver-checks check-release
+      env:
+        BASELINE_REV: origin/${{ github.base_ref }}
+      run: >-
+        cargo semver-checks check-release
+        --baseline-rev "$BASELINE_REV"
+        --only-explicit-features
+        --features pattern-matching,builtin-rules,serde-support
 
   supply-chain:
     name: Supply Chain Security

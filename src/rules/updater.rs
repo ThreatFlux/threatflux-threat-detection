@@ -189,9 +189,17 @@ fn read_git_rules(source_url: &str, rules_directory: &Path) -> Result<String> {
 }
 
 fn read_cloned_git_rules(source_url: &str, clone_directory: &Path) -> Result<String> {
-    git2::Repository::clone(source_url, clone_directory).map_err(|error| {
-        ThreatError::rule_update(format!("Failed to clone rule source {source_url}: {error}"))
-    })?;
+    let mut builder = git2::build::RepoBuilder::new();
+    if !Path::new(source_url).exists() && !source_url.starts_with("file://") {
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.depth(1);
+        builder.fetch_options(fetch_options);
+    }
+    builder
+        .clone(source_url, clone_directory)
+        .map_err(|error| {
+            ThreatError::rule_update(format!("Failed to clone rule source {source_url}: {error}"))
+        })?;
 
     let mut rule_files: Vec<PathBuf> = walkdir::WalkDir::new(clone_directory)
         .follow_links(false)
