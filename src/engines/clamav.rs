@@ -2,19 +2,22 @@
 
 use crate::error::{Result, ThreatError};
 use crate::types::{
-    DetectionEngine, IndicatorType, ScanTarget, Severity, StringMatch, ThreatAnalysis,
-    ThreatClassification, ThreatIndicator, ThreatLevel, YaraMatch,
+    DetectionEngine, IndicatorType, ScanTarget, Severity, ThreatAnalysis, ThreatClassification,
+    ThreatIndicator, ThreatLevel, YaraMatch,
 };
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::time::Duration;
 
 #[cfg(feature = "clamav-engine")]
-use clamav_rs::{engine, scan_settings};
+use clamav_client::tokio::{self as clamd, Tcp};
+
+const DEFAULT_CLAMD_ADDRESS: &str = "127.0.0.1:3310";
 
 /// ClamAV based detection engine
 pub struct ClamAVEngine {
     #[cfg(feature = "clamav-engine")]
-    engine: Option<engine::Engine>,
+    clamd_address: Option<String>,
     #[cfg(not(feature = "clamav-engine"))]
     _placeholder: (),
 }
@@ -26,13 +29,14 @@ impl ClamAVEngine {
         {
             // Initialize ClamAV engine
             match Self::initialize_clamav().await {
-                Ok(engine) => Ok(Self {
-                    engine: Some(engine),
+                Ok(address) => Ok(Self {
+                    clamd_address: Some(address),
                 }),
                 Err(e) => {
                     log::warn!("Failed to initialize ClamAV engine: {}", e);
-                    // Return engine without ClamAV but still functional
-                    Ok(Self { engine: None })
+                    Ok(Self {
+                        clamd_address: None,
+                    })
                 }
             }
         }
@@ -43,58 +47,34 @@ impl ClamAVEngine {
     }
 
     #[cfg(feature = "clamav-engine")]
-    async fn initialize_clamav() -> Result<engine::Engine> {
-        tokio::task::spawn_blocking(|| {
-            // Initialize ClamAV engine
-            let mut engine = engine::Engine::new().map_err(|e| {
-                ThreatError::clamav(format!("Failed to create ClamAV engine: {}", e))
+    async fn initialize_clamav() -> Result<String> {
+        let address =
+            std::env::var("CLAMD_ADDRESS").unwrap_or_else(|_| DEFAULT_CLAMD_ADDRESS.to_string());
+        let connection = Tcp {
+            host_address: address.as_str(),
+        };
+        let response = tokio::time::timeout(Duration::from_secs(2), clamd::ping(connection))
+            .await
+            .map_err(|_| {
+                ThreatError::clamav(format!("Timed out connecting to clamd at {address}"))
+            })?
+            .map_err(|error| {
+                ThreatError::clamav(format!("Failed to connect to clamd at {address}: {error}"))
             })?;
 
-            // Load signatures from default database path
-            // Note: This requires ClamAV to be installed on the system
-            match engine.load_databases() {
-                Ok(_) => {
-                    log::info!("ClamAV signatures loaded successfully");
-                    engine.compile().map_err(|e| {
-                        ThreatError::clamav(format!("Failed to compile ClamAV engine: {}", e))
-                    })?;
-                    Ok(engine)
-                }
-                Err(e) => {
-                    // If database loading fails, try to create a basic engine
-                    log::warn!(
-                        "Failed to load ClamAV databases: {}, creating minimal engine",
-                        e
-                    );
-                    Err(ThreatError::clamav(format!(
-                        "ClamAV database load failed: {}",
-                        e
-                    )))
-                }
-            }
-        })
-        .await
-        .map_err(|e| ThreatError::internal(format!("Task join error: {}", e)))?
+        if response == clamav_client::PONG {
+            Ok(address)
+        } else {
+            Err(ThreatError::clamav(format!(
+                "Unexpected clamd ping response from {address}"
+            )))
+        }
     }
 
     /// Check if ClamAV is properly installed and databases are available
     #[cfg(feature = "clamav-engine")]
     pub async fn check_installation() -> bool {
-        // Check if ClamAV databases exist in common locations
-        let common_db_paths = [
-            "/var/lib/clamav",
-            "/usr/share/clamav",
-            "/opt/homebrew/var/lib/clamav", // macOS Homebrew
-            "/usr/local/var/lib/clamav",
-        ];
-
-        for path in &common_db_paths {
-            if tokio::fs::metadata(path).await.is_ok() {
-                return true;
-            }
-        }
-
-        false
+        Self::initialize_clamav().await.is_ok()
     }
 }
 
@@ -113,8 +93,8 @@ impl DetectionEngine for ClamAVEngine {
 
         #[cfg(feature = "clamav-engine")]
         {
-            let scan_result = match &self.engine {
-                Some(engine) => self.scan_with_clamav(engine, &target).await?,
+            let scan_result = match &self.clamd_address {
+                Some(address) => self.scan_with_clamav(address, &target).await?,
                 None => self.create_unavailable_result(&target).await?,
             };
 
@@ -175,7 +155,7 @@ impl DetectionEngine for ClamAVEngine {
     fn is_available(&self) -> bool {
         #[cfg(feature = "clamav-engine")]
         {
-            self.engine.is_some()
+            self.clamd_address.is_some()
         }
         #[cfg(not(feature = "clamav-engine"))]
         {
@@ -198,71 +178,82 @@ impl ClamAVEngine {
     }
 
     #[cfg(feature = "clamav-engine")]
-    async fn scan_with_clamav(
-        &self,
-        _engine: &engine::Engine,
-        target: &ScanTarget,
-    ) -> Result<ThreatAnalysis> {
-        // For now, return a placeholder implementation since clamav-rs API is complex
-        // In a real implementation, this would use the ClamAV engine
-        match target {
-            ScanTarget::File(_path) => {
-                // Placeholder: Would scan file with ClamAV
-                Ok(ThreatAnalysis {
-                    matches: Vec::new(),
-                    threat_level: ThreatLevel::Clean,
-                    classifications: Vec::new(),
-                    indicators: vec![ThreatIndicator {
-                        indicator_type: IndicatorType::SystemModification,
-                        description: "ClamAV scan completed (placeholder implementation)"
-                            .to_string(),
-                        severity: Severity::Low,
-                        confidence: 0.5,
-                        mitre_technique: None,
-                        context: HashMap::from([(
-                            "note".to_string(),
-                            "Real ClamAV integration requires system installation".to_string(),
-                        )]),
-                    }],
-                    scan_stats: crate::types::ScanStatistics {
-                        scan_duration: std::time::Duration::default(),
-                        rules_evaluated: 1,
-                        patterns_matched: 0,
-                        file_size_scanned: 0,
-                    },
-                    recommendations: vec![
-                        "Install ClamAV and virus definitions for real-time protection".to_string(),
-                    ],
-                })
-            }
-            ScanTarget::Memory { .. } => {
-                // Placeholder: Would scan memory buffer with ClamAV
-                Ok(ThreatAnalysis {
-                    matches: Vec::new(),
-                    threat_level: ThreatLevel::Clean,
-                    classifications: Vec::new(),
-                    indicators: vec![ThreatIndicator {
-                        indicator_type: IndicatorType::SystemModification,
-                        description: "ClamAV memory scan completed (placeholder implementation)"
-                            .to_string(),
-                        severity: Severity::Low,
-                        confidence: 0.5,
-                        mitre_technique: None,
-                        context: HashMap::new(),
-                    }],
-                    scan_stats: crate::types::ScanStatistics {
-                        scan_duration: std::time::Duration::default(),
-                        rules_evaluated: 1,
-                        patterns_matched: 0,
-                        file_size_scanned: 0,
-                    },
-                    recommendations: Vec::new(),
-                })
-            }
+    async fn scan_with_clamav(&self, address: &str, target: &ScanTarget) -> Result<ThreatAnalysis> {
+        let connection = Tcp {
+            host_address: address,
+        };
+        let response = match target {
+            ScanTarget::File(path) => clamd::scan_file(path, connection, None).await,
+            ScanTarget::Memory { data, .. } => clamd::scan_buffer(data, connection, None).await,
             ScanTarget::Directory(_) => Err(ThreatError::clamav(
                 "Directory scanning not supported by this ClamAV engine",
-            )),
+            ))?,
         }
+        .map_err(|error| ThreatError::clamav(format!("Clamd scan failed: {error}")))?;
+
+        Self::analysis_from_response(&response)
+    }
+
+    #[cfg(feature = "clamav-engine")]
+    fn analysis_from_response(response: &[u8]) -> Result<ThreatAnalysis> {
+        let response = std::str::from_utf8(response)
+            .map_err(|error| ThreatError::clamav(format!("Invalid clamd response: {error}")))?
+            .trim_end_matches('\0')
+            .trim();
+
+        let signature = response
+            .strip_suffix(" FOUND")
+            .and_then(|result| result.rsplit_once(": ").map(|(_, name)| name));
+
+        if let Some(signature) = signature {
+            return Ok(ThreatAnalysis {
+                matches: vec![YaraMatch {
+                    rule_identifier: signature.to_string(),
+                    tags: vec!["clamav".to_string(), "malware".to_string()],
+                    metadata: HashMap::from([("engine".to_string(), "ClamAV".to_string())]),
+                    strings: Vec::new(),
+                }],
+                threat_level: ThreatLevel::Malicious,
+                classifications: vec![ThreatClassification::Virus],
+                indicators: vec![ThreatIndicator {
+                    indicator_type: IndicatorType::KnownMalwareFamily,
+                    description: format!("ClamAV detected {signature}"),
+                    severity: Severity::Critical,
+                    confidence: 1.0,
+                    mitre_technique: None,
+                    context: HashMap::from([("signature".to_string(), signature.to_string())]),
+                }],
+                scan_stats: crate::types::ScanStatistics {
+                    scan_duration: Duration::default(),
+                    rules_evaluated: 1,
+                    patterns_matched: 1,
+                    file_size_scanned: 0,
+                },
+                recommendations: vec![
+                    "Quarantine the detected file and investigate its origin".to_string(),
+                ],
+            });
+        }
+
+        if response.ends_with(" OK") {
+            return Ok(ThreatAnalysis {
+                matches: Vec::new(),
+                threat_level: ThreatLevel::Clean,
+                classifications: Vec::new(),
+                indicators: Vec::new(),
+                scan_stats: crate::types::ScanStatistics {
+                    scan_duration: Duration::default(),
+                    rules_evaluated: 1,
+                    patterns_matched: 0,
+                    file_size_scanned: 0,
+                },
+                recommendations: Vec::new(),
+            });
+        }
+
+        Err(ThreatError::clamav(format!(
+            "Unexpected clamd scan response: {response}"
+        )))
     }
 
     #[cfg(feature = "clamav-engine")]
@@ -275,13 +266,17 @@ impl ClamAVEngine {
             classifications: Vec::new(),
             indicators: vec![ThreatIndicator {
                 indicator_type: IndicatorType::SystemModification,
-                description: "ClamAV engine initialized but not functional".to_string(),
+                description: "ClamAV daemon is unavailable".to_string(),
                 severity: Severity::Low,
                 confidence: 1.0,
                 mitre_technique: None,
                 context: HashMap::from([(
                     "reason".to_string(),
-                    "Database loading failed or ClamAV not installed".to_string(),
+                    format!(
+                        "No clamd service responded at {}",
+                        std::env::var("CLAMD_ADDRESS")
+                            .unwrap_or_else(|_| DEFAULT_CLAMD_ADDRESS.to_string())
+                    ),
                 )]),
             }],
             scan_stats: crate::types::ScanStatistics {
@@ -291,11 +286,40 @@ impl ClamAVEngine {
                 file_size_scanned: file_size,
             },
             recommendations: vec![
-                "Install ClamAV: 'apt install clamav' (Ubuntu) or 'brew install clamav' (macOS)"
-                    .to_string(),
-                "Update virus databases: 'freshclam'".to_string(),
-                "Ensure ClamAV daemon is running if using clamd".to_string(),
+                "Start clamd and ensure its virus definitions are current".to_string(),
+                "Set CLAMD_ADDRESS when clamd is not listening on 127.0.0.1:3310".to_string(),
             ],
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_clean_response() {
+        let analysis = ClamAVEngine::analysis_from_response(b"stream: OK\0")
+            .expect("clean response should parse");
+        assert_eq!(analysis.threat_level, ThreatLevel::Clean);
+        assert!(analysis.matches.is_empty());
+    }
+
+    #[test]
+    fn parses_malware_response() {
+        let analysis =
+            ClamAVEngine::analysis_from_response(b"stream: Win.Test.EICAR_HDB-1 FOUND\0")
+                .expect("malware response should parse");
+        assert_eq!(analysis.threat_level, ThreatLevel::Malicious);
+        assert_eq!(analysis.matches.len(), 1);
+        assert_eq!(analysis.matches[0].rule_identifier, "Win.Test.EICAR_HDB-1");
+        assert_eq!(analysis.classifications, [ThreatClassification::Virus]);
+    }
+
+    #[test]
+    fn rejects_error_response() {
+        let error = ClamAVEngine::analysis_from_response(b"stream: size limit exceeded ERROR\0")
+            .expect_err("error response should be rejected");
+        assert!(error.to_string().contains("Unexpected clamd scan response"));
     }
 }

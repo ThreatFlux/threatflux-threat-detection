@@ -120,7 +120,11 @@ impl RuleManager {
     /// Load rules from a specific source
     async fn load_rules_from_source(&self, source: &RuleSource) -> Result<String> {
         match source.source_type {
+            #[cfg(not(feature = "rule-management"))]
             RuleSourceType::Local => std::fs::read_to_string(&source.url)
+                .map_err(|e| ThreatError::rule_load(format!("Local file {}: {}", source.url, e))),
+            #[cfg(feature = "rule-management")]
+            RuleSourceType::File | RuleSourceType::Local => std::fs::read_to_string(&source.url)
                 .map_err(|e| ThreatError::rule_load(format!("Local file {}: {}", source.url, e))),
             RuleSourceType::Builtin => {
                 #[cfg(feature = "builtin-rules")]
@@ -184,7 +188,21 @@ impl RuleManager {
 
     /// Extract tags from rule text
     fn extract_tags(&self, rule_text: &str) -> Vec<String> {
-        // Simple tag extraction - look for tags: line
+        if let Some((_, tags)) = rule_text
+            .lines()
+            .next()
+            .and_then(|header| header.split_once(':'))
+        {
+            return tags
+                .split('{')
+                .next()
+                .unwrap_or(tags)
+                .split_whitespace()
+                .map(str::to_string)
+                .collect();
+        }
+
+        // Retain compatibility with rule metadata produced by older callers.
         for line in rule_text.lines() {
             let line = line.trim();
             if line.starts_with("tags:") {
@@ -245,5 +263,12 @@ rule test_rule_2 {
             manager.extract_rule_name(rule_text),
             Some("test_rule".to_string())
         );
+    }
+
+    #[test]
+    fn test_rule_tag_extraction() {
+        let manager = RuleManager::default();
+        let rule_text = "test_rule : malware suspicious {\n    condition: true\n}";
+        assert_eq!(manager.extract_tags(rule_text), ["malware", "suspicious"]);
     }
 }

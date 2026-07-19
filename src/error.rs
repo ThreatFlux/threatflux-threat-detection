@@ -73,13 +73,6 @@ pub enum ThreatError {
     Internal(String),
 }
 
-#[cfg(feature = "yara-engine")]
-impl From<yara_x::Error> for ThreatError {
-    fn from(err: yara_x::Error) -> Self {
-        ThreatError::YaraError(err.to_string())
-    }
-}
-
 #[cfg(feature = "serde-support")]
 impl From<serde_json::Error> for ThreatError {
     fn from(err: serde_json::Error) -> Self {

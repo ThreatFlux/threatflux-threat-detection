@@ -16,7 +16,7 @@ categories = ["cryptography", "network-programming", "development-tools"]
 [features]
 default = ["pattern-matching", "builtin-rules", "serde-support"]
 yara-engine = ["yara-x"]
-clamav-engine = ["clamav-rs"]  # Optional feature, disabled by default due to system dependency requirements
+clamav-engine = ["clamav-client"]
 pattern-matching = ["aho-corasick", "regex"]
 rule-management = ["git2", "reqwest"]
 builtin-rules = []
@@ -36,19 +36,19 @@ walkdir = "2.3"
 async-trait = "0.1"
 
 # Detection engines (with proper error handling for system dependencies)
-yara-x = { version = "0.9", optional = true }
-clamav-rs = { version = "0.5", optional = true, default-features = false }
+yara-x = { version = "1.19", optional = true }
+clamav-client = { version = "2.2", features = ["tokio"], optional = true }
 
 # Pattern matching (optional)
 aho-corasick = { version = "1.1", optional = true }
 regex = { version = "1.10", optional = true }
 
 # Rule management (optional)
-git2 = { version = "0.20", optional = true }
+git2 = { version = "0.21", optional = true }
 reqwest = { version = "0.12", features = ["json"], optional = true }
 
 # Async support (always required for async-trait)
-tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros", "fs", "io-util"], optional = false }
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros", "fs", "io-util", "time"], optional = false }
 
 # Serialization (optional)
 serde = { version = "1.0", features = ["derive"], optional = true }
