@@ -25,7 +25,7 @@ pub fn get_builtin_rules() -> Vec<&'static str> {
 }
 
 const MALWARE_GENERIC_RULE: &str = r#"
-rule Generic_Malware_Indicators
+rule Generic_Malware_Indicators : malware suspicious
 {
     meta:
         author = "ThreatFlux"
@@ -33,9 +33,6 @@ rule Generic_Malware_Indicators
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        malware suspicious
-
     strings:
         $api1 = "VirtualAlloc" ascii
         $api2 = "WriteProcessMemory" ascii
@@ -59,7 +56,7 @@ rule Generic_Malware_Indicators
 "#;
 
 const TROJAN_DETECTION_RULE: &str = r#"
-rule Trojan_Behavior_Detection
+rule Trojan_Behavior_Detection : trojan malware
 {
     meta:
         author = "ThreatFlux"
@@ -67,9 +64,6 @@ rule Trojan_Behavior_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        trojan malware
-
     strings:
         $keylog1 = "GetAsyncKeyState" ascii
         $keylog2 = "SetWindowsHookEx" ascii
@@ -93,7 +87,7 @@ rule Trojan_Behavior_Detection
 "#;
 
 const RANSOMWARE_DETECTION_RULE: &str = r#"
-rule Ransomware_Detection
+rule Ransomware_Detection : ransomware malware critical
 {
     meta:
         author = "ThreatFlux"
@@ -101,9 +95,6 @@ rule Ransomware_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        ransomware malware critical
-
     strings:
         $crypt1 = "CryptAcquireContext" ascii
         $crypt2 = "CryptGenKey" ascii
@@ -132,7 +123,7 @@ rule Ransomware_Detection
 "#;
 
 const APT_DETECTION_RULE: &str = r#"
-rule APT_Techniques_Detection
+rule APT_Techniques_Detection : apt advanced targeted
 {
     meta:
         author = "ThreatFlux"
@@ -140,9 +131,6 @@ rule APT_Techniques_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        apt advanced targeted
-
     strings:
         $lateral1 = "psexec" ascii nocase
         $lateral2 = "wmiexec" ascii nocase
@@ -169,7 +157,7 @@ rule APT_Techniques_Detection
 "#;
 
 const CRYPTOMINER_DETECTION_RULE: &str = r#"
-rule Cryptominer_Detection
+rule Cryptominer_Detection : cryptominer malware
 {
     meta:
         author = "ThreatFlux"
@@ -177,9 +165,6 @@ rule Cryptominer_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        cryptominer malware
-
     strings:
         $miner1 = "stratum+tcp" ascii
         $miner2 = "xmrig" ascii nocase
@@ -202,7 +187,7 @@ rule Cryptominer_Detection
 "#;
 
 const INFOSTEALER_DETECTION_RULE: &str = r#"
-rule InfoStealer_Detection
+rule InfoStealer_Detection : infostealer stealer malware
 {
     meta:
         author = "ThreatFlux"
@@ -210,9 +195,6 @@ rule InfoStealer_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        infostealer stealer malware
-
     strings:
         $browser1 = "Login Data" ascii
         $browser2 = "Cookies" ascii
@@ -239,7 +221,7 @@ rule InfoStealer_Detection
 "#;
 
 const BACKDOOR_DETECTION_RULE: &str = r#"
-rule Backdoor_Detection
+rule Backdoor_Detection : backdoor malware
 {
     meta:
         author = "ThreatFlux"
@@ -247,9 +229,6 @@ rule Backdoor_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        backdoor malware
-
     strings:
         $socket1 = "WSAStartup" ascii
         $socket2 = "socket" ascii
@@ -272,7 +251,7 @@ rule Backdoor_Detection
 "#;
 
 const WEBSHELL_DETECTION_RULE: &str = r#"
-rule WebShell_Detection
+rule WebShell_Detection : webshell backdoor
 {
     meta:
         author = "ThreatFlux"
@@ -280,9 +259,6 @@ rule WebShell_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        webshell backdoor
-
     strings:
         $php1 = "<?php" ascii
         $php2 = "eval(" ascii
@@ -305,7 +281,7 @@ rule WebShell_Detection
 "#;
 
 const EXPLOIT_DETECTION_RULE: &str = r#"
-rule Exploit_Detection
+rule Exploit_Detection : exploit malware
 {
     meta:
         author = "ThreatFlux"
@@ -313,9 +289,6 @@ rule Exploit_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        exploit malware
-
     strings:
         $shellcode1 = { 90 90 90 90 } // NOP sled
         $shellcode2 = { CC CC CC CC } // INT3 padding
@@ -338,12 +311,13 @@ rule Exploit_Detection
         any of ($shellcode*) or
         any of ($rop*) or
         2 of ($exploit*) or
+        any of ($vuln*) or
         any of ($overflow*)
 }
 "#;
 
 const PACKER_DETECTION_RULE: &str = r#"
-rule Packer_Detection
+rule Packer_Detection : packer compressed suspicious
 {
     meta:
         author = "ThreatFlux"
@@ -351,9 +325,6 @@ rule Packer_Detection
         version = "1.0"
         date = "2024-01-01"
         
-    tags:
-        packer compressed suspicious
-
     strings:
         $upx1 = "UPX!" ascii
         $upx2 = "$Info: This file is packed with the UPX" ascii

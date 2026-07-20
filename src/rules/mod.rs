@@ -88,14 +88,14 @@ impl RuleManager {
         // Compile rules (this would use the actual YARA compiler in real implementation)
         let rule_count = self.count_rules(&all_rules);
 
-        self.compiled_rules = Some(CompiledRules {
+        let compiled_rules = self.compiled_rules.insert(CompiledRules {
             rule_count,
             errors,
             warnings,
             metadata,
         });
 
-        Ok(self.compiled_rules.as_ref().unwrap())
+        Ok(compiled_rules)
     }
 
     /// Get compiled rules
@@ -120,7 +120,11 @@ impl RuleManager {
     /// Load rules from a specific source
     async fn load_rules_from_source(&self, source: &RuleSource) -> Result<String> {
         match source.source_type {
+            #[cfg(not(feature = "rule-management"))]
             RuleSourceType::Local => std::fs::read_to_string(&source.url)
+                .map_err(|e| ThreatError::rule_load(format!("Local file {}: {}", source.url, e))),
+            #[cfg(feature = "rule-management")]
+            RuleSourceType::File | RuleSourceType::Local => std::fs::read_to_string(&source.url)
                 .map_err(|e| ThreatError::rule_load(format!("Local file {}: {}", source.url, e))),
             RuleSourceType::Builtin => {
                 #[cfg(feature = "builtin-rules")]
@@ -172,8 +176,8 @@ impl RuleManager {
 
     /// Extract metadata field from rule text
     fn extract_metadata_field(&self, rule_text: &str, field: &str) -> Option<String> {
-        for line in rule_text.lines() {
-            let line = line.trim();
+        for raw_line in rule_text.lines() {
+            let line = raw_line.trim();
             if line.starts_with(field) && line.contains('=') {
                 let value = line.split('=').nth(1)?;
                 return Some(value.trim().trim_matches('"').to_string());
@@ -184,9 +188,23 @@ impl RuleManager {
 
     /// Extract tags from rule text
     fn extract_tags(&self, rule_text: &str) -> Vec<String> {
-        // Simple tag extraction - look for tags: line
-        for line in rule_text.lines() {
-            let line = line.trim();
+        if let Some((_, tags)) = rule_text
+            .lines()
+            .next()
+            .and_then(|header| header.split_once(':'))
+        {
+            return tags
+                .split('{')
+                .next()
+                .unwrap_or(tags)
+                .split_whitespace()
+                .map(str::to_string)
+                .collect();
+        }
+
+        // Retain compatibility with rule metadata produced by older callers.
+        for raw_line in rule_text.lines() {
+            let line = raw_line.trim();
             if line.starts_with("tags:") {
                 let tags_str = line.strip_prefix("tags:").unwrap_or("").trim();
                 return tags_str
@@ -245,5 +263,12 @@ rule test_rule_2 {
             manager.extract_rule_name(rule_text),
             Some("test_rule".to_string())
         );
+    }
+
+    #[test]
+    fn test_rule_tag_extraction() {
+        let manager = RuleManager::default();
+        let rule_text = "test_rule : malware suspicious {\n    condition: true\n}";
+        assert_eq!(manager.extract_tags(rule_text), ["malware", "suspicious"]);
     }
 }

@@ -23,6 +23,8 @@ jobs:
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: 1.95.0
 
     - name: Cache cargo
       uses: actions/cache@v4
@@ -34,21 +36,18 @@ jobs:
         key: ${{ runner.os }}-cargo-update-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Install cargo-edit
-      run: cargo install cargo-edit
+      run: cargo install --locked cargo-edit@0.13.13
 
     - name: Update dependencies
       run: |
         echo "📦 Updating Cargo dependencies..."
+        cargo upgrade
         cargo update
-        
-        # Check for outdated dependencies
-        echo "🔍 Checking for outdated dependencies..."
-        cargo outdated || true
 
     - name: Check if dependencies changed
       id: changes
       run: |
-        if git diff --quiet Cargo.lock; then
+        if git diff --quiet Cargo.toml; then
           echo "changed=false" >> $GITHUB_OUTPUT
           echo "ℹ️  No dependency updates available"
         else
@@ -75,7 +74,7 @@ jobs:
           This PR updates the project dependencies to their latest compatible versions.
           
           ### Changes
-          - Updated `Cargo.lock` with latest dependency versions
+          - Updated `Cargo.toml` with latest compatible dependency versions
           - All tests pass with updated dependencies
           
           ### Verification

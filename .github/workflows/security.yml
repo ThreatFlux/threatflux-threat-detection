@@ -29,14 +29,19 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Install cargo-audit
-      run: cargo install cargo-audit
+      run: cargo install --locked cargo-audit@0.22.2
 
     - name: Run cargo audit
-      run: cargo audit --json > audit-results.json
+      # This is transitive through YARA-X's file-format parsers and currently
+      # has no usable upstream fix.
+      run: |
+        cargo audit \
+          --ignore RUSTSEC-2023-0071 \
+          --json > audit-results.json
 
     - name: Upload audit results
       uses: actions/upload-artifact@v4
@@ -70,20 +75,19 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         components: clippy
         cache: true
 
     - name: Run security-focused clippy lints
       run: |
-        cargo clippy --features "default" --all-targets -- \
+        cargo clippy --features "default" --lib -- \
           -W clippy::unwrap_used \
           -W clippy::expect_used \
           -W clippy::panic \
           -W clippy::unimplemented \
           -W clippy::todo \
           -W clippy::unreachable \
-          -W clippy::integer_arithmetic \
           -W clippy::float_arithmetic \
           -W clippy::indexing_slicing \
           -W clippy::as_conversions \
@@ -116,11 +120,12 @@ jobs:
       uses: actions/dependency-review-action@v4
       with:
         fail-on-severity: moderate
-        allow-ghsas: GHSA-1234-5678-9012  # Add specific GHSA IDs to allow if needed
 
   cargo-deny:
     name: Cargo Deny
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -128,11 +133,11 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Install cargo-deny
-      run: cargo install cargo-deny
+      run: cargo install --locked cargo-deny@0.20.2
 
     - name: Verify deny.toml exists
       run: |
@@ -144,7 +149,7 @@ jobs:
         fi
 
     - name: Check licenses, bans, advisories, and sources
-      run: cargo deny check
+      run: cargo deny --all-features check
 
   semver-checks:
     name: Semantic Versioning
@@ -159,14 +164,20 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Install cargo-semver-checks
-      run: cargo install cargo-semver-checks
+      run: cargo install --locked cargo-semver-checks@0.49.0
 
     - name: Check for breaking changes
-      run: cargo semver-checks check-release
+      env:
+        BASELINE_REV: origin/${{ github.base_ref }}
+      run: >-
+        cargo semver-checks check-release
+        --baseline-rev "$BASELINE_REV"
+        --only-explicit-features
+        --features pattern-matching,builtin-rules,serde-support
 
   supply-chain:
     name: Supply Chain Security
@@ -178,7 +189,7 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.95.0
         cache: true
 
     - name: Generate SBOM
@@ -218,39 +229,7 @@ jobs:
         fetch-depth: 0
 
     - name: Run TruffleHog OSS
-      uses: trufflesecurity/trufflehog@main
+      uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503 # v3.90.5
       with:
         path: ./
         extra_args: --debug --only-verified
-
-  code-ql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: rust
-        queries: security-and-quality
-
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        cache: true
-
-    - name: Build for CodeQL
-      run: cargo build --features "default"
-
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:rust"

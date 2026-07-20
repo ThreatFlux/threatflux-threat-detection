@@ -114,7 +114,10 @@ impl ThreatDetector {
         // Initialize ClamAV engine
         #[cfg(feature = "clamav-engine")]
         if config.enable_clamav {
-            let clamav_engine = engines::clamav::ClamAVEngine::new().await?;
+            let clamav_engine = engines::clamav::ClamAVEngine::with_timeout(
+                std::time::Duration::from_secs(config.scan_timeout),
+            )
+            .await?;
             engines.push(Box::new(clamav_engine));
         }
 
@@ -217,7 +220,7 @@ impl ThreatDetector {
 
         let file_size = match &target {
             ScanTarget::File(path) => std::fs::metadata(path).map(|m| m.len()).unwrap_or(0),
-            ScanTarget::Memory { data, .. } => data.len() as u64,
+            ScanTarget::Memory { data, .. } => u64::try_from(data.len()).unwrap_or(u64::MAX),
             ScanTarget::Directory(_) => 0,
         };
 

@@ -253,7 +253,7 @@ impl PatternEngine {
                 .await
                 .map(|m| m.len())
                 .map_err(|e| ThreatError::file(format!("Failed to read file metadata: {}", e))),
-            ScanTarget::Memory { data, .. } => Ok(data.len() as u64),
+            ScanTarget::Memory { data, .. } => Ok(u64::try_from(data.len()).unwrap_or(u64::MAX)),
             ScanTarget::Directory(_) => Ok(0), // Directory size not meaningful for patterns
         }
     }
@@ -275,12 +275,14 @@ impl PatternEngine {
         // Convert to string for pattern matching (lossy conversion for binary data)
         let content = String::from_utf8_lossy(&data);
         let mut matches = Vec::new();
-        let mut patterns_matched = 0;
+        let mut patterns_matched: usize = 0;
 
         // String pattern matching
         if let Some(ref string_matcher) = self.string_patterns {
             for mat in string_matcher.find_iter(content.as_ref()) {
-                let pattern_id = mat.pattern().as_u32() as usize;
+                let pattern_id = usize::try_from(mat.pattern().as_u32()).map_err(|error| {
+                    ThreatError::pattern(format!("Pattern identifier is too large: {error}"))
+                })?;
                 // We need to track the patterns ourselves since AhoCorasick doesn't expose them
                 let pattern_text = self.get_pattern_text(pattern_id);
                 let yara_match = YaraMatch {
@@ -289,13 +291,15 @@ impl PatternEngine {
                     metadata: self.get_metadata_for_pattern(&pattern_text),
                     strings: vec![StringMatch {
                         identifier: format!("${}", pattern_id),
-                        offset: mat.start() as u64,
+                        offset: u64::try_from(mat.start()).map_err(|error| {
+                            ThreatError::pattern(format!("Pattern offset is too large: {error}"))
+                        })?,
                         length: mat.len(),
                         value: Some(pattern_text),
                     }],
                 };
                 matches.push(yara_match);
-                patterns_matched += 1;
+                patterns_matched = patterns_matched.saturating_add(1);
             }
         }
 
@@ -320,7 +324,7 @@ impl PatternEngine {
                         }],
                     };
                     matches.push(yara_match);
-                    patterns_matched += 1;
+                    patterns_matched = patterns_matched.saturating_add(1);
                 }
             }
         }
