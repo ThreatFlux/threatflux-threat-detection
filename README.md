@@ -1,214 +1,154 @@
-# ThreatFlux Cache
+# ThreatFlux Threat Detection
 
-A flexible, async-first cache library for Rust with pluggable backends, multiple eviction policies, and advanced search capabilities.
+[![CI](https://github.com/ThreatFlux/threatflux-threat-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-threat-detection/actions/workflows/ci.yml)
+[![Security](https://github.com/ThreatFlux/threatflux-threat-detection/actions/workflows/security.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-threat-detection/actions/workflows/security.yml)
+[![MSRV](https://img.shields.io/badge/MSRV-1.95.0-orange.svg)](https://www.rust-lang.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Features
+An async Rust library that runs a file or byte buffer through one or more
+detection engines and returns a single combined verdict: matches, a threat
+level, classifications, indicators, and recommendations.
 
-- **Async-first design**: Built on tokio for high-performance async operations
-- **Generic key-value storage**: Works with any serializable types
-- **Multiple backends**:
-  - In-memory storage (default)
-  - Filesystem persistence
-  - Easy to add custom backends
-- **Eviction policies**:
-  - LRU (Least Recently Used)
-  - LFU (Least Frequently Used)
-  - FIFO (First In First Out)
-  - TTL (Time To Live)
-  - Manual only
-- **Advanced features**:
-  - Entry metadata and custom attributes
-  - Search and query capabilities
-  - Compression support
-  - Metrics integration
-  - Automatic persistence
-  - Entry statistics and access tracking
+The result is evidence for a security review. It is not a malware verdict, a
+sandbox, or a guarantee of coverage. A clean result only means the enabled
+engines and rules found nothing.
 
-## Installation
+## Detection engines
 
-Add this to your `Cargo.toml`:
+| Engine           | Cargo feature      | Default | Requirements                                            |
+| ---------------- | ------------------ | :-----: | ------------------------------------------------------- |
+| Pattern matching | `pattern-matching` |   yes   | None; uses `aho-corasick` and `regex`                   |
+| Built-in rules   | `builtin-rules`    |   yes   | None; ships a small offline rule set                    |
+| YARA             | `yara-engine`      |   no    | `yara-x`                                                |
+| ClamAV           | `clamav-engine`    |   no    | A reachable `clamd` instance                            |
+| Rule updates     | `rule-management`  |   no    | Network access; uses `git2` and `reqwest`               |
+| Metrics          | `metrics`          |   no    | `prometheus`                                            |
+| Serialization    | `serde-support`    |   yes   | Serde derives on the public result types                |
+
+`ThreatDetectorConfig` enables engines at runtime, but a runtime flag cannot
+enable an engine that was not compiled in. `enable_yara` defaults to `true` and
+is ignored unless the `yara-engine` feature is on.
+
+## Install
 
 ```toml
 [dependencies]
-threatflux-cache = "0.1.0"
+threatflux-threat-detection = "0.2.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-### Feature Flags
+The minimum supported Rust version is 1.95.0.
 
-- `default`: Enables filesystem backend and JSON serialization
-- `filesystem-backend`: Filesystem storage support
-- `json-serialization`: JSON format support
-- `bincode-serialization`: Bincode format support
-- `compression`: Compression support for stored values
-- `openapi`: OpenAPI schema generation
-- `metrics`: Prometheus metrics integration
-- `tracing`: Tracing support
-- `full`: All features enabled
+## Quick start
 
-## Quick Start
-
-### Basic Usage
-
-```rust
-use threatflux_cache::prelude::*;
-use serde::{Serialize, Deserialize};
-
-#[derive(Serialize, Deserialize, Clone)]
-struct User {
-    id: u64,
-    name: String,
-}
+```rust,no_run
+use threatflux_threat_detection::ThreatDetector;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a cache with default configuration
-    let cache: Cache<String, User> = Cache::with_config(CacheConfig::default()).await?;
-    
-    // Store a value
-    let user = User { id: 1, name: "Alice".to_string() };
-    cache.put("user:1".to_string(), user).await?;
-    
-    // Retrieve a value
-    if let Some(user) = cache.get(&"user:1".to_string()).await? {
-        println!("Found user: {}", user.name);
+async fn main() -> anyhow::Result<()> {
+    let detector = ThreatDetector::new().await?;
+    let analysis = detector.scan_data(b"sample bytes", Some("sample.bin")).await?;
+
+    println!("threat level: {}", analysis.threat_level);
+    println!("matches: {}", analysis.matches.len());
+    for classification in &analysis.classifications {
+        println!("classification: {classification:?}");
     }
-    
+
     Ok(())
 }
 ```
 
-### With Filesystem Persistence
+## Scanning targets
 
-```rust
-use threatflux_cache::prelude::*;
+`scan_file` reads a path, `scan_data` takes bytes you already hold, and
+`scan_with_rule` runs one custom YARA rule against a target.
 
-let config = CacheConfig::default()
-    .with_persistence(PersistenceConfig::with_path("/tmp/my-cache"))
-    .with_eviction_policy(EvictionPolicy::Lru);
+```rust,no_run
+use threatflux_threat_detection::ThreatDetector;
+use std::path::Path;
 
-let backend = FilesystemBackend::new("/tmp/my-cache").await?;
-let cache: Cache<String, String> = Cache::new(config, backend).await?;
-```
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let detector = ThreatDetector::new().await?;
+    let analysis = detector.scan_file(Path::new("./sample.bin")).await?;
 
-### Custom Metadata
-
-```rust
-use threatflux_cache::{CacheEntry, BasicMetadata};
-
-let metadata = BasicMetadata {
-    execution_time_ms: Some(100),
-    size_bytes: Some(1024),
-    category: Some("api-response".to_string()),
-    tags: vec!["user".to_string(), "profile".to_string()],
-};
-
-let entry = CacheEntry::with_metadata(
-    "key".to_string(),
-    "value".to_string(),
-    metadata,
-);
-
-cache.add_entry(entry).await?;
-```
-
-### Search Capabilities
-
-```rust
-use threatflux_cache::SearchQuery;
-
-// Search by pattern and category
-let query = SearchQuery::new()
-    .with_pattern("user")
-    .with_category("api-response")
-    .with_access_count_range(Some(5), None);
-
-let results = cache.search(&query).await;
-for entry in results {
-    println!("Found: {:?}", entry.value);
+    println!("{} matches", analysis.matches.len());
+    Ok(())
 }
 ```
 
-## Migration from file-scanner
+Walk directories yourself and call `scan_file` per entry. `scan_directory` is
+present but unfinished: no engine accepts a directory target, so it reports a
+single empty analysis rather than scanning the tree.
 
-If you're migrating from file-scanner's built-in cache, see the `examples/file_scanner_migration.rs` for a complete migration guide. The library provides an adapter pattern to maintain API compatibility while gaining the benefits of the new cache system.
+## Configuration
 
-## Configuration Options
+```rust,no_run
+use threatflux_threat_detection::{ThreatDetector, ThreatDetectorConfig};
 
-```rust
-let config = CacheConfig::default()
-    // Capacity settings
-    .with_max_entries_per_key(100)
-    .with_max_total_entries(10_000)
-    
-    // Eviction policy
-    .with_eviction_policy(EvictionPolicy::Lru)
-    
-    // Persistence
-    .with_persistence(PersistenceConfig {
-        enabled: true,
-        path: Some("/var/cache/myapp".into()),
-        sync_interval: 100,
-        save_on_drop: true,
-        load_on_startup: true,
-    })
-    
-    // TTL for all entries
-    .with_default_ttl(Duration::from_secs(3600))
-    
-    // Enable compression
-    .with_compression(CompressionConfig {
-        algorithm: CompressionAlgorithm::Gzip,
-        level: 6,
-        min_size: 1024,
-    });
-```
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let config = ThreatDetectorConfig {
+        enable_yara: false,
+        enable_clamav: false,
+        enable_patterns: true,
+        max_file_size: 32 * 1024 * 1024,
+        scan_timeout: 60,
+        max_concurrent_scans: 8,
+        rule_sources: Vec::new(),
+    };
 
-## Custom Storage Backend
-
-Implement the `StorageBackend` trait to create custom storage solutions:
-
-```rust
-use async_trait::async_trait;
-use threatflux_cache::{StorageBackend, CacheEntry, Result};
-
-pub struct MyCustomBackend;
-
-#[async_trait]
-impl StorageBackend for MyCustomBackend {
-    type Key = String;
-    type Value = String;
-    type Metadata = ();
-    
-    async fn save(&self, entries: &HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>) -> Result<()> {
-        // Implementation
-        Ok(())
-    }
-    
-    async fn load(&self) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>> {
-        // Implementation
-        Ok(HashMap::new())
-    }
-    
-    // ... other required methods
+    let detector = ThreatDetector::with_config(config).await?;
+    println!("{} engines active", detector.engine_count());
+    Ok(())
 }
 ```
 
-## Performance Considerations
+Defaults: YARA and pattern matching enabled, ClamAV disabled, a 100 MiB file
+limit, a 300 second timeout, and 4 concurrent scans.
 
-- The cache uses `Arc<RwLock<HashMap>>` for thread-safe concurrent access
-- Batch operations are preferred for bulk updates
-- Filesystem backend saves are throttled using a semaphore
-- Consider compression for large values to reduce I/O
+## Result model
+
+`scan_file`, `scan_data`, `scan_directory`, and `scan_with_rule` all return a
+`ThreatAnalysis`:
+
+- `matches`: per-engine rule matches.
+- `threat_level`: `None`, `Clean`, `Suspicious`, `Malicious`, or `Critical`.
+- `classifications`: threat categories derived from the matches.
+- `indicators`: individual indicators with a type and severity.
+- `scan_stats`: counts and timing for the scan.
+- `recommendations`: suggested follow-up actions.
+
+## Limitations
+
+- `scan_directory` does not walk a directory yet, as described above.
+- `max_file_size` and `max_concurrent_scans` are carried in `ScanConfig` but no
+  engine enforces them today. `scan_timeout` is applied by the ClamAV engine
+  only.
+- `ScanStatistics::rules_evaluated` and `patterns_matched` are always zero;
+  engines do not report them yet.
+- An engine failure is logged and skipped rather than failing the scan, so a
+  clean result can mean an engine never ran.
+- The built-in rule set is a small offline baseline, not a maintained feed. Use
+  `rule-management` to pull external rules.
+- ClamAV support requires a reachable `clamd`; the library does not start one.
+- Pattern and rule matches are heuristics and produce both false positives and
+  false negatives.
+
+## Development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for the local toolchain setup and
+[CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow. Report
+vulnerabilities privately as described in [SECURITY.md](SECURITY.md);
+participation is covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
+```
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.

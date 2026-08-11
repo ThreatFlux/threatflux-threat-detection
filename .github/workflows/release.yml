@@ -45,8 +45,8 @@ jobs:
           echo "Invalid semantic version: ${VERSION}"
           exit 1
         fi
-        echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+        echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
         echo "Releasing version: ${VERSION}"
         echo "Tag name: ${TAG_NAME}"
 

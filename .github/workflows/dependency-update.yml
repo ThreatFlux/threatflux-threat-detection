@@ -48,10 +48,10 @@ jobs:
       id: changes
       run: |
         if git diff --quiet Cargo.toml; then
-          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "changed=false" >> "$GITHUB_OUTPUT"
           echo "ℹ️  No dependency updates available"
         else
-          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "✅ Dependencies updated"
         fi
 
