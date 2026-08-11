@@ -1,0 +1,25 @@
+# cargo-audit configuration.
+#
+# Single source of truth for `cargo audit` ignores. cargo-deny does not read
+# this file, so `deny.toml`'s `[advisories] ignore` list repeats it and must be
+# kept in agreement.
+#
+# Every entry here reaches the graph only through `yara-x`, which the optional
+# `yara-engine` feature pulls in. A consumer on default features, or on
+# `default-features = false`, does not link any of them.
+
+[advisories]
+ignore = [
+    # Marvin attack (timing side channel) in `rsa` 0.9.x, reached through
+    # `yara-x`. No fixed release of `rsa` exists, so there is nothing to
+    # upgrade to.
+    "RUSTSEC-2023-0071",
+    # `wasmtime` can mix up type indices between engines. Reached through
+    # `yara-x` 1.19.0, which requires wasmtime 43.x; the advisory is fixed in
+    # 24.0.12, 36.0.13, 46.0.2, and 47.0.3, and no 43.x release carries the
+    # fix. Remove this entry once `yara-x` moves to a patched wasmtime line.
+    "RUSTSEC-2026-0222",
+    # `bincode` 2.x is unmaintained. Reached through `yara-x`; no replacement
+    # is available to this crate until `yara-x` migrates.
+    "RUSTSEC-2025-0141",
+]
