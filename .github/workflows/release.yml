@@ -3,224 +3,251 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.0.0 or v1.0.0)'
-        required: true
+        description: Version to release, with or without the leading v. Defaults to the tag this run was dispatched against.
+        required: false
         type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  RUST_STABLE: 1.97.1
 
 jobs:
-  validate:
-    name: Validate Release
+  provenance:
+    name: Verify release provenance
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
-      tag_name: ${{ steps.get_version.outputs.tag_name }}
+      tag_object: ${{ steps.provenance.outputs.tag_object }}
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-    - name: Get version from tag or input
-      id: get_version
-      env:
-        RELEASE_VERSION_INPUT: ${{ github.event.inputs.version }}
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          VERSION="${RELEASE_VERSION_INPUT}"
-          VERSION="${VERSION#v}"
-          TAG_NAME="v${VERSION}"
-        else
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG_NAME#v}"
-        fi
-        SEMVER_PATTERN='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
-        if [[ ! "${VERSION}" =~ ${SEMVER_PATTERN} ]]; then
-          echo "Invalid semantic version: ${VERSION}"
-          exit 1
-        fi
-        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-        echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
-        echo "Releasing version: ${VERSION}"
-        echo "Tag name: ${TAG_NAME}"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
 
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: 1.95.0
-        cache: true
+      - name: Verify release version
+        id: version
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        shell: bash
+        run: |
+          metadata="$(cargo metadata --locked --no-deps --format-version 1)"
+          version="$(jq -er '.packages[] | select(.name == "threatflux-threat-detection") | .version' <<< "$metadata")"
+          test "$GITHUB_REF_NAME" = "v${version}"
+          if [[ -n "$VERSION_INPUT" && "${VERSION_INPUT#v}" != "$version" ]]; then
+            echo "Dispatched version ${VERSION_INPUT} does not match ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-    - name: Validate Cargo.toml version
-      run: |
-        CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-        if [ "$CARGO_VERSION" != "${{ steps.get_version.outputs.version }}" ]; then
-          echo "Version mismatch: Cargo.toml has $CARGO_VERSION but tag/input has ${{ steps.get_version.outputs.version }}"
-          exit 1
-        fi
+      - name: Verify annotated tag is on main
+        id: provenance
+        shell: bash
+        run: |
+          tag_ref="refs/tags/${GITHUB_REF_NAME}"
+          if [[ "$(git cat-file -t "$tag_ref")" != "tag" ]]; then
+            echo "Release tag ${GITHUB_REF_NAME} must be annotated" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          tag_commit="$(git rev-list -n 1 "$tag_ref")"
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "Release commit $tag_commit is not reachable from origin/main" >&2
+            exit 1
+          fi
+          echo "tag_object=$(git rev-parse "$tag_ref")" >> "$GITHUB_OUTPUT"
 
-    - name: Run tests
-      run: |
-        cargo test --all-features
-        cargo test --no-default-features
+      - name: Verify version is unpublished
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          # 404 means the crate has never been published, which is the expected
+          # state for a first release rather than an error.
+          status="$(curl --silent --show-error --retry 3 --output crate.json \
+            --write-out '%{http_code}' \
+            --user-agent "ThreatFlux-threat-detection-release/${GITHUB_RUN_ID}" \
+            https://crates.io/api/v1/crates/threatflux-threat-detection)"
+          case "$status" in
+            404)
+              echo "threatflux-threat-detection has no published versions yet"
+              exit 0
+              ;;
+            200) ;;
+            *)
+              echo "crates.io lookup failed with HTTP $status" >&2
+              exit 1
+              ;;
+          esac
+          if jq -e --arg version "$PACKAGE_VERSION" \
+            '.versions | any(.num == $version)' < crate.json >/dev/null; then
+            echo "threatflux-threat-detection $PACKAGE_VERSION is already published on crates.io" >&2
+            exit 1
+          fi
 
-    - name: Check formatting and linting
-      run: |
-        cargo fmt --all -- --check
-        cargo clippy --all-features -- -D warnings
-
-  build-and-test:
-    name: Build and Test
-    needs: validate
+  verify:
+    name: Verify release (${{ matrix.os }})
+    needs: provenance
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+
+      - name: Test release build
+        run: cargo test --release --all-features --locked
+
+  package:
+    name: Package crate
+    needs: [provenance, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+          components: clippy, rustfmt
+
+      - name: Check formatting and lints
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: Verify package contents
+        run: cargo package --locked
+
+      - name: Verify crates.io publication
+        run: cargo publish --locked --dry-run
+
+      - name: Upload crate package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crate-package
+          path: target/package/*.crate
+          if-no-files-found: error
+
+  publish:
+    name: Publish to crates.io
+    needs: [provenance, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: crates-io
+      url: https://crates.io/crates/threatflux-threat-detection
     permissions:
       contents: read
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+      id-token: write
     steps:
-    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      with:
-        persist-credentials: false
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
-      with:
-        toolchain: 1.95.0
-        cache: true
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
 
-    - name: Build release
-      run: cargo build --release --all-features
+      - name: Recheck immutable release tag
+        env:
+          EXPECTED_TAG_OBJECT: ${{ needs.provenance.outputs.tag_object }}
+        shell: bash
+        run: |
+          tag_ref="refs/tags/${GITHUB_REF_NAME}"
+          remote_tag_object="$(git ls-remote --tags origin "$tag_ref" | awk 'NR == 1 { print $1 }')"
+          if [[ -z "$EXPECTED_TAG_OBJECT" || "$remote_tag_object" != "$EXPECTED_TAG_OBJECT" ]]; then
+            echo "Release tag ${GITHUB_REF_NAME} changed or disappeared after verification" >&2
+            exit 1
+          fi
 
-    - name: Run comprehensive tests
-      run: |
-        cargo test --release --all-features
-        cargo test --release --no-default-features
+      - name: Request a crates.io trusted-publishing token
+        id: crates-io
+        continue-on-error: true
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
 
-    - name: Compile benchmarks
-      run: cargo bench --all-features --no-run
+      - name: Publish crate
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$CARGO_REGISTRY_TOKEN" ]]; then
+            echo "Neither crates.io trusted publishing nor the release-token fallback is configured" >&2
+            exit 1
+          fi
+          cargo publish --locked
 
-  publish-crate:
-    name: Publish to Crates.io
-    needs: [validate, build-and-test]
+  github-release:
+    name: Create GitHub release
+    needs: [provenance, package, publish]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: 1.95.0
-        cache: true
-
-    - name: Publish to Crates.io
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      run: cargo publish --all-features
-
-  create-release:
-    name: Create GitHub Release
-    needs: [validate, build-and-test]
-    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
-      
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: 1.95.0
-        cache: true
+      - name: Recheck immutable release tag
+        env:
+          EXPECTED_TAG_OBJECT: ${{ needs.provenance.outputs.tag_object }}
+        shell: bash
+        run: |
+          tag_ref="refs/tags/${GITHUB_REF_NAME}"
+          remote_tag_object="$(git ls-remote --tags origin "$tag_ref" | awk 'NR == 1 { print $1 }')"
+          if [[ -z "$EXPECTED_TAG_OBJECT" || "$remote_tag_object" != "$EXPECTED_TAG_OBJECT" ]]; then
+            echo "Release tag ${GITHUB_REF_NAME} changed or disappeared after publication" >&2
+            exit 1
+          fi
 
-    - name: Generate changelog
-      id: changelog
-      run: |
-        # Get the previous tag
-        PREV_TAG=$(git describe --tags --abbrev=0 "${{ needs.validate.outputs.tag_name }}^" 2>/dev/null || echo "")
-        
-        # Generate changelog
-        if [ -n "$PREV_TAG" ]; then
-          CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG..${{ needs.validate.outputs.tag_name }}")
-        else
-          CHANGELOG=$(git log --pretty=format:"- %s (%h)")
-        fi
-        
-        # Create release notes
-        cat > release_notes.md << EOF
-        # ThreatFlux Threat Detection ${{ needs.validate.outputs.version }}
-        
-        ## Changes
-        
-        $CHANGELOG
-        
-        ## Installation
-        
-        Add this to your \`Cargo.toml\`:
-        
-        \`\`\`toml
-        [dependencies]
-        threatflux-threat-detection = "${{ needs.validate.outputs.version }}"
-        \`\`\`
-        
-        ## Documentation
-        
-        - [Crates.io](https://crates.io/crates/threatflux-threat-detection)
-        - [docs.rs](https://docs.rs/threatflux-threat-detection/${{ needs.validate.outputs.version }})
-        EOF
+      - name: Download crate package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: crate-package
+          path: dist
 
-    - name: Build documentation package
-      run: |
-        cargo doc --all-features --no-deps
-        tar -czf docs.tar.gz -C target/doc .
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: ${{ needs.validate.outputs.tag_name }}
-        name: ThreatFlux Threat Detection ${{ needs.validate.outputs.version }}
-        body_path: release_notes.md
-        files: |
-          docs.tar.gz
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-
-  update-docs:
-    name: Update Documentation
-    needs: [create-release]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    
-    steps:
-    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      with:
-        persist-credentials: false
-
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
-      with:
-        toolchain: 1.95.0
-        cache: true
-
-    - name: Build documentation
-      run: cargo doc --all-features --no-deps
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./target/doc
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: dist/*.crate
+          generate_release_notes: true
+          name: ThreatFlux Threat Detection ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          tag_name: ${{ github.ref_name }}

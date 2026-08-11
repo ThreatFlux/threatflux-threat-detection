@@ -33,9 +33,12 @@ is ignored unless the `yara-engine` feature is on.
 
 ```toml
 [dependencies]
-threatflux-threat-detection = "0.2.0"
+threatflux-threat-detection = "0.2.2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
+
+0.2.2 is the first release on crates.io. The `v0.2.0` and `v0.2.1` tags were
+cut before the release workflow could publish, so no crate exists for them.
 
 The minimum supported Rust version is 1.95.0.
 
