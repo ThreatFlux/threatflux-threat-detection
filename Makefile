@@ -66,13 +66,15 @@ doc:
 	@echo "📚 Generating threatflux-threat-detection documentation..."
 	cargo doc --no-deps --open
 
-# CycloneDX SBOM for every feature, written to sbom/threatflux-threat-detection-sbom.json.
-# The release workflow attaches it to each GitHub release.
+# CycloneDX SBOM for every feature and every target platform (consumers build
+# this crate on Linux, macOS and Windows), written to
+# sbom/threatflux-threat-detection-sbom.json. The release workflow attaches it
+# to each GitHub release.
 sbom:
 	@echo "🧾 Generating threatflux-threat-detection SBOM..."
 	@mkdir -p sbom
 	@rm -f sbom/*.json
-	cargo cyclonedx --manifest-path Cargo.toml --all-features --format json --spec-version 1.5 --override-filename threatflux-threat-detection-sbom
+	cargo cyclonedx --manifest-path Cargo.toml --all-features --target all --format json --spec-version 1.5 --override-filename threatflux-threat-detection-sbom
 	mv threatflux-threat-detection-sbom.json sbom/
 
 # Maintenance targets
