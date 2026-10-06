@@ -20,6 +20,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Releases are cut by the ThreatFlux automation GitHub App, and `release.yml`
+  publishes only through crates.io trusted publishing; the long-lived registry
+  token fallback is gone. Each release now also builds and tests on Linux
+  arm64 and macOS x86_64, attaches a CycloneDX SBOM and `SHA256SUMS`, skips a
+  version that is already on crates.io, and can be rehearsed with `dry_run`.
+- Dependabot now proposes Cargo and GitHub Actions updates, replacing the
+  scheduled dependency-update workflow.
 - Refreshed every dependency requirement to the latest stable release. This
   includes the cross-version upgrades `thiserror` 1.0 to 2.0, `reqwest` 0.12 to
   0.13, `rand` 0.8 to 0.10, `env_logger` 0.10 to 0.11, `serial_test` 3.5 to
