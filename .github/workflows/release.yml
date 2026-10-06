@@ -47,9 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
-      version: ${{ steps.version.outputs.version }}
       package_version: ${{ steps.version.outputs.package_version }}
-      source_sha: ${{ steps.source.outputs.sha }}
       tag_object: ${{ steps.provenance.outputs.tag_object }}
     steps:
       - name: Check out release source
@@ -58,8 +56,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Every later job checks out this exact commit, so a moving ref cannot
-      # make the tested, packaged and published sources differ.
+      # Every job checks out the workflow's own commit (github.sha: the pushed
+      # tag, or the head of the ref chosen with `gh workflow run --ref` when the
+      # run was dispatched), so the tested, packaged and published sources are
+      # the same. There is no input for building some other revision.
       - name: Resolve source commit
         id: source
         run: echo "sha=$(git rev-parse --verify HEAD)" >> "$GITHUB_OUTPUT"
@@ -68,6 +68,7 @@ jobs:
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: ${{ env.RUST_STABLE }}
+          components: clippy, rustfmt
 
       - name: Determine release version
         id: version
@@ -168,12 +169,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.provenance.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: ${{ env.RUST_STABLE }}
+          # rust-toolchain.toml lists these; installing them here avoids a
+          # second rustup download when cargo first runs.
+          components: clippy, rustfmt
           targets: ${{ matrix.target }}
 
       - name: Build release library
@@ -198,12 +201,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.provenance.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: ${{ env.RUST_STABLE }}
+          components: clippy, rustfmt
 
       - name: Install cargo-cyclonedx
         uses: taiki-e/install-action@e407f7bafb71fd004bc5c2da3032e5470cbb6ef0 # v2.87.24
@@ -254,7 +257,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.provenance.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
@@ -356,7 +358,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.provenance.outputs.source_sha }}
 
       - name: Recheck immutable release tag
         env:
