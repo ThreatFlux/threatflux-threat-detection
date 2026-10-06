@@ -15,8 +15,8 @@ ignore = [
     # upgrade to.
     "RUSTSEC-2023-0071",
     # `wasmtime` can mix up type indices between engines. Reached through
-    # `yara-x` 1.19.0, which requires wasmtime 43.x; the advisory is fixed in
-    # 24.0.12, 36.0.13, 46.0.2, and 47.0.3, and no 43.x release carries the
+    # `yara-x` 1.21.0, which requires wasmtime ^45.0.3; the advisory is fixed in
+    # 24.0.12, 36.0.13, 46.0.2, and 47.0.3, and no 45.x release carries the
     # fix. Remove this entry once `yara-x` moves to a patched wasmtime line.
     "RUSTSEC-2026-0222",
     # Three more `wasmtime` advisories reached through `yara-x` 1.21.0, which
