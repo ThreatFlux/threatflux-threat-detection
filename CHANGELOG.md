@@ -13,9 +13,9 @@ All notable changes to this project are documented here. The format follows
   `rustfmt` and `clippy` components and then ran `cargo fmt`. Replaced the
   workflow with the SHA-pinned template used across the fleet, which verifies
   tag provenance, tests the release build on Linux, macOS, and Windows,
-  packages the crate, and publishes through crates.io trusted publishing with
-  the org token as a fallback. The `v0.2.0` and `v0.2.1` tags stay unpublished;
-  0.2.2 is the first crate on crates.io.
+  packages the crate, and publishes through crates.io trusted publishing. The
+  `v0.2.0` and `v0.2.1` tags stay unpublished; 0.2.2 is the first crate on
+  crates.io.
 - The README install snippet named an unpublished version.
 
 ### Changed

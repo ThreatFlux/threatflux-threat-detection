@@ -269,15 +269,24 @@ jobs:
           cargo fmt --all -- --check
           cargo clippy --all-targets --all-features --locked -- -D warnings
 
+      # Stage the assets flat in one ignored directory, so the artifact (and the
+      # GitHub release job that downloads it) sees them side by side.
       - name: Package crate
+        env:
+          PACKAGE_VERSION: ${{ needs.provenance.outputs.package_version }}
+        shell: bash
         run: |
-          mkdir -p target
-          cargo package --locked --list > target/package-contents.txt
+          set -euo pipefail
+          mkdir -p target/release-assets
+          cargo package --locked --list > target/release-assets/package-contents.txt
           cargo package --locked
+          cp "target/package/${PACKAGE_NAME}-${PACKAGE_VERSION}.crate" target/release-assets/
 
+      # cargo package has already built and verified the archive, so the
+      # rehearsal only runs the remaining publish checks.
       - name: Verify crates.io publication (dry run)
         if: env.DRY_RUN == 'true'
-        run: cargo publish --locked --dry-run
+        run: cargo publish --locked --dry-run --no-verify
 
       # crates.io versions are immutable, so a rerun (or a second run for the
       # same tag) skips a version that is already published instead of failing.
@@ -339,9 +348,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: crate-package
-          path: |
-            target/package/*.crate
-            target/package-contents.txt
+          path: target/release-assets/
           if-no-files-found: error
           retention-days: 14
 
