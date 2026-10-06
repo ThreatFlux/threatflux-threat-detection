@@ -62,3 +62,18 @@ Releases are automated. Merging to `main` runs the ThreatFlux auto-release
 workflow, which derives the version from the conventional commits since the last
 tag, updates `Cargo.toml`, and publishes the tag and GitHub Release. Do not bump
 the version by hand in a pull request.
+
+The ThreatFlux automation GitHub App pushes the annotated release tag, and that
+tag starts `release.yml`. It verifies the tag is on `main`, builds and tests the
+release on Linux (x86_64 and arm64), macOS (arm64 and x86_64), and Windows,
+generates a CycloneDX SBOM, and publishes the crate through crates.io trusted
+publishing. No registry token is stored in GitHub. The crate, SBOM, package file
+list, and `SHA256SUMS` are attached to the GitHub Release. A rerun skips a
+version that is already on crates.io.
+
+To rehearse a release without tagging or publishing anything:
+
+```bash
+gh workflow run auto-release.yml -f dry_run=true
+gh workflow run release.yml --ref main -f dry_run=true
+```

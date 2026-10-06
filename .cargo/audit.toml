@@ -19,6 +19,21 @@ ignore = [
     # 24.0.12, 36.0.13, 46.0.2, and 47.0.3, and no 43.x release carries the
     # fix. Remove this entry once `yara-x` moves to a patched wasmtime line.
     "RUSTSEC-2026-0222",
+    # Three more `wasmtime` advisories reached through `yara-x` 1.21.0, which
+    # requires wasmtime ^45.0.3. No 45.x release carries any of the fixes, and
+    # none of the affected code is compiled in: `yara-x` builds wasmtime with
+    # default features off and only `cranelift` and `runtime` on, so neither
+    # `wasmtime-wasi` nor the component model is in the graph. `yara-x` also
+    # only runs the core modules it generates from compiled rules.
+    # - Filesystem sandbox escape in `wasmtime-wasi` (fixed in 46.0.3, 47.0.4).
+    "RUSTSEC-2026-0269",
+    # - Component-model `Val` record lifting ignores the hostcall fuel limit
+    #   (fixed in 48.0.3, 49.0.1).
+    "RUSTSEC-2026-0316",
+    # - Component-model-async callback result count is not validated (fixed in
+    #   48.0.4, 49.0.2).
+    "RUSTSEC-2026-0327",
+    # Remove these entries once `yara-x` moves to a patched wasmtime line.
     # `bincode` 2.x is unmaintained. Reached through `yara-x`; no replacement
     # is available to this crate until `yara-x` migrates.
     "RUSTSEC-2025-0141",

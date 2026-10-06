@@ -44,3 +44,6 @@ target/criterion/
 
 # Testing artifacts
 .cache/
+
+# Generated SBOMs
+/sbom/

@@ -11,6 +11,13 @@ ignore = [
     # never hand it Stores from another engine, so the issue is unreachable
     # here. Drop this entry once yara-x moves to wasmtime >= 46.0.2.
     "RUSTSEC-2026-0222",
+    # Further wasmtime advisories with no patched 45.x release, reached only
+    # through yara-x 1.21 (wasmtime ^45.0.3). yara-x enables only the cranelift
+    # and runtime features, so the affected wasmtime-wasi filesystem code and
+    # component-model code are not compiled in. See .cargo/audit.toml.
+    "RUSTSEC-2026-0269", # wasmtime-wasi filesystem sandbox escape
+    "RUSTSEC-2026-0316", # component-model Val lifting skips the fuel limit
+    "RUSTSEC-2026-0327", # component-model-async callback result count
 ]
 
 [licenses]
