@@ -34,42 +34,42 @@ system-clamav = ["clamav-engine"]
 anyhow = "1.0.104"
 thiserror = "2.0.21"
 log = "0.4.34"
-walkdir = "2.5"
+walkdir = "2.5.0"
 async-trait = "0.1.92"
 
 # Detection engines (with proper error handling for system dependencies)
-yara-x = { version = "1.21", optional = true }
-clamav-client = { version = "2.3", features = ["tokio"], optional = true }
+yara-x = { version = "1.22.0", optional = true }
+clamav-client = { version = "2.3.0", features = ["tokio"], optional = true }
 
 # Pattern matching (optional)
 aho-corasick = { version = "1.1.5", optional = true }
 regex = { version = "1.13.1", optional = true }
 
 # Rule management (optional)
-git2 = { version = "0.21", optional = true }
+git2 = { version = "0.21.0", optional = true }
 reqwest = { version = "0.13.5", features = ["json"], optional = true }
 
 # Async support (always required for async-trait)
-tokio = { version = "1.53.2", features = ["rt", "rt-multi-thread", "macros", "fs", "io-util", "time"], optional = false }
+tokio = { version = "1.54.0", features = ["rt", "rt-multi-thread", "macros", "fs", "io-util", "time"], optional = false }
 
 # Serialization (optional)
 serde = { version = "1.0.229", features = ["derive"], optional = true }
-serde_json = { version = "1.0.151", optional = true }
+serde_json = { version = "1.0.154", optional = true }
 
 # Metrics (optional)
-prometheus = { version = "0.14", optional = true }
+prometheus = { version = "0.14.0", optional = true }
 
 # Utilities
 chrono = { version = "0.4.45", features = ["serde"] }
-uuid = { version = "1.27", features = ["v4"] }
+uuid = { version = "1.28.0", features = ["v4"] }
 
 [dev-dependencies]
-tempfile = "3.27"
+tempfile = "3.27.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
-proptest = "1.11"
+proptest = "1.12.0"
 tokio-test = "0.4.6"
 # Testing utilities
-rstest = "0.27.0"
+rstest = "0.28.0"
 pretty_assertions = "1.4.1"
 test-case = "3.4.0"
 serial_test = "4.0.1"
