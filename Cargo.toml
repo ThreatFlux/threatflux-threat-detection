@@ -15,7 +15,7 @@ readme = "README.md"
 
 [features]
 default = ["pattern-matching", "builtin-rules", "serde-support"]
-yara-engine = ["yara-x"]
+yara-engine = ["yara-x", "dep:rsa"]
 clamav-engine = ["clamav-rs"]
 # Backward-compatible alias retained while the implementation uses clamav-client.
 clamav-rs = ["dep:clamav-client"]
@@ -39,6 +39,8 @@ async-trait = "0.1.92"
 
 # Detection engines (with proper error handling for system dependencies)
 yara-x = { version = "1.23.0", optional = true }
+# Stable RSA 0.10 gates YARA-X's public PKCS#1 verifier behind this feature.
+rsa = { version = "0.10.0", features = ["pkcs1v15"], optional = true }
 clamav-client = { version = "2.3.0", features = ["tokio"], optional = true }
 
 # Pattern matching (optional)
