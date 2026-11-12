@@ -9,6 +9,7 @@ baseline continue to be checked with every feature enabled.
 """
 
 import hashlib
+from http.client import HTTPSConnection
 import io
 import json
 from pathlib import Path
@@ -16,13 +17,28 @@ import re
 import sys
 import tarfile
 import tomllib
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
 
 
 def download(url):
-    request = Request(url, headers={"User-Agent": "ThreatFlux-public-api-baseline"})
-    with urlopen(request, timeout=60) as response:
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in {"index.crates.io", "static.crates.io"}
+        or parsed.netloc != parsed.hostname
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("baseline downloads require an approved crates.io HTTPS host")
+    connection = HTTPSConnection(parsed.hostname, timeout=60)
+    try:
+        connection.request("GET", parsed.path, headers={"User-Agent": "ThreatFlux-public-api-baseline"})
+        response = connection.getresponse()
+        if response.status != 200:
+            raise ValueError(f"baseline download failed with HTTP {response.status}")
         return response.read()
+    finally:
+        connection.close()
 
 
 def prepare(destination):
