@@ -68,8 +68,14 @@ jobs:
         with:
           tool: cargo-semver-checks@0.51.0
 
+      - name: Prepare published API baseline
+        id: api-baseline
+        run: python3 scripts/prepare_api_baseline.py "${RUNNER_TEMP}/api-baseline" "$GITHUB_OUTPUT"
+
       - name: Check public API compatibility
-        run: cargo semver-checks check-release --all-features
+        env:
+          API_BASELINE: ${{ steps.api-baseline.outputs.root }}
+        run: cargo semver-checks check-release --all-features --baseline-root "$API_BASELINE"
 
   dependency-review:
     name: Dependency review
