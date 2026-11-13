@@ -3619,7 +3619,7 @@ dependencies = [
 
 [[package]]
 name = "threatflux-threat-detection"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "aho-corasick",
  "anyhow",
