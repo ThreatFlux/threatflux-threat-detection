@@ -50,6 +50,8 @@ jobs:
       # Only a manual dispatch can request a dry run; workflow_run always releases.
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       required-workflows: CI,Security
+      # Publish a version already approved in a PR without bumping it again.
+      create-pr: true
       # The automation App pushes the release commit and annotated tag, so the
       # tag push starts release.yml by itself and the reusable workflow skips
       # these dispatches. They only run on the GITHUB_TOKEN path (no App
