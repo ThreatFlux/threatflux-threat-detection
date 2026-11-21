@@ -38,7 +38,8 @@ walkdir = "2.5.1"
 async-trait = "0.1.92"
 
 # Detection engines (with proper error handling for system dependencies)
-yara-x = { version = "1.24.0", optional = true }
+# Use the protobuf sources shipped by YARA-X and retain its default runtime features.
+yara-x = { version = "1.24.0", default-features = false, features = ["constant-folding", "default-modules", "exact-atoms", "fast-regexp"], optional = true }
 # Stable RSA 0.10 gates YARA-X's public PKCS#1 verifier behind this feature.
 rsa = { version = "0.10.0", features = ["pkcs1v15"], optional = true }
 clamav-client = { version = "2.3.0", features = ["tokio"], optional = true }
