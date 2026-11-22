@@ -74,7 +74,7 @@ impl FromStr for RuleTimestamp {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let (date, rest) = value
             .trim_start()
-            .split_once(['T', 't', ' '])
+            .split_once(|character: char| "Tt ".contains(character))
             .ok_or(ParseRuleTimestampError)?;
         let date = Date::parse(date, DATE).map_err(|_| ParseRuleTimestampError)?;
         if !LEGACY_YEARS.contains(&date.year()) {
