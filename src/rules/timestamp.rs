@@ -80,40 +80,56 @@ impl FromStr for RuleTimestamp {
         if !LEGACY_YEARS.contains(&date.year()) {
             return Err(ParseRuleTimestampError);
         }
-        let mut parsed_time = Parsed::new();
-        let offset = parsed_time
-            .parse_items(rest.trim_start().as_bytes(), TIME)
-            .map_err(|_| ParseRuleTimestampError)?;
-        let offset = std::str::from_utf8(offset)
-            .map_err(|_| ParseRuleTimestampError)?
-            .trim_start();
-        let offset = if offset.eq_ignore_ascii_case("z") || offset.eq_ignore_ascii_case("utc") {
-            UtcOffset::UTC
-        } else {
-            UtcOffset::parse(offset, OFFSET).map_err(|_| ParseRuleTimestampError)?
-        };
-
-        if offset.whole_seconds().unsigned_abs() >= 86_400 {
-            return Err(ParseRuleTimestampError);
-        }
-
-        let leap_second = parsed_time.second() == Some(60);
-        if leap_second {
-            parsed_time.set_second(59).ok_or(ParseRuleTimestampError)?;
-        }
-        let time = Time::try_from(parsed_time).map_err(|_| ParseRuleTimestampError)?;
-        let utc = UtcDateTime::new(date, time)
-            .checked_sub(Duration::seconds(i64::from(offset.whole_seconds())))
+        let clock = parse_clock(rest.trim_start())?;
+        let utc = UtcDateTime::new(date, clock.time)
+            .checked_sub(clock.offset)
             .ok_or(ParseRuleTimestampError)?;
         if !LEGACY_YEARS.contains(&utc.year()) {
             return Err(ParseRuleTimestampError);
         }
         let mut timestamp = Self::from_utc(utc);
-        if leap_second {
+        if clock.leap_second {
             timestamp.nanoseconds += NANOS_PER_SECOND;
         }
         Ok(timestamp)
     }
+}
+
+struct LocalClock {
+    time: Time,
+    leap_second: bool,
+    offset: Duration,
+}
+
+fn parse_clock(input: &str) -> Result<LocalClock, ParseRuleTimestampError> {
+    let mut parsed_time = Parsed::new();
+    let offset = parsed_time
+        .parse_items(input.as_bytes(), TIME)
+        .map_err(|_| ParseRuleTimestampError)?;
+    let offset = std::str::from_utf8(offset).map_err(|_| ParseRuleTimestampError)?;
+
+    let leap_second = parsed_time.second() == Some(60);
+    if leap_second {
+        parsed_time.set_second(59).ok_or(ParseRuleTimestampError)?;
+    }
+    let time = Time::try_from(parsed_time).map_err(|_| ParseRuleTimestampError)?;
+    Ok(LocalClock {
+        time,
+        leap_second,
+        offset: parse_offset(offset.trim_start())?,
+    })
+}
+
+fn parse_offset(input: &str) -> Result<Duration, ParseRuleTimestampError> {
+    if input.eq_ignore_ascii_case("z") || input.eq_ignore_ascii_case("utc") {
+        return Ok(Duration::ZERO);
+    }
+    let offset = UtcOffset::parse(input, OFFSET).map_err(|_| ParseRuleTimestampError)?;
+    let seconds = offset.whole_seconds();
+    if seconds.unsigned_abs() >= 86_400 {
+        return Err(ParseRuleTimestampError);
+    }
+    Ok(Duration::seconds(i64::from(seconds)))
 }
 
 impl fmt::Display for RuleTimestamp {
