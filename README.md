@@ -51,9 +51,12 @@ in-memory Chrono value during migration, pass its RFC 3339 string to
 `parse::<RuleTimestamp>()` and handle the result. `None` still means the source
 has never been updated.
 
-Serde still reads existing RFC 3339 timestamp strings and writes RFC 3339 UTC
-strings with up to nanosecond precision. Fractional seconds can be rendered with
-fewer trailing zeroes. `RuleTimestamp` supports dates through year 9999.
+`RuleTimestamp` implements Serde whenever `rule-management` is enabled. It
+reads legacy timestamp strings and writes UTC strings ending in `Z`, with the
+same 0, 3, 6, or 9 fractional digits as 0.2. Numeric offsets normalize to UTC.
+Signed years and leap seconds round-trip, including UTC dates from
+`-262143-01-01` through `+262142-12-31`. Its ordering compares instants, so a
+leap second follows the preceding ordinary second and precedes the next minute.
 
 ## Quick start
 

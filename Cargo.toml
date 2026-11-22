@@ -20,7 +20,7 @@ clamav-engine = ["clamav-rs"]
 # Backward-compatible alias retained while the implementation uses clamav-client.
 clamav-rs = ["dep:clamav-client"]
 pattern-matching = ["aho-corasick", "regex"]
-rule-management = ["git2", "reqwest", "dep:jiff"]
+rule-management = ["git2", "reqwest", "dep:time", "serde"]
 builtin-rules = []
 metrics = ["prometheus"]
 async-scanning = []  # Always available since tokio is always included
@@ -50,7 +50,7 @@ regex = { version = "1.13.2", optional = true }
 
 # Rule management (optional)
 git2 = { version = "0.21.0", optional = true }
-jiff = { version = "1.0.1", default-features = false, features = ["std", "serde"], optional = true }
+time = { version = "0.3.55", features = ["large-dates", "macros", "parsing"], optional = true }
 reqwest = { version = "0.13.5", features = ["json"], optional = true }
 
 # Async support (always required for async-trait)

@@ -8,9 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- In 0.3.0, `RuleSource::last_updated` uses `Option<RuleTimestamp>` backed by
-  Jiff. RFC 3339 timestamps persisted by 0.2 remain readable. See the README
-  for caller migration instructions.
+- In 0.3.0, `RuleSource::last_updated` uses `Option<RuleTimestamp>`. The
+  timestamp preserves 0.2 UTC serialization, including signed years, leap
+  seconds, and nanosecond precision. See the README for migration instructions.
 
 ## [0.2.3] - 2026-10-06
 

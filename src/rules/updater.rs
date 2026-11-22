@@ -3,8 +3,7 @@
 use crate::error::{Result, ThreatError};
 use std::path::{Path, PathBuf};
 
-/// An absolute rule-update timestamp that serializes as an RFC 3339 string.
-pub use jiff::Timestamp as RuleTimestamp;
+pub use super::timestamp::{ParseRuleTimestampError, RuleTimestamp};
 
 /// Rule source configuration
 #[derive(Debug, Clone)]
@@ -115,9 +114,8 @@ impl RuleUpdater {
             .iter()
             .filter(|source| {
                 source.last_updated.is_none_or(|last_update| {
-                    let elapsed = now.duration_since(last_update);
-                    !elapsed.is_negative()
-                        && elapsed.as_hours().unsigned_abs() >= source.update_frequency_hours
+                    now.whole_hours_since(last_update)
+                        .is_some_and(|hours| hours >= source.update_frequency_hours)
                 })
             })
             .collect()
@@ -262,33 +260,6 @@ mod tests {
             .map(|source| source.name.as_str())
             .collect();
         assert_eq!(due, ["never", "due"]);
-    }
-
-    #[cfg(feature = "serde-support")]
-    #[test]
-    fn reads_timestamps_written_by_chrono() {
-        for (value, nanoseconds) in [
-            (r#""2026-01-02T03:04:05Z""#, 0),
-            (r#""2026-01-02T03:04:05.120Z""#, 120_000_000),
-            (r#""2026-01-02T03:04:05.123456Z""#, 123_456_000),
-            (r#""2026-01-02T03:04:05.123456789Z""#, 123_456_789),
-        ] {
-            let timestamp: RuleTimestamp = serde_json::from_str(value).unwrap();
-            assert_eq!(timestamp.as_second(), 1_767_323_045);
-            assert_eq!(timestamp.subsec_nanosecond(), nanoseconds);
-        }
-    }
-
-    #[cfg(feature = "serde-support")]
-    #[test]
-    fn round_trips_rule_timestamp_as_rfc3339() {
-        let timestamp: RuleTimestamp = "2026-01-02T05:04:05.123456789+02:00".parse().unwrap();
-        let serialized = serde_json::to_string(&timestamp).unwrap();
-        assert_eq!(serialized, r#""2026-01-02T03:04:05.123456789Z""#);
-        assert_eq!(
-            serde_json::from_str::<RuleTimestamp>(&serialized).unwrap(),
-            timestamp
-        );
     }
 
     fn create_rule_repository(source_directory: &Path) {

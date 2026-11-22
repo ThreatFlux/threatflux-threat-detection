@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 pub mod builtin;
 
 #[cfg(feature = "rule-management")]
+mod timestamp;
+#[cfg(feature = "rule-management")]
 pub mod updater;
 
 #[cfg(feature = "rule-management")]
