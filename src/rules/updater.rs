@@ -1,8 +1,9 @@
 //! Rule update management for threat detection
 
 use crate::error::{Result, ThreatError};
-use chrono::{DateTime, Utc};
 use std::path::{Path, PathBuf};
+
+pub use super::timestamp::{ParseRuleTimestampError, RuleTimestamp};
 
 /// Rule source configuration
 #[derive(Debug, Clone)]
@@ -15,8 +16,8 @@ pub struct RuleSource {
     pub source_type: RuleSourceType,
     /// Update frequency in hours
     pub update_frequency_hours: u64,
-    /// Last update timestamp
-    pub last_updated: Option<DateTime<Utc>>,
+    /// Last successful update as an absolute timestamp.
+    pub last_updated: Option<RuleTimestamp>,
 }
 
 /// Types of rule sources
@@ -72,7 +73,7 @@ impl RuleUpdater {
             RuleSourceType::Http => Self::update_from_http(source).await,
             RuleSourceType::File | RuleSourceType::Local => Self::update_from_file(source).await,
             RuleSourceType::Builtin => {
-                source.last_updated = Some(Utc::now());
+                source.last_updated = Some(RuleTimestamp::now());
                 Ok(())
             }
         }
@@ -82,7 +83,7 @@ impl RuleUpdater {
     async fn update_from_git(rules_directory: &Path, source: &mut RuleSource) -> Result<()> {
         log::info!("Updating rules from Git source: {}", source.name);
         fetch_git_rules(source, rules_directory).await?;
-        source.last_updated = Some(Utc::now());
+        source.last_updated = Some(RuleTimestamp::now());
         Ok(())
     }
 
@@ -90,7 +91,7 @@ impl RuleUpdater {
     async fn update_from_http(source: &mut RuleSource) -> Result<()> {
         log::info!("Updating rules from HTTP source: {}", source.name);
         fetch_http_rules(source).await?;
-        source.last_updated = Some(Utc::now());
+        source.last_updated = Some(RuleTimestamp::now());
         Ok(())
     }
 
@@ -102,23 +103,20 @@ impl RuleUpdater {
             return Err(ThreatError::rule_not_found(&source.url));
         }
 
-        source.last_updated = Some(Utc::now());
+        source.last_updated = Some(RuleTimestamp::now());
         Ok(())
     }
 
     /// Check if sources need updating
     pub fn needs_update(&self) -> Vec<&RuleSource> {
-        let now = Utc::now();
+        let now = RuleTimestamp::now();
         self.sources
             .iter()
             .filter(|source| {
-                match source.last_updated {
-                    Some(last_update) => {
-                        let hours_since_update = (now - last_update).num_hours() as u64;
-                        hours_since_update >= source.update_frequency_hours
-                    }
-                    None => true, // Never updated
-                }
+                source.last_updated.is_none_or(|last_update| {
+                    now.whole_hours_since(last_update)
+                        .is_some_and(|hours| hours >= source.update_frequency_hours)
+                })
             })
             .collect()
     }
@@ -236,6 +234,33 @@ fn read_cloned_git_rules(source_url: &str, clone_directory: &Path) -> Result<Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn update_schedule_uses_elapsed_hours() {
+        let mut updater = RuleUpdater::new("unused");
+        let past = "2000-01-01T00:00:00Z".parse().unwrap();
+        let future = "2100-01-01T00:00:00Z".parse().unwrap();
+        for (name, last_updated, update_frequency_hours) in [
+            ("never", None, 24),
+            ("due", Some(past), 24),
+            ("large interval", Some(past), u64::MAX),
+            ("future", Some(future), 24),
+        ] {
+            updater.add_source(RuleSource {
+                name: name.to_owned(),
+                url: String::new(),
+                source_type: RuleSourceType::Builtin,
+                update_frequency_hours,
+                last_updated,
+            });
+        }
+        let due: Vec<_> = updater
+            .needs_update()
+            .into_iter()
+            .map(|source| source.name.as_str())
+            .collect();
+        assert_eq!(due, ["never", "due"]);
+    }
 
     fn create_rule_repository(source_directory: &Path) {
         std::fs::create_dir(source_directory).expect("source directory should be created");

@@ -400,6 +400,8 @@ mod tests {
             .await
             .expect("built-in rules should compile");
         let rule = r#"
+import "math"
+
 rule custom_rule : custom suspicious {
     meta:
         family = "test-family"
@@ -408,7 +410,7 @@ rule custom_rule : custom suspicious {
     strings:
         $needle = "custom needle"
     condition:
-        $needle
+        $needle and math.max(1, 2) == 2
 }
 "#;
 

@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- In 0.3.0, `RuleSource::last_updated` uses `Option<RuleTimestamp>`. The
+  timestamp preserves 0.2 UTC serialization, including signed years, leap
+  seconds, and nanosecond precision. See the README for migration instructions.
+
 ## [0.2.3] - 2026-10-06
 
 ### Changed
@@ -86,7 +92,7 @@ This version was tagged but never published to crates.io.
 - Initial release of the threat detection library with pattern matching,
   built-in rules, and optional YARA, ClamAV, rule-update, and metrics support.
 
-[Unreleased]: https://github.com/ThreatFlux/threatflux-threat-detection/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/ThreatFlux/threatflux-threat-detection/compare/v0.2.6...HEAD
 [0.2.3]: https://github.com/ThreatFlux/threatflux-threat-detection/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ThreatFlux/threatflux-threat-detection/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ThreatFlux/threatflux-threat-detection/compare/v0.2.0...v0.2.1

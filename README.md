@@ -33,7 +33,7 @@ is ignored unless the `yara-engine` feature is on.
 
 ```toml
 [dependencies]
-threatflux-threat-detection = "0.2"
+threatflux-threat-detection = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -41,6 +41,22 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 cut before the release workflow could publish, so no crate exists for them.
 
 The minimum supported Rust version is 1.95.0.
+
+### Migrating rule timestamps from 0.2
+
+With `rule-management` enabled, `RuleSource::last_updated` is now
+`Option<RuleTimestamp>`. Import `threatflux_threat_detection::rules::updater::RuleTimestamp`
+and use `RuleTimestamp::now()` in place of `chrono::Utc::now()`. To convert an
+in-memory Chrono value during migration, pass its RFC 3339 string to
+`parse::<RuleTimestamp>()` and handle the result. `None` still means the source
+has never been updated.
+
+`RuleTimestamp` implements Serde whenever `rule-management` is enabled. It
+reads legacy timestamp strings and writes UTC strings ending in `Z`, with the
+same 0, 3, 6, or 9 fractional digits as 0.2. Numeric offsets normalize to UTC.
+Signed years and leap seconds round-trip, including UTC dates from
+`-262143-01-01` through `+262142-12-31`. Its ordering compares instants, so a
+leap second follows the preceding ordinary second and precedes the next minute.
 
 ## Quick start
 
