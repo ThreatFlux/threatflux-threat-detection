@@ -44,7 +44,7 @@ jobs:
       actions: write
       contents: write
       pull-requests: write
-    uses: ThreatFlux/github_actions/.github/workflows/reusable-auto-release.yml@4b82a749e7479114c3335dd2806bb24f1b71cfe8 # signed release guard candidate
+    uses: ThreatFlux/github_actions/.github/workflows/reusable-auto-release.yml@3409b61394a6c8594e2551689f68163dea1c3157 # signed release guard candidate
     with:
       bump: ${{ github.event.inputs.version_bump || 'auto' }}
       # Before 1.0, breaking rules API changes increment the minor version.
